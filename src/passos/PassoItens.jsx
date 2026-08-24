@@ -1,6 +1,8 @@
 import { Ficha, Rotulo, Titulo } from "../componentes/index.js";
 import { CATALOGO } from "../nucleo/catalogo.js";
 import CartaoItem from "./CartaoItem.jsx";
+import { AjudaItens } from "./ajudas.jsx";
+import MensagemDeColeta from "./MensagemDeColeta.jsx";
 
 export default function PassoItens({ estado, resultado, indicePorId, acoes }) {
   return (
@@ -52,6 +54,10 @@ export default function PassoItens({ estado, resultado, indicePorId, acoes }) {
           </div>
         ))}
       </Ficha>
+
+      <AjudaItens />
+
+      <MensagemDeColeta estado={estado} />
     </div>
   );
 }

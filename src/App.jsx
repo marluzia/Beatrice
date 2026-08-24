@@ -41,6 +41,27 @@ export default function App() {
         </Botao>
       </div>
 
+      <div className="salvamento">
+        <span>
+          Salvo neste navegador. Fechar a aba não apaga; trocar de aparelho
+          começa do zero.
+        </span>
+        <Botao
+          tipo="fantasma"
+          aoClicar={() => {
+            const certeza = window.confirm(
+              "Isso apaga a casa salva neste navegador e começa do zero. Continuar?",
+            );
+            if (certeza) {
+              acoes.recomecar();
+              irPara(0);
+            }
+          }}
+        >
+          Recomeçar
+        </Botao>
+      </div>
+
       <footer className="rodape">
         <p>
           por marluzia😽

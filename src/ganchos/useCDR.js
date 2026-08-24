@@ -1,13 +1,27 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { estadoInicial } from "../nucleo/estadoInicial.js";
 import { calcular } from "../nucleo/adaptador.js";
 import { criarItem } from "../nucleo/catalogo.js";
 import { novoId } from "../nucleo/formato.js";
+import { carregarCasa, limparCasa, salvarCasa } from "../nucleo/persistencia.js";
 
 const MAXIMO_DE_MORADORES = 20;
 
 export function useCDR() {
-  const [estado, definir] = useState(() => estadoInicial());
+  // Abre com o que estiver salvo neste navegador; se não houver nada
+  // confiável, começa uma casa nova.
+  const [estado, definir] = useState(() => carregarCasa() ?? estadoInicial());
+
+  /**
+   * Salva a cada mudança, mas não a cada tecla: esperar meio segundo de
+   * silêncio evita escrever no disco a cada dígito digitado num campo.
+   */
+  const agendado = useRef(null);
+  useEffect(() => {
+    clearTimeout(agendado.current);
+    agendado.current = setTimeout(() => salvarCasa(estado), 500);
+    return () => clearTimeout(agendado.current);
+  }, [estado]);
 
   const resultado = useMemo(() => calcular(estado), [estado]);
 
@@ -95,7 +109,10 @@ export function useCDR() {
     }));
   }, []);
 
-  const recomecar = useCallback(() => definir(estadoInicial()), []);
+  const recomecar = useCallback(() => {
+    limparCasa();
+    definir(estadoInicial());
+  }, []);
 
   return {
     estado,

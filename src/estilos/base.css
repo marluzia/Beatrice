@@ -886,3 +886,130 @@ button {
   line-height: 1.7;
   color: var(--tinta-fraca);
 }
+
+/* Mensagem de coleta ------------------------------------------------------ */
+
+.mensagem-coleta {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  background: #fff;
+  border: 1px solid var(--regua);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--tinta);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  user-select: all;
+}
+
+.linha-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Ajuda ------------------------------------------------------------------- */
+
+.ajuda {
+  margin-top: 1rem;
+  border: 1px solid var(--regua);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.ajuda__titulo {
+  padding: 0.6rem 0.85rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--tinta-fraca);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ajuda__titulo::-webkit-details-marker {
+  display: none;
+}
+
+.ajuda__titulo::before {
+  content: "?";
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--regua);
+  border-radius: 50%;
+  font-size: 0.66rem;
+  color: var(--tinta-fraca);
+}
+
+.ajuda[open] .ajuda__titulo {
+  color: var(--tinta);
+  border-bottom: 1px solid var(--regua);
+}
+
+.ajuda[open] .ajuda__titulo::before {
+  content: "×";
+  font-size: 0.8rem;
+}
+
+.ajuda__titulo:hover,
+.ajuda__titulo:focus-visible {
+  color: var(--tinta);
+}
+
+.ajuda__corpo {
+  padding: 0.85rem;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--tinta-fraca);
+}
+
+.ajuda__corpo p {
+  margin: 0 0 0.7rem;
+}
+
+.ajuda__corpo p:last-child {
+  margin-bottom: 0;
+}
+
+.ajuda__corpo strong {
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+.ajuda__conta {
+  margin: 0.2rem 0 0.7rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--papel-fundo, #e2e6db);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--tinta);
+  white-space: pre-wrap;
+}
+
+/* Salvamento -------------------------------------------------------------- */
+
+.salvamento {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--regua);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  color: var(--tinta-fraca);
+}

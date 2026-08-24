@@ -1,3 +1,4 @@
+export { default as Ajuda } from "./Ajuda.jsx";
 export { default as Alerta } from "./Alerta.jsx";
 export { default as Botao } from "./Botao.jsx";
 export { default as Cabecalho } from "./Cabecalho.jsx";

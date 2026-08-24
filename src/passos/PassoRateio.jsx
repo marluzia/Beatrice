@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alerta, Ficha, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, num, reais } from "../nucleo/formato.js";
 import Regua from "./Regua.jsx";
+import { AjudaCentavos, AjudaRateio } from "./ajudas.jsx";
 
 export default function PassoRateio({ estado, resultado, indicePorId }) {
   const [abertos, setAbertos] = useState({});
@@ -121,6 +122,8 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
           <p className={classeDoVeredito}>{veredito}</p>
         </div>
       </Ficha>
+      <AjudaRateio />
+      <AjudaCentavos />
     </div>
   );
 }

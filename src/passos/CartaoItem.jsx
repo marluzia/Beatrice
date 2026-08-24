@@ -7,12 +7,18 @@ import {
   Seletor,
 } from "../componentes/index.js";
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
-import { rateiosDoItem } from "../nucleo/adaptador.js";
+import { rateiosDoItem, totalDeclaradoPorHora } from "../nucleo/adaptador.js";
 
 const NOMES_DOS_RATEIOS = {
   igual: "igual",
   dias: "por dias",
+  presenca: "por presença",
   uso: "por uso",
+};
+
+const EXPLICACOES_DOS_RATEIOS = {
+  dias: "Cada um paga na proporção dos dias que passou em casa.",
+  presenca: "O custo de cada dia é dividido entre quem estava em casa naquele dia. Quem ficou sozinho num dia paga aquele dia inteiro — é o certo para aparelho que gasta o mesmo com uma ou com várias pessoas.",
 };
 
 export default function CartaoItem({ item, moradores, indicePorId, resultado, acoes }) {
@@ -63,6 +69,37 @@ export default function CartaoItem({ item, moradores, indicePorId, resultado, ac
                   rotulo="Consumo no mês"
                   valor={item.quantidade}
                   aoMudar={(v) => set("quantidade", v)}
+                  largura="campo--curto"
+                  placeholder="0"
+                />
+                <Seletor
+                  rotulo="Unidade"
+                  valor={item.unidade}
+                  aoMudar={(v) => set("unidade", v)}
+                  opcoes={[
+                    { valor: "kwh", texto: "kWh · sai da luz" },
+                    { valor: "m3", texto: "m³ · sai da água" },
+                  ]}
+                  texto
+                />
+              </>
+            )}
+
+            {item.especie === "porHora" && (
+              <>
+                <Campo
+                  rotulo="Consumo do aparelho"
+                  sufixo={item.unidade === "kwh" ? "kWh/h" : "m³/h"}
+                  valor={item.porHora}
+                  aoMudar={(v) => set("porHora", v)}
+                  largura="campo--curto"
+                  placeholder="0"
+                />
+                <Campo
+                  rotulo="Horas ligado no mês"
+                  sufixo="h"
+                  valor={item.horas}
+                  aoMudar={(v) => set("horas", v)}
                   largura="campo--curto"
                   placeholder="0"
                 />
@@ -143,6 +180,16 @@ export default function CartaoItem({ item, moradores, indicePorId, resultado, ac
             )}
           </div>
 
+          {item.especie === "porHora" && totalDeclaradoPorHora(item) > 0 && (
+            <p className="dica">
+              Dá {totalDeclaradoPorHora(item).toLocaleString("pt-BR", {
+                maximumFractionDigits: 1,
+              })}{" "}
+              {item.unidade === "kwh" ? "kWh" : "m³"} no mês, descontados da fatura antes do
+              uso comum.
+            </p>
+          )}
+
           <div className="grupo">
             <Rotulo>Quem paga</Rotulo>
             <div className="pastilhas">
@@ -166,6 +213,9 @@ export default function CartaoItem({ item, moradores, indicePorId, resultado, ac
               valor={item.rateio}
               aoMudar={(v) => set("rateio", v)}
             />
+            {EXPLICACOES_DOS_RATEIOS[item.rateio] && (
+              <p className="dica">{EXPLICACOES_DOS_RATEIOS[item.rateio]}</p>
+            )}
           </div>
 
           {item.rateio === "uso" && item.participantes.length > 0 && (

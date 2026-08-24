@@ -2,6 +2,7 @@ import {
   calcular as calcularNoMotor,
   rateiosPermitidos,
   diasDoPeriodo,
+  consumoDeclaradoPorHora,
 } from "./motor.ts";
 import { num } from "./formato.js";
 
@@ -11,6 +12,13 @@ export function itemParaMotor(item) {
   const custo =
     item.especie === "consumo"
       ? { tipo: "consumo", quantidade: num(item.quantidade), unidade: item.unidade }
+      : item.especie === "porHora"
+      ? {
+          tipo: "porHora",
+          porHora: num(item.porHora),
+          horas: num(item.horas),
+          unidade: item.unidade,
+        }
       : item.especie === "porUso"
         ? {
             tipo: "porUso",
@@ -76,5 +84,12 @@ export function diasContadosDe(morador, periodo) {
   const dias = diasDoPeriodo(periodo);
   return Math.max(0, Math.min(dias, dias - num(morador.diasFora)));
 }
+
+/**
+ * Total consumido por um aparelho declarado por hora, para a tela mostrar
+ * enquanto a pessoa digita. Passa pelo motor para não existirem duas contas.
+ */
+export const totalDeclaradoPorHora = (item) =>
+  consumoDeclaradoPorHora({ porHora: num(item.porHora), horas: num(item.horas) });
 
 export { diasDoPeriodo };

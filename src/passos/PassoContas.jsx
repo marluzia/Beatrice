@@ -1,3 +1,4 @@
+import { AjudaContas } from "./ajudas.jsx";
 import { Campo, Ficha, Seletor, Titulo } from "../componentes/index.js";
 import { MESES, tarifa } from "../nucleo/formato.js";
 
@@ -84,6 +85,7 @@ export default function PassoContas({ estado, resultado, acoes }) {
           </div>
         </div>
       </Ficha>
+      <AjudaContas />
     </div>
   );
 }

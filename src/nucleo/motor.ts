@@ -27,6 +27,16 @@ export type Custo =
         | { origem: "fatura"; kwhPorUso: number; m3PorUso: number }
         | { origem: "reais"; valorPorUso: number };
     }
+  /**
+   * Consumo declarado pela potência do aparelho vezes o tempo ligado.
+   * Total = porHora × horas, e daí em diante é idêntico a "consumo".
+   *
+   * Existe porque ninguém sabe quantos kWh o ar-condicionado gastou no mês.
+   * O que a pessoa tem à mão é a etiqueta do aparelho, que traz o consumo por
+   * hora, e uma estimativa de quantas horas ele ficou ligado. É a mesma conta,
+   * feita a partir dos números que existem de verdade.
+   */
+  | { tipo: "porHora"; porHora: number; horas: number; unidade: Unidade }
   /** Valor em reais, por fora das faturas. Gás, internet, streaming. */
   | { tipo: "reais"; valor: number };
 
@@ -36,6 +46,16 @@ export type Rateio =
   | { tipo: "igual" }
   /** Peso proporcional aos dias contados de cada um. */
   | { tipo: "dias" }
+  /**
+   * Divide o custo de cada dia entre quem estava em casa naquele dia.
+   *
+   * Existe porque "por dias" assume que o gasto acompanha a presença de cada
+   * um, e há aparelho em que isso é falso. Um ar-condicionado não gasta mais
+   * porque tem duas pessoas no quarto: ele gasta o mesmo resfriando o cômodo.
+   * Nos dias em que só uma delas estava, o ar rodou inteiro para ela, e é ela
+   * quem deve pagar aquele dia inteiro.
+   */
+  | { tipo: "presenca" }
   /** Peso proporcional a usos individuais, lavagens, banhos, o que for. */
   | { tipo: "uso"; usos: Record<MoradorId, number> };
 
@@ -96,7 +116,9 @@ export function diasDoPeriodo(periodo: Periodo): number {
  */
 export function rateiosPermitidos(item: Item): Rateio["tipo"][] {
   const estrutural: Rateio["tipo"][] =
-    item.custo.tipo === "porUso" ? ["igual", "uso"] : ["igual", "dias", "uso"];
+    item.custo.tipo === "porUso"
+      ? ["igual", "uso"]
+      : ["igual", "dias", "presenca", "uso"];
   const doItem = item.rateiosDoItem;
   return doItem ? estrutural.filter((r) => doItem.includes(r)) : estrutural;
 }
@@ -186,6 +208,18 @@ const escrito = (valor: number) => valor.toFixed(2).replace(".", ",");
 const plural = (n: number, um: string, muitos: string) =>
   n === 1 ? `1 ${um}` : `${n} ${muitos}`;
 
+/**
+ * Quanto um aparelho declarado por hora consumiu no período.
+ * Exportada porque a tela mostra esse total enquanto a pessoa digita, e a
+ * conta precisa ser a mesma nos dois lugares.
+ */
+export function consumoDeclaradoPorHora(custo: {
+  porHora: number;
+  horas: number;
+}): number {
+  return custo.porHora * custo.horas;
+}
+
 function usosTotaisDe(item: Item): number {
   if (item.custo.tipo !== "porUso") return 0;
   if (item.rateio.tipo === "uso") {
@@ -207,6 +241,12 @@ function custoDe(
       return custo.unidade === "kwh"
         ? { luz: custo.quantidade * tarifaLuz, agua: 0, reais: 0 }
         : { luz: 0, agua: custo.quantidade * tarifaAgua, reais: 0 };
+    case "porHora": {
+      const quantidade = consumoDeclaradoPorHora(custo);
+      return custo.unidade === "kwh"
+        ? { luz: quantidade * tarifaLuz, agua: 0, reais: 0 }
+        : { luz: 0, agua: quantidade * tarifaAgua, reais: 0 };
+    }
     case "porUso": {
       const usos = usosTotaisDe(item);
       return custo.unitario.origem === "fatura"
@@ -227,16 +267,111 @@ function custoDe(
  * ninguém lavou, ou o grupo inteiro ficou fora o mês inteiro - cai para
  * divisão igual, que é o resultado menos surpreendente e não produz NaN.
  */
+/** Acima disso o cálculo por presença fica caro; cai para "por dias". */
+const MAXIMO_PARA_PRESENCA = 12;
+
+/**
+ * Quantos participantes de um item se ausentaram no período.
+ *
+ * Decide se o rateio por presença é exato ou estimado: com no máximo uma
+ * ausência, quem faltou necessariamente esteve em casa em dias que os outros
+ * também estavam, e a sobreposição é conhecida sem precisar de datas. Com duas
+ * ou mais, não dá para saber se as viagens coincidiram.
+ */
+export function ausentesEntre(
+  participantes: MoradorId[],
+  diasContados: Record<MoradorId, number>,
+  diasNoPeriodo: number,
+): number {
+  return participantes.filter((id) => (diasContados[id] ?? 0) < diasNoPeriodo).length;
+}
+
+/**
+ * Fatia de cada participante quando o custo de cada dia é dividido entre quem
+ * estava em casa naquele dia.
+ *
+ * Sem as datas das viagens, o que se sabe de cada pessoa é a fração do mês em
+ * que ela esteve presente. O cálculo percorre as combinações possíveis de quem
+ * estava em casa, pesa cada uma pela sua probabilidade e divide aquele pedaço
+ * do mês entre os presentes. Assume que as ausências não foram combinadas
+ * entre si — quando só uma pessoa viajou, a suposição não é usada e o
+ * resultado é exato.
+ *
+ * Dias em que ninguém estava dividem igual: a conta chegou do mesmo jeito.
+ */
+function fatiasPorPresenca(
+  participantes: MoradorId[],
+  diasContados: Record<MoradorId, number>,
+  diasNoPeriodo: number,
+): Record<MoradorId, number> {
+  const fatias: Record<MoradorId, number> = {};
+  for (const id of participantes) fatias[id] = 0;
+
+  const quantos = participantes.length;
+  if (quantos === 0) return fatias;
+  if (diasNoPeriodo <= 0) {
+    for (const id of participantes) fatias[id] = 1 / quantos;
+    return fatias;
+  }
+
+  const presenca = participantes.map((id) =>
+    Math.min(1, Math.max(0, (diasContados[id] ?? 0) / diasNoPeriodo)),
+  );
+
+  let ninguem = 0;
+  const combinacoes = 1 << quantos;
+
+  for (let mascara = 0; mascara < combinacoes; mascara++) {
+    let probabilidade = 1;
+    let presentes = 0;
+    for (let i = 0; i < quantos; i++) {
+      const estaPresente = (mascara >> i) & 1;
+      probabilidade *= estaPresente ? presenca[i] : 1 - presenca[i];
+      if (estaPresente) presentes++;
+    }
+    if (probabilidade === 0) continue;
+    if (presentes === 0) {
+      ninguem += probabilidade;
+      continue;
+    }
+    const porCabeca = probabilidade / presentes;
+    for (let i = 0; i < quantos; i++) {
+      if ((mascara >> i) & 1) fatias[participantes[i]] += porCabeca;
+    }
+  }
+
+  if (ninguem > 0) {
+    for (const id of participantes) fatias[id] += ninguem / quantos;
+  }
+
+  return fatias;
+}
+
 function pesosDe(
   item: Item,
   diasContados: Record<MoradorId, number>,
+  diasNoPeriodo: number,
 ): { pesos: Record<MoradorId, number>; soma: number } {
   const pesos: Record<MoradorId, number> = {};
-  for (const id of item.participantes) {
-    if (item.rateio.tipo === "dias") pesos[id] = diasContados[id] ?? 0;
-    else if (item.rateio.tipo === "uso") pesos[id] = item.rateio.usos[id] ?? 0;
-    else pesos[id] = 1;
+
+  const porPresenca =
+    item.rateio.tipo === "presenca" && item.participantes.length <= MAXIMO_PARA_PRESENCA;
+
+  if (porPresenca) {
+    const fatias = fatiasPorPresenca(item.participantes, diasContados, diasNoPeriodo);
+    for (const id of item.participantes) pesos[id] = fatias[id];
+  } else {
+    for (const id of item.participantes) {
+      if (item.rateio.tipo === "dias" || item.rateio.tipo === "presenca") {
+        pesos[id] = diasContados[id] ?? 0;
+      } else if (item.rateio.tipo === "uso") {
+        pesos[id] = item.rateio.usos[id] ?? 0;
+      } else {
+        pesos[id] = 1;
+      }
+    }
   }
+
   let soma = Object.values(pesos).reduce((a, b) => a + b, 0);
   if (soma <= 0 && item.participantes.length > 0) {
     for (const id of item.participantes) pesos[id] = 1;
@@ -313,7 +448,7 @@ export function calcular(estado: Estado): Resultado {
     bruto: { luz: number; agua: number; reais: number },
     automatico: boolean,
   ) => {
-    const { pesos, soma } = pesosDe(item, diasContados);
+    const { pesos, soma } = pesosDe(item, diasContados, diasNoPeriodo);
     const custoTotal = bruto.luz + bruto.agua + bruto.reais;
     const fatias: Fatia[] = [];
 
@@ -346,6 +481,25 @@ export function calcular(estado: Estado): Resultado {
 
   validos.forEach((item, i) => processar(item, custos[i], false));
 
+  /**
+   * O rateio por presença precisa saber quando as ausências se sobrepõem. Com
+   * uma pessoa viajando, isso é dedutível; com duas ou mais, não. O motor
+   * assume que as viagens não coincidiram e diz que assumiu, em vez de
+   * apresentar uma estimativa como se fosse conta fechada.
+   */
+  const estimados = validos.filter(
+    (item) =>
+      item.rateio.tipo === "presenca" &&
+      ausentesEntre(item.participantes, diasContados, diasNoPeriodo) > 1,
+  );
+
+  for (const item of estimados) {
+    alertas.push({
+      nivel: "aviso",
+      texto: `"${item.nome}" divide por presença e mais de uma pessoa do grupo viajou. Sem saber quais dias cada um ficou fora, o CDR supôs que as viagens não coincidiram. Se elas coincidiram, quem ficou em casa sozinho pagou menos do que devia.`,
+    });
+  }
+
   if (todos.length > 0) {
     const comum = { participantes: todos, rateio: { tipo: "dias" } as Rateio };
     processar(
@@ -375,7 +529,22 @@ export function calcular(estado: Estado): Resultado {
   const residuoDeCentavos = emCentavos(somaDevida) - centavosCobrados;
   const somaCobradaArredondada = centavosCobrados / 100;
 
-  if (residuoDeCentavos !== 0) {
+  /**
+   * Casa sem morador nenhum é um estado que a tela alcança: basta zerar a
+   * quantidade de moradores. Aí existe conta a pagar e não existe quem pague,
+   * e nada do que vem abaixo quer dizer coisa alguma. O aviso de centavos, em
+   * particular, ficaria falando de arredondamento quando o problema é outro.
+   */
+  const casaVazia = moradores.length === 0 && Math.abs(somaDevida) > TOLERANCIA;
+
+  if (casaVazia) {
+    alertas.push({
+      nivel: "erro",
+      texto: `Há R$ ${escrito(somaDevida)} a dividir e nenhum morador cadastrado. Cadastre quem morou na casa no período para o rateio existir.`,
+    });
+  }
+
+  if (!casaVazia && residuoDeCentavos !== 0) {
     const quanto = plural(Math.abs(residuoDeCentavos), "centavo", "centavos");
     alertas.push({
       nivel: "aviso",
@@ -396,11 +565,15 @@ export function calcular(estado: Estado): Resultado {
 
 /**
  * O invariante do sistema: ninguém paga a mais nem a menos no agregado.
- * Vale para qualquer configuração de moradores, itens e regras.
- * Rode contra entradas aleatórias e você pega quase todo erro de rateio antes
- * que alguém reclame no grupo da república.
+ * Vale para qualquer configuração de moradores, itens e regras — desde que
+ * exista ao menos um morador. Sem morador não há a quem cobrar, e aí a
+ * diferença é o próprio valor da conta; esse caso vira alerta de erro em vez
+ * de invariante quebrado.
  */
 export function conferir(resultado: Resultado): boolean {
+  if (resultado.moradores.length === 0) {
+    return Math.abs(resultado.somaDevida) < TOLERANCIA;
+  }
   return Math.abs(resultado.diferenca) < TOLERANCIA;
 }
 

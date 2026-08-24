@@ -4,24 +4,27 @@
   "version": "1.0.0",
   "description": "CDR — Calculadora de Despesas Republicanas",
   "type": "module",
-
   "engines": {
     "node": "24.x"
   },
-
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "checar": "tsc --noEmit",
+    "testar": "vitest run",
+    "testar:vigiar": "vitest",
+    "build": "npm run checar && npm run testar && vite build",
     "preview": "vite preview --host"
   },
-
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
-
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.8"
+    "jsdom": "^30.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^5.4.8",
+    "vitest": "^4.1.11"
   }
 }
