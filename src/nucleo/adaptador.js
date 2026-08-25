@@ -55,14 +55,66 @@ export function itemParaMotor(item) {
 }
 
 /** Estado da tela - Estado do motor. */
+/**
+ * As duas classes da partição. Linha zerada não entra em nenhuma: campo em
+ * branco no formulário não pode virar item de R$ 0,00 no resultado.
+ *
+ * Valor negativo entra normalmente — crédito de geração distribuída, bônus e
+ * restituição aparecem na fatura como abatimento, e ignorá-los cobraria da
+ * casa dinheiro que a distribuidora devolveu.
+ */
+export function linhasPorComportamento(fatura, comportamento) {
+  return (fatura?.linhas ?? []).filter(
+    (l) => l.comportamento === comportamento && num(l.valor) !== 0,
+  );
+}
+
+/** Soma das linhas que acompanham o consumo. É o que forma a tarifa. */
+export function valorDoConsumo(fatura) {
+  return linhasPorComportamento(fatura, "consumo").reduce((s, l) => s + num(l.valor), 0);
+}
+
+/** Soma das linhas que dividem igual. */
+export function totalDasTaxas(fatura) {
+  return linhasPorComportamento(fatura, "igual").reduce((s, l) => s + num(l.valor), 0);
+}
+
+/** Total da fatura: as duas classes somadas. É o número a conferir com o papel. */
+export function totalDaFatura(fatura) {
+  return valorDoConsumo(fatura) + totalDasTaxas(fatura);
+}
+
+/**
+ * Tarifa deduzida das linhas de consumo.
+ *
+ * Serve de conferência: a fatura de luz imprime o preço por kWh, e se o número
+ * daqui não bater com o de lá, alguma linha ficou de fora.
+ */
+export function tarifaDaFatura(fatura) {
+  const quantidade = num(fatura?.consumo);
+  return quantidade > 0 ? valorDoConsumo(fatura) / quantidade : 0;
+}
+
+function faturaParaMotor(fatura, qual) {
+  const consumo = num(fatura?.consumo);
+  const taxas = linhasPorComportamento(fatura, "igual").map((l) => ({
+    nome: l.nome ?? "",
+    valor: num(l.valor),
+  }));
+
+  const total = totalDaFatura(fatura);
+
+  return qual === "luz"
+    ? { luzKwh: consumo, luzValor: total, luzTaxas: taxas }
+    : { aguaM3: consumo, aguaValor: total, aguaTaxas: taxas };
+}
+
 export function paraMotor(estado) {
   return {
     periodo: estado.periodo,
     faturas: {
-      luzKwh: num(estado.faturas.luzKwh),
-      luzValor: num(estado.faturas.luzValor),
-      aguaM3: num(estado.faturas.aguaM3),
-      aguaValor: num(estado.faturas.aguaValor),
+      ...faturaParaMotor(estado.faturas.luz, "luz"),
+      ...faturaParaMotor(estado.faturas.agua, "agua"),
     },
     moradores: estado.moradores.map((m) => ({
       id: m.id,

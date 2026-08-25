@@ -2,18 +2,13 @@ import { useState } from "react";
 import { Alerta, Ficha, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, num, reais } from "../nucleo/formato.js";
 import Regua from "./Regua.jsx";
-import { AjudaCentavos, AjudaRateio } from "./ajudas.jsx";
+import { AjudaCentavos } from "./ajudas.jsx";
 
 export default function PassoRateio({ estado, resultado, indicePorId }) {
   const [abertos, setAbertos] = useState({});
   const fecha = Math.abs(resultado.diferenca) < 0.005;
   const f = estado.faturas;
 
-  /**
-   * Três vereditos. a conta pode fechar em números e mesmo assim
-   * não fechar em dinheiro: cem reais para três pessoas dá 33,33 para cada
-   * uma, e 33,33 três vezes são 99,99. Dizer "fecha certinho" nesse caso é f
-   */
   const centavos = resultado.residuoDeCentavos;
   const sobrouCentavo = fecha && centavos !== 0;
   const quantos =
@@ -44,6 +39,7 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
       ))}
 
       <Ficha>
+      <AjudaCentavos />
         <Titulo nota="Toque em uma pessoa para ver de onde veio cada centavo.">
           Quanto cada um paga
         </Titulo>
@@ -122,8 +118,6 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
           <p className={classeDoVeredito}>{veredito}</p>
         </div>
       </Ficha>
-      <AjudaRateio />
-      <AjudaCentavos />
     </div>
   );
 }

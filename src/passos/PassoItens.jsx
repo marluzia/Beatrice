@@ -8,9 +8,8 @@ export default function PassoItens({ estado, resultado, indicePorId, acoes }) {
   return (
     <div className="coluna">
       <Ficha>
-        <Titulo nota="Itens de luz e água são retirados das faturas antes do rateio comum, então têm teto. Itens em reais somam por cima e não têm teto nenhum. 
-        Alguns itens, como máquinas de lavar, geladeiras e ar-condicionado têm métricas de gastos por mês ou ciclo disponibilizadas pelo fabricante. Insira-os nos campos indicados se deseja um cáclulo mais específico. 
-        A categoria por uso, em 'como divide', aceita números decimais que compreendem partes de 1 uso compartilhado entre duas ou mais pessoas.">
+        <Titulo>
+           <AjudaItens />
           O que a casa gasta
         </Titulo>
 
@@ -55,7 +54,7 @@ export default function PassoItens({ estado, resultado, indicePorId, acoes }) {
         ))}
       </Ficha>
 
-      <AjudaItens />
+     
 
       <MensagemDeColeta estado={estado} />
     </div>

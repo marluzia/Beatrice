@@ -1013,3 +1013,122 @@ button {
   letter-spacing: 0.03em;
   color: var(--tinta-fraca);
 }
+
+/* Barreira de erro -------------------------------------------------------- */
+
+.barreira {
+  margin: 2rem auto;
+  padding: 1.5rem;
+  max-width: 34rem;
+  background: var(--papel);
+  border: 1px solid var(--regua);
+  border-radius: 3px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--tinta-fraca);
+}
+
+.barreira__titulo {
+  margin: 0 0 0.9rem;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  color: var(--tinta);
+}
+
+.barreira p {
+  margin: 0 0 0.8rem;
+}
+
+.barreira__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.2rem 0 1rem;
+}
+
+.barreira__detalhe {
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--regua);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--tinta-fraca);
+  word-break: break-word;
+}
+
+/* Linhas da fatura -------------------------------------------------------- */
+
+.lista-linhas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 0.7rem;
+}
+
+.linha-fatura {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.55rem;
+  background: var(--papel-fundo);
+  border-radius: 3px;
+}
+
+.linha-fatura__baixo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.linha-fatura__valor {
+  width: 5.5rem;
+  flex: 0 0 auto;
+}
+
+.linha-fatura__baixo .segmentado {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.linha-fatura__baixo .segmentado button {
+  font-size: 0.66rem;
+  padding: 0.3rem 0.4rem;
+}
+
+.linha-fatura__remover {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: var(--alerta, #b24232);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+}
+
+.resumo-fatura {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--regua);
+}
+
+.resumo-fatura__nota,
+.total-fatura span {
+  display: block;
+  font-family: var(--sans, inherit);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--tinta-fraca);
+  letter-spacing: 0;
+}
+
+.total-fatura {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: var(--tinta-fraca);
+}
+
+.total-fatura strong {
+  font-family: var(--mono);
+  color: var(--tinta);
+}

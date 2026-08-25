@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { estadoInicial } from "../nucleo/estadoInicial.js";
+import { estadoInicial, novaLinha } from "../nucleo/estadoInicial.js";
 import { calcular } from "../nucleo/adaptador.js";
 import { criarItem } from "../nucleo/catalogo.js";
 import { novoId } from "../nucleo/formato.js";
@@ -32,11 +32,66 @@ export function useCDR() {
     return mapa;
   }, [estado.moradores]);
 
-  const definirFatura = useCallback((campo, valor) => {
-    definir((e) => ({ ...e, faturas: { ...e.faturas, [campo]: valor } }));
+  /** `qual` é "luz" ou "agua"; `campo` é consumo, preco, valor ou modo. */
+  const definirFatura = useCallback((qual, campo, valor) => {
+    definir((e) => ({
+      ...e,
+      faturas: { ...e.faturas, [qual]: { ...e.faturas[qual], [campo]: valor } },
+    }));
+  }, []);
+
+  const adicionarLinha = useCallback((qual, nome = "", comportamento = "consumo") => {
+    definir((e) => ({
+      ...e,
+      faturas: {
+        ...e.faturas,
+        [qual]: {
+          ...e.faturas[qual],
+          linhas: [...e.faturas[qual].linhas, novaLinha(nome, comportamento)],
+        },
+      },
+    }));
+  }, []);
+
+  const editarLinha = useCallback((qual, id, campo, valor) => {
+    definir((e) => ({
+      ...e,
+      faturas: {
+        ...e.faturas,
+        [qual]: {
+          ...e.faturas[qual],
+          linhas: e.faturas[qual].linhas.map((l) =>
+            l.id === id ? { ...l, [campo]: valor } : l,
+          ),
+        },
+      },
+    }));
+  }, []);
+
+  const removerLinha = useCallback((qual, id) => {
+    definir((e) => ({
+      ...e,
+      faturas: {
+        ...e.faturas,
+        [qual]: {
+          ...e.faturas[qual],
+          linhas: e.faturas[qual].linhas.filter((l) => l.id !== id),
+        },
+      },
+    }));
   }, []);
 
   const definirPeriodo = useCallback((campo, valor) => {
+    // "dias" aceita ficar em branco: sem número, vale o tamanho do mês.
+    if (campo === "dias") {
+      const texto = String(valor ?? "").trim();
+      const n = parseInt(texto, 10);
+      definir((e) => ({
+        ...e,
+        periodo: { ...e.periodo, dias: texto === "" || !Number.isFinite(n) ? undefined : n },
+      }));
+      return;
+    }
     const n = parseInt(valor, 10);
     if (!Number.isFinite(n)) return;
     definir((e) => ({ ...e, periodo: { ...e.periodo, [campo]: n } }));
@@ -120,6 +175,9 @@ export function useCDR() {
     indicePorId,
     acoes: {
       definirFatura,
+      adicionarLinha,
+      editarLinha,
+      removerLinha,
       definirPeriodo,
       ajustarQuantidadeDeMoradores,
       editarMorador,

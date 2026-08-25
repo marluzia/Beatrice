@@ -20,7 +20,7 @@ const CHAVE = "cdr:casa";
  * de um jeito que o código novo não saiba ler — um dado antigo lido errado é
  * pior que dado nenhum, porque produz conta errada em silêncio.
  */
-const VERSAO = 1;
+const VERSAO = 3;
 
 /** Nem todo navegador tem localStorage utilizável (anônimo, cota, políticas). */
 function deposito() {
@@ -62,8 +62,12 @@ export function carregarCasa() {
 
   try {
     const pacote = JSON.parse(cru);
-    if (!pacote || pacote.versao !== VERSAO) return null;
-    return pareceUmaCasa(pacote.estado) ? pacote.estado : null;
+    if (!pacote) return null;
+
+    const estado = migrar(pacote.estado, pacote.versao);
+    if (!estado) return null;
+
+    return pareceUmaCasa(estado) ? estado : null;
   } catch {
     return null;
   }
@@ -86,6 +90,104 @@ export function limparCasa() {
  * barrar lixo — outra aplicação escrevendo na mesma chave, um recorte pela
  * metade — sem virar um segundo esquema para manter em dia.
  */
+/**
+ * Traz uma casa salva num formato antigo para o formato de hoje.
+ *
+ * Descartar seria mais simples, mas quem tem casa salva é justamente quem já
+ * está usando o CDR — perder a configuração de sete moradores por causa de uma
+ * atualização é o pior momento possível para pedir que comecem de novo.
+ *
+ * Formato desconhecido, aí sim, é descartado: dado antigo lido errado produz
+ * conta errada em silêncio, que é pior que começar do zero.
+ */
+function migrar(estado, versao) {
+  if (!estado || typeof estado !== "object") return null;
+  if (versao === VERSAO) return estado;
+
+  const numero = (v) => Number(String(v ?? "").replace(",", ".")) || 0;
+
+  /** Versão 1: valor da fatura já incluía as taxas, num campo só. */
+  if (versao === 1) {
+    const f = estado.faturas ?? {};
+
+    const converter = (unidade, consumo, valorTotal, taxaFixa, nomeDaTaxa) => {
+      const total = numero(valorTotal);
+      const fixa = numero(taxaFixa);
+      const linhas = [];
+
+      const consumoEmReais = total - fixa;
+      if (consumoEmReais !== 0) {
+        linhas.push({
+          id: `l-migrada-${unidade}-consumo`,
+          nome: unidade === "kwh" ? "Energia elétrica" : "Tarifa água",
+          valor: String(consumoEmReais),
+          comportamento: "consumo",
+        });
+      }
+      if (fixa !== 0) {
+        linhas.push({
+          id: `l-migrada-${unidade}-taxa`,
+          nome: nomeDaTaxa,
+          valor: String(fixa),
+          comportamento: "igual",
+        });
+      }
+      return { unidade, consumo: consumo ?? "", linhas };
+    };
+
+    return {
+      ...estado,
+      faturas: {
+        luz: converter("kwh", f.luzKwh, f.luzValor, f.luzTaxasFixas, "Iluminação pública"),
+        agua: converter("m3", f.aguaM3, f.aguaValor, f.aguaTaxasFixas, "Custo mínimo fixo"),
+      },
+    };
+  }
+
+  /** Versão 2: consumo separado das taxas, mas ainda sem comportamento por linha. */
+  if (versao === 2) {
+    const converter = (fatura, unidade) => {
+      if (!fatura) return { unidade, consumo: "", linhas: [] };
+
+      const linhas = [];
+      const consumoEmReais =
+        fatura.modo === "preco"
+          ? numero(fatura.consumo) * numero(fatura.preco)
+          : numero(fatura.valor);
+
+      if (consumoEmReais !== 0) {
+        linhas.push({
+          id: `l-migrada-${unidade}-consumo`,
+          nome: unidade === "kwh" ? "Energia elétrica" : "Tarifa água",
+          valor: String(consumoEmReais),
+          comportamento: "consumo",
+        });
+      }
+
+      for (const taxa of fatura.taxas ?? []) {
+        linhas.push({
+          id: taxa.id ?? `l-migrada-${unidade}-${linhas.length}`,
+          nome: taxa.nome ?? "",
+          valor: taxa.valor ?? "",
+          comportamento: "igual",
+        });
+      }
+
+      return { unidade, consumo: fatura.consumo ?? "", linhas };
+    };
+
+    return {
+      ...estado,
+      faturas: {
+        luz: converter(estado.faturas?.luz, "kwh"),
+        agua: converter(estado.faturas?.agua, "m3"),
+      },
+    };
+  }
+
+  return null;
+}
+
 function pareceUmaCasa(estado) {
   return Boolean(
     estado &&
@@ -95,6 +197,10 @@ function pareceUmaCasa(estado) {
       typeof estado.periodo.ano === "number" &&
       estado.faturas &&
       typeof estado.faturas === "object" &&
+      estado.faturas.luz &&
+      Array.isArray(estado.faturas.luz.linhas) &&
+      estado.faturas.agua &&
+      Array.isArray(estado.faturas.agua.linhas) &&
       Array.isArray(estado.moradores) &&
       Array.isArray(estado.itens),
   );

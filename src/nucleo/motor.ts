@@ -73,18 +73,55 @@ export interface Item {
   rateiosDoItem?: Rateio["tipo"][];
 }
 
+/** Uma cobrança da fatura que não depende de consumo. */
+export interface TaxaFixa {
+  nome: string;
+  valor: number;
+}
+
 export interface Faturas {
   /** Consumo total da fatura de luz, em kWh. */
   luzKwh: number;
-  /** Valor total da fatura de luz, em reais. */
+  /** Valor total da fatura de luz, em reais, taxas fixas incluídas. */
   luzValor: number;
+  /**
+   * Parte da fatura de luz que não depende de consumo: iluminação pública e,
+   * quando aparece, o custo de disponibilidade do padrão de entrada.
+   *
+   * Precisa ser separada porque o CDR deduz a tarifa dividindo valor por
+   * consumo. Com as taxas fixas dentro, a tarifa sai inflada e o custo delas
+   * acaba distribuído na proporção do que cada aparelho gasta — quem usa mais
+   * energia paga mais iluminação pública, o que não faz sentido. Taxa da
+   * distribuidora é da casa, e divide igual.
+   */
+  luzTaxasFixas?: number;
+  /**
+   * As taxas discriminadas, quando a pessoa preencheu linha por linha.
+   * Cada uma vira um item próprio no resultado, com o nome que veio da fatura,
+   * em vez de um bolo chamado "taxas". Quando presente, manda; `luzTaxasFixas`
+   * fica como forma curta para quem só tem o total.
+   */
+  luzTaxas?: TaxaFixa[];
   /** Consumo total da fatura de água, em m³. */
   aguaM3: number;
-  /** Valor total da fatura de água, em reais. */
+  /** Valor total da fatura de água, em reais, taxas fixas incluídas. */
   aguaValor: number;
+  /** Mesma ideia na água: tarifa mínima, esgoto fixo, taxas do fornecedor. */
+  aguaTaxasFixas?: number;
+  /** Mesma ideia na água. */
+  aguaTaxas?: TaxaFixa[];
 }
 
 export interface Periodo {
+  /**
+   * Dias do ciclo de faturamento, quando informado.
+   *
+   * A fatura não fecha no dia 1º: o ciclo de leitura tem começo e fim próprios
+   * e às vezes dá 33 dias, às vezes 28. É esse número que precisa dividir a
+   * presença de cada um, não o tamanho do mês do calendário. Sem ele, cai para
+   * o mês de referência.
+   */
+  dias?: number;
   /** Mês de referência, 1 a 12. */
   mes: number;
   ano: number;
@@ -99,6 +136,10 @@ export interface Estado {
 
 /** Dias do mês de referência. Fevereiro bissexto sai certo. */
 export function diasDoPeriodo(periodo: Periodo): number {
+  const informado = periodo.dias;
+  if (typeof informado === "number" && Number.isFinite(informado) && informado > 0) {
+    return Math.min(90, Math.round(informado));
+  }
   return new Date(periodo.ano, periodo.mes, 0).getDate();
 }
 
@@ -382,13 +423,62 @@ function pesosDe(
 
 // ------------------------------------------------------------------- cálculo
 
+/**
+ * Reduz as duas formas de informar taxa a uma só.
+ *
+ * Quem preencheu linha por linha manda; quem só tem o total ganha uma linha
+ * genérica. Linha sem valor é descartada — campo em branco no formulário não
+ * pode virar item de R$ 0,00 poluindo o resultado.
+ */
+function normalizarTaxas(
+  lista: TaxaFixa[] | undefined,
+  total: number | undefined,
+  nomeGenerico: string,
+): TaxaFixa[] {
+  if (lista && lista.length > 0) {
+    return lista
+      .filter((t) => Number.isFinite(t.valor) && t.valor !== 0)
+      .map((t) => ({ nome: t.nome.trim() || nomeGenerico, valor: t.valor }));
+  }
+  const soma = total ?? 0;
+  return soma > 0 ? [{ nome: nomeGenerico, valor: soma }] : [];
+}
+
+const somaDeTaxas = (lista: TaxaFixa[]) => lista.reduce((s, t) => s + t.valor, 0);
+
 export function calcular(estado: Estado): Resultado {
   const { moradores, faturas, itens } = estado;
   const alertas: Alerta[] = [];
   const diasNoPeriodo = diasDoPeriodo(estado.periodo);
 
-  const tarifaLuz = dividir(faturas.luzValor, faturas.luzKwh);
-  const tarifaAgua = dividir(faturas.aguaValor, faturas.aguaM3);
+  /**
+   * As taxas fixas saem da conta antes de tudo. O que sobra é o que de fato
+   * foi consumido, e é sobre isso que a tarifa por kWh e por m³ é deduzida.
+   */
+  const listaTaxasLuz = normalizarTaxas(faturas.luzTaxas, faturas.luzTaxasFixas, "Taxas fixas da luz");
+  const listaTaxasAgua = normalizarTaxas(faturas.aguaTaxas, faturas.aguaTaxasFixas, "Taxas fixas da água");
+
+  /**
+   * Com as linhas discriminadas, a soma delas manda: o valor da fatura foi
+   * montado a partir delas, então não há o que recortar. Um crédito negativo
+   * precisa sobreviver inteiro até aqui.
+   *
+   * Já quem informou só um total avulso pode ter digitado uma taxa maior que a
+   * própria fatura, e aí o teto vale.
+   */
+  const recortar = (lista: TaxaFixa[], valorDaFatura: number, veioDeLista: boolean) => {
+    const soma = somaDeTaxas(lista);
+    return veioDeLista ? soma : Math.max(0, Math.min(valorDaFatura, soma));
+  };
+
+  const taxasLuz = recortar(listaTaxasLuz, faturas.luzValor, Boolean(faturas.luzTaxas?.length));
+  const taxasAgua = recortar(listaTaxasAgua, faturas.aguaValor, Boolean(faturas.aguaTaxas?.length));
+
+  const consumoLuz = faturas.luzValor - taxasLuz;
+  const consumoAgua = faturas.aguaValor - taxasAgua;
+
+  const tarifaLuz = dividir(consumoLuz, faturas.luzKwh);
+  const tarifaAgua = dividir(consumoAgua, faturas.aguaM3);
 
   const diasContados: Record<MoradorId, number> = {};
   for (const m of moradores) {
@@ -410,8 +500,8 @@ export function calcular(estado: Estado): Resultado {
   }
 
   const custos = validos.map((i) => custoDe(i, tarifaLuz, tarifaAgua));
-  const sobraLuz = faturas.luzValor - custos.reduce((s, c) => s + c.luz, 0);
-  const sobraAgua = faturas.aguaValor - custos.reduce((s, c) => s + c.agua, 0);
+  const sobraLuz = consumoLuz - custos.reduce((s, c) => s + c.luz, 0);
+  const sobraAgua = consumoAgua - custos.reduce((s, c) => s + c.agua, 0);
   const totalEmReais = custos.reduce((s, c) => s + c.reais, 0);
 
   if (sobraLuz < -TOLERANCIA) {
@@ -512,6 +602,51 @@ export function calcular(estado: Estado): Resultado {
       { luz: 0, agua: sobraAgua, reais: 0 },
       true,
     );
+
+    /**
+     * Taxa da distribuidora é da casa, não de quem gasta mais. Divide igual
+     * entre todo mundo, inclusive quem viajou o mês inteiro: a taxa veio na
+     * fatura de qualquer jeito.
+     */
+    const taxaIgual = { participantes: todos, rateio: { tipo: "igual" } as Rateio };
+
+    /**
+     * Cada taxa vira um item com o nome que veio da fatura. "Iluminação
+     * pública R$ 12,73" diz o que "Taxas fixas R$ 12,73" não diz, e quem
+     * conferir a conta reconhece a linha.
+     *
+     * Se a soma das taxas passar do valor da fatura, tudo é reduzido na mesma
+     * proporção: o teto da fatura vale acima do que foi digitado.
+     */
+    const publicar = (
+      lista: TaxaFixa[],
+      permitido: number,
+      prefixo: string,
+      origem: "luz" | "agua",
+    ) => {
+      const soma = somaDeTaxas(lista);
+      if (soma === 0 || permitido === 0) return;
+      const ajuste = permitido / soma;
+
+      lista.forEach((taxa, i) => {
+        const valor = taxa.valor * ajuste;
+        processar(
+          {
+            ...taxaIgual,
+            id: `${prefixo}${i}`,
+            nome: taxa.nome,
+            custo: { tipo: "reais", valor },
+          },
+          origem === "luz"
+            ? { luz: valor, agua: 0, reais: 0 }
+            : { luz: 0, agua: valor, reais: 0 },
+          true,
+        );
+      });
+    };
+
+    publicar(listaTaxasLuz, taxasLuz, "__taxa_luz_", "luz");
+    publicar(listaTaxasAgua, taxasAgua, "__taxa_agua_", "agua");
   }
 
   const lista = moradores.map((m) => totais[m.id]);

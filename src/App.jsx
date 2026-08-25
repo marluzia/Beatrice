@@ -14,8 +14,17 @@ export default function App() {
 
   const irPara = (i) => {
     setPasso(Math.max(0, Math.min(PASSOS.length - 1, i)));
-    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: suave ? "smooth" : "auto" });
+    // matchMedia e scrollTo com opções não existem em toda WebView. Numa
+    // falha aqui, o React derruba a árvore inteira e a pessoa vê tela branca
+    // por causa de uma animação de rolagem.
+    try {
+      const reduz =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduz ? "auto" : "smooth" });
+    } catch {
+      window.scrollTo(0, 0);
+    }
   };
 
   const comuns = { estado, resultado, indicePorId, acoes };
@@ -43,8 +52,7 @@ export default function App() {
 
       <div className="salvamento">
         <span>
-          Salvo neste navegador. Fechar a aba não apaga; trocar de aparelho
-          começa do zero.
+          Os dados preenchidos estão salvos neste navegador. Fechar a aba não os apaga. Exceto se limpar ou trocar de aparelho.
         </span>
         <Botao
           tipo="fantasma"

@@ -2,13 +2,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { carregarCasa, limparCasa, salvarCasa } from "./persistencia.js";
 import { estadoInicial } from "./estadoInicial.js";
-
-/**
- * Persistência tem uma regra acima de todas: nunca derrubar a aplicação.
- * Navegador anônimo, cota estourada, dado corrompido por outra aba — em
- * qualquer desses casos o CDR abre vazio, que é ruim mas utilizável. Metade
- * destes testes existe só para garantir que nada aqui lança exceção.
- */
+import { calcular } from "./adaptador.js";
+import { conferir } from "./motor.ts";
 
 afterEach(() => {
   limparCasa();
@@ -123,5 +118,139 @@ describe("navegador hostil", () => {
     circular.euMesmo = circular;
     expect(() => salvarCasa(circular)).not.toThrow();
     expect(salvarCasa(circular)).toBe(false);
+  });
+});
+
+describe("migração da versão 1", () => {
+  /** Como uma casa ficava salva antes das taxas discriminadas. */
+  const casaAntiga = {
+    versao: 1,
+    estado: {
+      periodo: { mes: 8, ano: 2026 },
+      faturas: {
+        luzKwh: "122",
+        luzValor: "113.74",
+        luzTaxasFixas: "12.73",
+        aguaM3: "20",
+        aguaValor: "180",
+        aguaTaxasFixas: "",
+      },
+      moradores: [
+        { id: "m0", nome: "Ana", diasFora: "10" },
+        { id: "m1", nome: "Bia", diasFora: "" },
+      ],
+      itens: [],
+    },
+  };
+
+  it("não perde a casa de quem já estava usando", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaAntiga));
+    const voltou = carregarCasa();
+    expect(voltou).not.toBeNull();
+    expect(voltou.moradores).toHaveLength(2);
+    expect(voltou.moradores[0].nome).toBe("Ana");
+    expect(voltou.periodo.mes).toBe(8);
+  });
+
+  it("separa a taxa que estava dentro do valor da fatura", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaAntiga));
+    const luz = carregarCasa().faturas.luz;
+
+    expect(luz.consumo).toBe("122");
+    expect(luz.linhas).toHaveLength(2);
+
+    const consumo = luz.linhas.find((l) => l.comportamento === "consumo");
+    const taxa = luz.linhas.find((l) => l.comportamento === "igual");
+
+    // 113,74 na versão 1 já incluía a taxa: o consumo é o que sobra.
+    expect(Number(consumo.valor)).toBeCloseTo(101.01, 8);
+    expect(taxa.nome).toBe("Iluminação pública");
+    expect(Number(taxa.valor)).toBeCloseTo(12.73, 8);
+  });
+
+  it("fatura sem taxa vira fatura com uma linha só", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaAntiga));
+    const agua = carregarCasa().faturas.agua;
+    expect(agua.linhas).toHaveLength(1);
+    expect(agua.linhas[0].comportamento).toBe("consumo");
+    expect(Number(agua.linhas[0].valor)).toBeCloseTo(180, 8);
+  });
+
+  it("a casa migrada é aceita pelo motor sem erro", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaAntiga));
+    expect(() => calcular(carregarCasa())).not.toThrow();
+    const r = calcular(carregarCasa());
+    expect(conferir(r)).toBe(true);
+  });
+
+  it("salvar de novo grava já na versão nova", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaAntiga));
+    salvarCasa(carregarCasa());
+    const pacote = JSON.parse(window.localStorage.getItem("cdr:casa"));
+    expect(pacote.versao).toBe(3);
+    expect(pacote.estado.faturas.luz).toBeDefined();
+  });
+
+  it("versão desconhecida continua sendo descartada", () => {
+    window.localStorage.setItem(
+      "cdr:casa",
+      JSON.stringify({ ...casaAntiga, versao: 99 }),
+    );
+    expect(carregarCasa()).toBeNull();
+  });
+});
+
+
+describe("migração da versão 2", () => {
+  /** Formato intermediário: consumo separado, mas sem comportamento por linha. */
+  const casaV2 = {
+    versao: 2,
+    estado: {
+      periodo: { mes: 8, ano: 2026 },
+      faturas: {
+        luz: {
+          unidade: "kwh",
+          modo: "preco",
+          consumo: "122",
+          preco: "0.82822887",
+          valor: "",
+          taxas: [{ id: "t1", nome: "Iluminação pública", valor: "12.73" }],
+        },
+        agua: {
+          unidade: "m3",
+          modo: "valor",
+          consumo: "20",
+          preco: "",
+          valor: "180",
+          taxas: [],
+        },
+      },
+      moradores: [{ id: "m0", nome: "Ana", diasFora: "5" }],
+      itens: [],
+    },
+  };
+
+  it("converte o modo preço em linha de consumo", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV2));
+    const luz = carregarCasa().faturas.luz;
+    const consumo = luz.linhas.find((l) => l.comportamento === "consumo");
+    expect(Number(consumo.valor)).toBeCloseTo(122 * 0.82822887, 6);
+  });
+
+  it("preserva as taxas como linhas que dividem igual", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV2));
+    const taxa = carregarCasa().faturas.luz.linhas.find((l) => l.comportamento === "igual");
+    expect(taxa.nome).toBe("Iluminação pública");
+    expect(Number(taxa.valor)).toBeCloseTo(12.73, 8);
+  });
+
+  it("não perde os moradores", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV2));
+    expect(carregarCasa().moradores[0].nome).toBe("Ana");
+  });
+
+  it("a casa migrada passa pelo motor e fecha", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV2));
+    expect(conferir(calcular(carregarCasa()))).toBe(true);
   });
 });

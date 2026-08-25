@@ -10,9 +10,11 @@ export default function PassoMoradores({ estado, resultado, acoes }) {
     <div className="coluna">
       <Ficha>
         <Titulo
-          nota={`Dias fora é quanto tempo a pessoa passou longe da casa. Dias contados é o que sobra dos ${resultado.diasNoPeriodo} dias do mês, e é o peso usado no rateio por dias.`}
         >
+           <AjudaMoradores />
           Quem mora aqui
+          
+     
         </Titulo>
 
         <div className="contador-moradores">
@@ -86,7 +88,6 @@ export default function PassoMoradores({ estado, resultado, acoes }) {
         )}
       </Ficha>
 
-      <AjudaMoradores />
     </div>
   );
 }

@@ -12,9 +12,22 @@ import { estadoInicial } from "./estadoInicial.js";
 
 const MORADORES = ["m0", "m1", "m2"];
 
+const FATURAS_CHEIAS = {
+  luz: {
+    unidade: "kwh",
+    consumo: "400",
+    linhas: [{ id: "l1", nome: "Energia elétrica", valor: "360", comportamento: "consumo" }],
+  },
+  agua: {
+    unidade: "m3",
+    consumo: "20",
+    linhas: [{ id: "l2", nome: "Tarifa água", valor: "180", comportamento: "consumo" }],
+  },
+};
+
 const casa = (itens) => ({
   periodo: { mes: 6, ano: 2025 },
-  faturas: { luzKwh: "400", luzValor: "360", aguaM3: "20", aguaValor: "180" },
+  faturas: FATURAS_CHEIAS,
   moradores: MORADORES.map((id, i) => ({ id, nome: `Pessoa ${i + 1}`, diasFora: "0" })),
   itens,
 });

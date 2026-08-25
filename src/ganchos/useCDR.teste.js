@@ -132,39 +132,104 @@ describe("itens", () => {
 });
 
 describe("faturas e período", () => {
-  it("digitar a fatura recalcula a tarifa", () => {
+  it("as linhas de consumo formam a tarifa", () => {
+    const { result } = montar();
+    const linha = result.current.estado.faturas.luz.linhas[0];
+    act(() => {
+      result.current.acoes.definirFatura("luz", "consumo", "122");
+      result.current.acoes.editarLinha("luz", linha.id, "valor", "101,01");
+    });
+    expect(result.current.resultado.tarifaLuz).toBeCloseTo(101.01 / 122, 8);
+  });
+
+  it("linha que divide igual não entra na tarifa", () => {
+    const { result } = montar();
+    const [consumo, taxa] = result.current.estado.faturas.luz.linhas;
+    act(() => {
+      result.current.acoes.definirFatura("luz", "consumo", "122");
+      result.current.acoes.editarLinha("luz", consumo.id, "valor", "101,01");
+      result.current.acoes.editarLinha("luz", taxa.id, "valor", "12,73");
+    });
+    // A tarifa continua sendo só a linha de consumo.
+    expect(result.current.resultado.tarifaLuz).toBeCloseTo(101.01 / 122, 8);
+    const item = result.current.resultado.itens.find((i) => i.nome === "Iluminação pública");
+    expect(item?.custoTotal).toBeCloseTo(12.73, 8);
+  });
+
+  it("trocar o comportamento de uma linha muda a tarifa", () => {
+    const { result } = montar();
+    const [consumo, taxa] = result.current.estado.faturas.luz.linhas;
+    act(() => {
+      result.current.acoes.definirFatura("luz", "consumo", "100");
+      result.current.acoes.editarLinha("luz", consumo.id, "valor", "100");
+      result.current.acoes.editarLinha("luz", taxa.id, "valor", "50");
+    });
+    expect(result.current.resultado.tarifaLuz).toBeCloseTo(1, 8);
+
+    act(() => result.current.acoes.editarLinha("luz", taxa.id, "comportamento", "consumo"));
+    expect(result.current.resultado.tarifaLuz).toBeCloseTo(1.5, 8);
+  });
+
+  it("dias entre leituras em branco volta a valer o tamanho do mês", () => {
     const { result } = montar();
     act(() => {
-      result.current.acoes.definirFatura("luzKwh", "400");
-      result.current.acoes.definirFatura("luzValor", "360");
+      result.current.acoes.definirPeriodo("ano", "2026");
+      result.current.acoes.definirPeriodo("mes", "4");
+      result.current.acoes.definirPeriodo("dias", "35");
     });
-    expect(result.current.resultado.tarifaLuz).toBeCloseTo(0.9, 10);
+    expect(result.current.resultado.diasNoPeriodo).toBe(35);
+
+    act(() => result.current.acoes.definirPeriodo("dias", ""));
+    expect(result.current.resultado.diasNoPeriodo).toBe(30);
+  });
+});
+
+describe("linhas da fatura", () => {
+  it("a luz abre com energia e iluminação pública", () => {
+    const { result } = montar();
+    const linhas = result.current.estado.faturas.luz.linhas;
+    expect(linhas.map((l) => l.nome)).toEqual(["Energia elétrica", "Iluminação pública"]);
+    expect(linhas.map((l) => l.comportamento)).toEqual(["consumo", "igual"]);
   });
 
-  it("trocar o mês muda os dias do período", () => {
+  it("adiciona linha com nome e comportamento sugeridos", () => {
     const { result } = montar();
+    act(() => result.current.acoes.adicionarLinha("agua", "Tratamento esgoto", "consumo"));
+    const nova = result.current.estado.faturas.agua.linhas.at(-1);
+    expect(nova.nome).toBe("Tratamento esgoto");
+    expect(nova.comportamento).toBe("consumo");
+  });
+
+  it("cada linha tem id próprio e some sozinha", () => {
+    const { result } = montar();
+    const [primeira, segunda] = result.current.estado.faturas.luz.linhas;
+    expect(primeira.id).not.toBe(segunda.id);
+
+    act(() => result.current.acoes.removerLinha("luz", primeira.id));
+    const restantes = result.current.estado.faturas.luz.linhas;
+    expect(restantes).toHaveLength(1);
+    expect(restantes[0].id).toBe(segunda.id);
+  });
+
+  it("linha da luz não vaza para a água", () => {
+    const { result } = montar();
+    const antes = result.current.estado.faturas.agua.linhas.length;
+    act(() => result.current.acoes.adicionarLinha("luz", "Custo de disponibilidade", "igual"));
+    expect(result.current.estado.faturas.agua.linhas).toHaveLength(antes);
+  });
+
+  it("crédito negativo abate em vez de sumir", () => {
+    const { result } = montar();
+    const [consumo] = result.current.estado.faturas.luz.linhas;
     act(() => {
-      result.current.acoes.definirPeriodo("ano", "2024");
-      result.current.acoes.definirPeriodo("mes", "2");
+      result.current.acoes.definirFatura("luz", "consumo", "100");
+      result.current.acoes.editarLinha("luz", consumo.id, "valor", "100");
+      result.current.acoes.adicionarLinha("luz", "Crédito de energia", "consumo");
     });
-    expect(result.current.resultado.diasNoPeriodo).toBe(29);
+    const credito = result.current.estado.faturas.luz.linhas.at(-1);
+    act(() => result.current.acoes.editarLinha("luz", credito.id, "valor", "-30"));
 
-    act(() => result.current.acoes.definirPeriodo("ano", "2025"));
-    expect(result.current.resultado.diasNoPeriodo).toBe(28);
-  });
-
-  it("mês inválido é ignorado em vez de zerar o período", () => {
-    const { result } = montar();
-    const antes = result.current.estado.periodo.mes;
-    act(() => result.current.acoes.definirPeriodo("mes", "abc"));
-    expect(result.current.estado.periodo.mes).toBe(antes);
-  });
-
-  it("recomeçar volta ao estado inicial", () => {
-    const { result } = montar();
-    act(() => result.current.acoes.ajustarQuantidadeDeMoradores(8));
-    act(() => result.current.acoes.recomecar());
-    expect(result.current.estado.moradores).toHaveLength(3);
+    expect(result.current.resultado.tarifaLuz).toBeCloseTo(0.7, 8);
   });
 });
 

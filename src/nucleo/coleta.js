@@ -2,21 +2,9 @@ import { MESES, nomeOu, num } from "./formato.js";
 import { diasDoPeriodo } from "./adaptador.js";
 
 /**
- * Monta a mensagem que a casa cola no grupo para juntar os dados do mês.
- *
- * A parte chata de fechar as contas nunca foi calcular: foi catar o dado de
- * cada um. Uma pessoa fica cobrando seis no grupo, esperando resposta, ouvindo
- * "acho que fiquei uns dez dias fora". Esta função não resolve isso, mas tira
- * a pior parte: saber o que perguntar, para quem, e de uma vez só.
- *
- * A mensagem pergunta exatamente o que os itens configurados exigem, e nada
- * além disso. Sem item por uso na casa, ninguém é perguntado sobre lavagens.
- *
- * É pura de propósito. Recebe o estado da tela e devolve texto — dá para
- * testar sem navegador e sem React.
+ * Mensagem pra cobrar atualizacoes e gastos
  */
 
-/** Pergunta que só uma pessoa precisa responder, sobre a casa toda. */
 function perguntasDaCasa(estado) {
   const perguntas = [];
 
@@ -53,7 +41,7 @@ function perguntasDaCasa(estado) {
   return perguntas;
 }
 
-/** Perguntas que cada morador responde por si. */
+// Perguntas que cada morador responde por si.
 function perguntasDeCadaUm(estado, diasNoMes) {
   const perguntas = [`Quantos dias você ficou fora da casa (o mês tem ${diasNoMes})`];
 
@@ -65,7 +53,7 @@ function perguntasDeCadaUm(estado, diasNoMes) {
   return perguntas;
 }
 
-/** Quem precisa responder, item por item, quando não é a casa inteira. */
+// Quem precisa responder, item por item, quando não é a casa inteira. 
 function observacoesDeGrupo(estado) {
   const total = estado.moradores.length;
   const observacoes = [];
@@ -89,10 +77,10 @@ function observacoesDeGrupo(estado) {
   return observacoes;
 }
 
-/** "Ana, Bia e Cau" em vez de "Ana, Bia, Cau". */
 function listar(nomes) {
   if (nomes.length <= 1) return nomes[0] ?? "";
-  return `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}`;
+  // .at() não existe em Safari anterior ao 15.4; indexação funciona em tudo.
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
 }
 
 export function montarMensagemDeColeta(estado) {

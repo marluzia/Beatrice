@@ -1,30 +1,54 @@
 import { Ajuda } from "../componentes/index.js";
 
-/**
- * As explicações longas do CDR, juntas num arquivo.
- *
- * Ficam fora dos passos porque são texto, não interface: quem for reescrever
- * uma frase não precisa abrir um componente com estado e efeito no meio.
- */
-
 export function AjudaContas() {
   return (
-    <Ajuda titulo="De onde tiro esses números">
+    <Ajuda titulo="Como lançar dados da fatura">
       <p>
-        Cada fatura traz dois números que interessam: <strong>quanto foi
-        consumido</strong> (kWh na luz, m³ na água) e <strong>quanto foi
-        cobrado</strong> no total. Copie os dois e o CDR calcula sozinho quanto
-        custa cada unidade.
+        <strong>Consumo faturado</strong> é a quantidade medida no ciclo: kWh na
+        luz, m³ na água. Cuidado que consumo medido e consumo faturado às vezes
+        diferem. Vale o faturado, que é o que virou dinheiro.
       </p>
       <p>
-        Use o valor cheio da fatura, com impostos e taxa de iluminação pública.
-        É esse valor que a casa vai pagar, então é ele que precisa ser
-        dividido.
+        Pegue a conta. Para cada item das <strong>linhas da fatura</strong> (energia consumida, taxas etc), insira o valor descrito e escolha como ela se comporta:
       </p>
       <p>
-        O mês de referência define quantos dias entram na conta. Fevereiro tem
-        28 ou 29, e vários meses têm 31 — deixar 30 fixo distorce o rateio de
-        quem viajou.
+        <strong>Acompanha o consumo</strong> : o valor sobe e desce com a
+        quantidade. Energia elétrica, tarifa de água e, importante, coleta e
+        tratamento de esgoto: esgoto tem cara de taxa, mas é cobrado como
+        percentual da água consumida. Essas linhas somadas, divididas pela
+        quantidade, dão a tarifa que pondera os aparelhos.
+      </p>
+      <p>
+        <strong>Divide igual</strong> : o valor existe independentemente do
+        consumo. Iluminação pública, custo mínimo fixo, custo de
+        disponibilidade. Viram itens próprios divididos entre todo mundo,
+        inclusive quem viajou, porque vieram na fatura de qualquer jeito.
+      </p>
+      <p>
+        A diferença importa em dinheiro. Se o esgoto for lançado como divide
+        igual, quem passou o mês fora paga o mesmo esgoto de quem tomou banho
+        todo dia, e esgoto costuma custar quase o mesmo que a água.
+      </p>
+      <p>
+        <strong>Crédito também é linha.</strong> Bônus, energia compensada e
+        restituição entram com valor negativo e abatem normalmente. Casa com
+        placa solar precisa disso.
+      </p>
+      <p>
+        <strong>Não lance a bandeira tarifária</strong> quando a fatura disser
+        que ela já está inclusa no valor a pagar. Nesse caso ela já está dentro
+        da linha de energia, e repetir cobra duas vezes.
+      </p>
+      <p>
+        Duas conferências aparecem sozinhas no fim de cada bloco. O
+        <strong> preço por unidade</strong> deve bater com o impresso na fatura;
+        se não bater, alguma linha ficou de fora. E o <strong>total</strong>{" "}
+        deve bater com o valor a pagar.
+      </p>
+      <p>
+        <strong>Dias entre leituras</strong> vem na fatura e nem sempre é 30.
+        Pode ser 21 num mês e 35 no seguinte. É esse número que divide a
+        presença de cada um. Em branco, vale o tamanho do mês escolhido.
       </p>
     </Ajuda>
   );
@@ -32,18 +56,14 @@ export function AjudaContas() {
 
 export function AjudaMoradores() {
   return (
-    <Ajuda titulo="O que conta como dia fora">
+    <Ajuda titulo="Ajuda">
       <p>
         <strong>Dias fora</strong> é o tempo que a pessoa passou longe da casa:
-        viagem, feriado na casa da família, intercâmbio. Sair para trabalhar ou
-        estudar não conta — ela dormiu lá, usou a geladeira, tomou banho.
+        viagem, feriado na casa da família, intercâmbio.
       </p>
       <p>
-        <strong>Dias contados</strong> é o que sobra, e é o peso usado nas
-        divisões por tempo. Ele aparece sozinho, não dá para digitar: dois
-        campos editáveis dizendo a mesma coisa acabam se contradizendo.
-      </p>
-      <p>
+        <strong>Dias contados</strong> é o peso usado nas
+        divisões por tempo. 
         Quem entra na casa depois passa a participar automaticamente dos itens
         que já estavam configurados. Se alguém não deve pagar algum deles, é só
         desmarcar no passo seguinte.
@@ -54,27 +74,21 @@ export function AjudaMoradores() {
 
 export function AjudaItens() {
   return (
-    <Ajuda titulo="Como escolher a divisão de cada item">
+    <Ajuda titulo="Ajuda">
       <p>
-        <strong>Igual</strong> — todo mundo do grupo paga a mesma fatia,
-        independentemente de quanto usou ou de quanto tempo ficou. Serve para
-        gasto que existe do mesmo jeito para todos.
+        <strong>Seleciona a forma de divisão que julgar conveniente</strong> 
       </p>
       <p>
-        <strong>Por dias</strong> — cada um paga na proporção dos dias que
-        passou em casa. Serve para gasto que acompanha a pessoa: galão de água,
-        gás, comida.
+        <strong>Igual</strong> : paga a mesma fatia,
+        independentemente de quanto usou ou de quanto tempo ficou. 
       </p>
       <p>
-        <strong>Por presença</strong> — o custo de cada dia é dividido entre
-        quem estava em casa naquele dia. Quem ficou sozinho num dia paga aquele
-        dia inteiro. É o certo para aparelho que gasta o mesmo com uma ou com
-        várias pessoas: o ar-condicionado não consome mais porque tem duas
-        pessoas no quarto.
+        <strong>Por dias</strong> : paga na proporção dos dias que
+        passou em casa. 
       </p>
       <p>
-        <strong>Por uso</strong> — cada um paga pelas vezes que usou. Aceita
-        decimais: uma lavagem dividida entre duas pessoas conta 0,5 para cada.
+        <strong>Por uso</strong> : paga pelas vezes que usou. Aceita
+        decimais para casos de compartilhamento, 1/n: uma despesa dividida entre duas pessoas conta 0,5 para cada. 3; 0,33. 4; 0,25 e assim por diante...
       </p>
       <p>
         Itens que saem da fatura são descontados dela antes do rateio comum, e
@@ -87,11 +101,13 @@ export function AjudaItens() {
 
 export function AjudaCentavos() {
   return (
-    <Ajuda titulo="Por que às vezes falta ou sobra um centavo">
+    <Ajuda titulo="Leitura">
       <p>
-        Divisão exata quase nunca dá um número de dinheiro. Cem reais entre três
-        pessoas dá 33,3333… para cada uma — e isso não existe. O menor pedaço
-        de dinheiro que uma pessoa consegue pagar é um centavo.
+        A conferência no fim compara as estimativas de despesa das pessoas com o que a
+        casa deve de verdade. 
+      </p>
+      <p>
+        Divisão exata geralmente possui mais casas decimais que o formato monetário, isso causa arredondamentos. Por exemplo, cem reais entre três pessoas:
       </p>
       <div className="ajuda__conta">
         {"R$ 100,00 ÷ 3  =  R$ 33,3333...\n" +
@@ -100,42 +116,14 @@ export function AjudaCentavos() {
           "                   falta 1 centavo"}
       </div>
       <p>
-        O centavo não sumiu por erro de cálculo. Ele nunca existiu: as três
-        pessoas juntas não conseguem formar R$ 100,00 com fatias iguais em
+        O centavo não sumiu por erro de cálculo. 3 pessoas juntas não conseguem formar R$ 100,00 com fatias iguais em
         centavos inteiros.
       </p>
       <p>
-        Muita calculadora esconde isso mostrando R$ 33,33 três vezes e dizendo
-        que fechou. O CDR refaz a divisão em centavos inteiros — a moeda em que
-        a conta vai ser paga de verdade — e, quando falta ou sobra, avisa em
-        amarelo dizendo exatamente quantos centavos são.
+        A CDR, quando falta ou sobra, avisa exatamente a quantidade que "foge" da conta.
       </p>
       <p>
-        Quem cobre a diferença é decisão da casa, não da calculadora. Uma saída
-        comum é revezar: quem paga o centavo a mais neste mês fica com o de
-        sobra no próximo.
-      </p>
-    </Ajuda>
-  );
-}
-
-export function AjudaRateio() {
-  return (
-    <Ajuda titulo="Como ler este resultado">
-      <p>
-        Toque no nome de alguém para abrir o detalhamento e ver de onde veio
-        cada centavo daquele total.
-      </p>
-      <p>
-        Nas barras, cada faixa colorida é a fatia de uma pessoa naquele item.
-        Barras marcadas como <strong>sobra</strong> são o uso comum: o que restou
-        das faturas depois de descontar os aparelhos específicos, dividido por
-        dias em casa.
-      </p>
-      <p>
-        A conferência no fim compara o que foi cobrado das pessoas com o que a
-        casa deve de verdade. Os dois números têm que bater — se não baterem, o
-        CDR avisa em vermelho em vez de esconder.
+        Quem cobre a diferença é decisão da casa, não da calculadora.
       </p>
     </Ajuda>
   );
