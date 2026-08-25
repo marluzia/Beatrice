@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alerta, Ficha, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, num, reais } from "../nucleo/formato.js";
 import Regua from "./Regua.jsx";
+import Apoio from "./Apoio.jsx";
 import { AjudaCentavos } from "./ajudas.jsx";
 
 export default function PassoRateio({ estado, resultado, indicePorId }) {
@@ -118,6 +119,7 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
           <p className={classeDoVeredito}>{veredito}</p>
         </div>
       </Ficha>
+      <Apoio resultado={resultado} />
     </div>
   );
 }

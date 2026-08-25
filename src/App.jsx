@@ -52,7 +52,7 @@ export default function App() {
 
       <div className="salvamento">
         <span>
-          Os dados preenchidos estão salvos neste navegador. Fechar a aba não os apaga. Exceto se limpar ou trocar de aparelho.
+          Os dados preenchidos estão salvos no seu navegador. Fechar a aba não os apaga. Exceto se limpar ou trocar de aparelho.
         </span>
         <Botao
           tipo="fantasma"
@@ -72,7 +72,7 @@ export default function App() {
 
       <footer className="rodape">
         <p>
-          por marluzia😽
+          por marialuzia😽
         </p>
       </footer>
     </div>
