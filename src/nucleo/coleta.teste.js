@@ -41,7 +41,7 @@ describe("cabeçalho", () => {
   });
 
   it("diz que a resposta é no grupo, à vista de todos", () => {
-    expect(montarMensagemDeColeta(casa())).toContain("todo mundo conferir");
+    expect(montarMensagemDeColeta(casa())).toMatch(/no grupo.*conferir/);
   });
 
   it("avisa quando não há morador para perguntar", () => {

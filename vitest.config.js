@@ -1,10 +1,8 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 
-/**
- * Separada da vite.config.js de propósito: o que roda no navegador e o que
- * roda nos testes não têm por que compartilhar configuração.
- */
 export default defineConfig({
+  plugins: [react()],
   test: {
     include: ["src/**/*.teste.{js,jsx,ts,tsx}"],
     environment: "node",
