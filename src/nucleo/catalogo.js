@@ -1,17 +1,5 @@
 import { novoId } from "./formato.js";
 
-/**
- * Catálogo de itens que a casa pode adicionar.
- *
- * Duas famílias, e a diferença entre elas é de onde sai o dinheiro:
- *   sai da fatura -> descontado da luz ou da água antes do uso comum (tem teto)
- *   pago em reais -> soma por cima das faturas (não tem teto)
- *
- * Cada modelo declara os rateios que fazem sentido para ele. Geladeira liga
- * sozinha o mês inteiro, então "por uso" não quer dizer nada ali. O motor
- * ainda aplica por cima a regra estrutural: item cobrado por uso nunca divide
- * por dias.
- */
 export const CATALOGO = [
   {
     grupo: "Sai da fatura de luz ou água",
@@ -41,9 +29,10 @@ export const CATALOGO = [
         dica: "Por dias, para quem usa aquele banheiro. Se a casa contar banhos, dá para dividir por uso.",
       },
       {
-        chave: "ventilador", nome: "Ventilador", especie: "consumo",
-        quantidade: "", unidade: "kwh",
+        chave: "ventilador", nome: "Ventilador", especie: "porHora",
+        porHora: "", horas: "", unidade: "kwh",
         rateio: "presenca", rateios: ["igual", "dias", "presenca"],
+        dica: "Como o ar-condicionado: o consumo por hora vem da etiqueta, em kWh/h, e multiplica pelas horas ligadas no mês. Um ventilador de teto fica perto de 0,12 kWh/h.",
       },
       {
         chave: "freezer", nome: "Freezer", especie: "consumo",
@@ -103,7 +92,6 @@ export const TODOS_OS_ITENS = CATALOGO.flatMap((g) => g.itens);
 
 export const modeloPorChave = (chave) => TODOS_OS_ITENS.find((i) => i.chave === chave);
 
-/** Modelo do catálogo -> item editável, já com todo mundo marcado. */
 export const criarItem = (modelo, participantes = []) => ({
   id: novoId("i"),
   nome: modelo.nome,
@@ -121,6 +109,7 @@ export const criarItem = (modelo, participantes = []) => ({
   rateio: modelo.rateio,
   rateios: modelo.rateios ?? ["igual", "dias", "uso"],
   usosPorPessoa: {},
+  eventos: [],
   dica: modelo.dica,
   participantes: [...participantes],
 });

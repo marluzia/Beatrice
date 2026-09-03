@@ -11,7 +11,6 @@ export default class BarreiraDeErro extends Component {
   }
 
   componentDidCatch(erro, info) {
-    // Fica no console para quem for investigar com o aparelho em mãos.
     console.error("CDR quebrou:", erro, info?.componentStack);
   }
 
@@ -45,9 +44,7 @@ export default class BarreiraDeErro extends Component {
               onClick={() => {
                 try {
                   window.localStorage.removeItem("cdr:casa");
-                } catch {
-                  // Se nem apagar dá, recarregar é o que resta.
-                }
+                } catch {}
                 window.location.reload();
               }}
             >

@@ -2,20 +2,11 @@ import { describe, expect, it } from "vitest";
 import { calcular, conferir } from "./motor.ts";
 import type { Estado, Item, Morador } from "./motor.ts";
 
-/**
- * Taxas fixas da fatura.
- *
- * Iluminação pública e custo de disponibilidade não dependem de consumo. Se
- * entrarem no bolo da tarifa, o CDR passa a cobrá-las na proporção do que cada
- * aparelho gasta — quem liga mais o ar paga mais taxa da prefeitura. Separadas,
- * viram um item à parte dividido igual.
- */
-
 const moradores = (fora: number[]): Morador[] =>
   fora.map((diasFora, i) => ({ id: `m${i}`, nome: `Pessoa ${i + 1}`, diasFora }));
 
 const casa = (parcial: Partial<Estado> = {}): Estado => ({
-  periodo: { mes: 4, ano: 2026 }, // 30 dias
+  periodo: { mes: 4, ano: 2026 },
   faturas: { luzKwh: 400, luzValor: 400, aguaM3: 0, aguaValor: 0 },
   moradores: moradores([0, 0, 0, 0]),
   itens: [],
@@ -36,14 +27,14 @@ const itemDe = (estado: Estado, id: string) =>
 describe("a tarifa passa a refletir só o consumo", () => {
   it("sem taxa, a tarifa é o valor cheio dividido pelo consumo", () => {
     const r = calcular(casa());
-    expect(r.tarifaLuz).toBeCloseTo(1, 10); // 400 / 400
+    expect(r.tarifaLuz).toBeCloseTo(1, 10);
   });
 
   it("com taxa, a taxa sai antes de dividir", () => {
     const r = calcular(
       casa({ faturas: { luzKwh: 400, luzValor: 400, luzTaxasFixas: 40, aguaM3: 0, aguaValor: 0 } }),
     );
-    expect(r.tarifaLuz).toBeCloseTo(0.9, 10); // (400 − 40) / 400
+    expect(r.tarifaLuz).toBeCloseTo(0.9, 10);
   });
 
   it("a taxa não infla o custo dos aparelhos", () => {
@@ -52,8 +43,8 @@ describe("a tarifa passa a refletir só o consumo", () => {
       itens: [geladeira],
       faturas: { luzKwh: 400, luzValor: 400, luzTaxasFixas: 40, aguaM3: 0, aguaValor: 0 },
     });
-    expect(itemDe(semTaxa, "gel")?.custoTotal).toBeCloseTo(100, 10); // 100 kWh × 1,00
-    expect(itemDe(comTaxa, "gel")?.custoTotal).toBeCloseTo(90, 10); // 100 kWh × 0,90
+    expect(itemDe(semTaxa, "gel")?.custoTotal).toBeCloseTo(100, 10);
+    expect(itemDe(comTaxa, "gel")?.custoTotal).toBeCloseTo(90, 10);
   });
 });
 
@@ -83,7 +74,6 @@ describe("a taxa vira item próprio, dividido igual", () => {
     );
     const taxa = viajou.itens.find((i) => i.id === "__taxa_luz_0");
     const ausente = taxa?.fatias.find((f) => f.moradorId === "m3");
-    // A taxa veio na fatura de qualquer jeito: não depende de ninguém estar em casa.
     expect(ausente?.total).toBeCloseTo(10, 10);
   });
 
@@ -109,7 +99,6 @@ describe("quem gasta mais não paga mais taxa", () => {
     );
     const taxa = r.itens.find((i) => i.id === "__taxa_luz_0");
     for (const fatia of taxa?.fatias ?? []) expect(fatia.total).toBeCloseTo(10, 10);
-    // A Ana paga muito mais no total, mas exatamente a mesma taxa.
     expect(r.moradores[0].total).toBeGreaterThan(r.moradores[1].total);
   });
 });
@@ -121,7 +110,7 @@ describe("água segue a mesma regra", () => {
         faturas: { luzKwh: 0, luzValor: 0, aguaM3: 20, aguaValor: 200, aguaTaxasFixas: 40 },
       }),
     );
-    expect(r.tarifaAgua).toBeCloseTo(8, 10); // (200 − 40) / 20
+    expect(r.tarifaAgua).toBeCloseTo(8, 10);
     const taxa = r.itens.find((i) => i.id === "__taxa_agua_0");
     expect(taxa?.custoTotal).toBeCloseTo(40, 10);
     for (const fatia of taxa?.fatias ?? []) expect(fatia.total).toBeCloseTo(10, 10);
@@ -175,7 +164,7 @@ describe("taxas discriminadas linha por linha", () => {
   const comLinhas = casa({
     faturas: {
       luzKwh: 122,
-      luzValor: 116.41, // 101,01 de consumo + 12,73 + 2,67
+      luzValor: 116.41,
       luzTaxas: [
         { nome: "Iluminação pública", valor: 12.73 },
         { nome: "Bandeira amarela", valor: 2.67 },
@@ -248,8 +237,6 @@ describe("taxas discriminadas linha por linha", () => {
         },
       }),
     );
-    // Quem discrimina linha a linha já montou o total a partir delas: não há
-    // o que recortar, e recortar quebraria crédito negativo.
     const soma = r.itens
       .filter((i) => i.id.startsWith("__taxa_luz_"))
       .reduce((s, i) => s + i.custoTotal, 0);
@@ -290,7 +277,6 @@ describe("dias do ciclo de faturamento", () => {
   });
 });
 
-
 describe("crédito na fatura", () => {
   it("linha negativa abate em vez de ser ignorada", () => {
     const r = calcular(
@@ -309,7 +295,6 @@ describe("crédito na fatura", () => {
     );
     const bonus = r.itens.find((i) => i.nome === "Bônus Itaipu");
     expect(bonus?.custoTotal).toBeCloseTo(-10, 8);
-    // Cada morador recebe o abatimento na mesma proporção em que paga a taxa.
     for (const fatia of bonus?.fatias ?? []) expect(fatia.total).toBeCloseTo(-2.5, 8);
     expect(conferir(r)).toBe(true);
   });

@@ -2,12 +2,6 @@ import { describe, expect, it } from "vitest";
 import { montarMensagemDeColeta } from "./coleta.js";
 import { criarItem, modeloPorChave } from "./catalogo.js";
 
-/**
- * A mensagem tem uma regra que vale mais que a redação: ela pergunta o que os
- * itens configurados exigem, e só isso. Perguntar sobre lavagem numa casa sem
- * máquina faz a pessoa desconfiar do resto.
- */
-
 const MORADORES = [
   { id: "m0", nome: "Ana", diasFora: "" },
   { id: "m1", nome: "Bia", diasFora: "" },
@@ -16,7 +10,14 @@ const MORADORES = [
 
 const IDS = MORADORES.map((m) => m.id);
 
-const FATURAS_CHEIAS = { luzKwh: "400", luzValor: "360", aguaM3: "20", aguaValor: "180" };
+const fatura = (unidade, consumo, valor) => ({
+  unidade,
+  consumo,
+  linhas: [{ id: `l${unidade}`, nome: "Tarifa", valor, comportamento: "consumo" }],
+});
+
+const FATURAS_CHEIAS = { luz: fatura("kwh", "400", "360"), agua: fatura("m3", "20", "180") };
+const FATURAS_VAZIAS = { luz: fatura("kwh", "", ""), agua: fatura("m3", "", "") };
 
 const casa = ({ itens = [], moradores = MORADORES, faturas = FATURAS_CHEIAS } = {}) => ({
   periodo: { mes: 8, ano: 2026 },
@@ -30,14 +31,25 @@ const item = (chave, campos = {}) => ({
   ...campos,
 });
 
+const secao = (mensagem, titulo) => {
+  const linhas = mensagem.split("\n");
+  const inicio = linhas.findIndex((l) => l.startsWith(titulo));
+  if (inicio < 0) return "";
+  const resto = linhas.slice(inicio + 1);
+  const fim = resto.findIndex((l) => l.trim() === "");
+  return (fim < 0 ? resto : resto.slice(0, fim)).join("\n");
+};
+
+const lancado = (m) => secao(m, "JÁ LANÇADO");
+const falta = (m) => secao(m, "FALTA");
+
 describe("cabeçalho", () => {
   it("nomeia o mês por extenso", () => {
     expect(montarMensagemDeColeta(casa())).toContain("Fechamento de agosto de 2026");
   });
 
   it("chama todo mundo pelo nome e liga os últimos com 'e'", () => {
-    const m = montarMensagemDeColeta(casa());
-    expect(m).toContain("Ana, Bia e Pessoa 3");
+    expect(montarMensagemDeColeta(casa())).toContain("Ana, Bia e Pessoa 3");
   });
 
   it("diz que a resposta é no grupo, à vista de todos", () => {
@@ -45,38 +57,129 @@ describe("cabeçalho", () => {
   });
 
   it("avisa quando não há morador para perguntar", () => {
-    const m = montarMensagemDeColeta(casa({ moradores: [] }));
-    expect(m).toContain("Nenhum morador cadastrado");
+    expect(montarMensagemDeColeta(casa({ moradores: [] }))).toContain("Nenhum morador cadastrado");
   });
 });
 
-describe("pergunta sempre os dias fora, com o tamanho certo do mês", () => {
-  it("agosto tem 31", () => {
-    expect(montarMensagemDeColeta(casa())).toContain("o mês tem 31");
+describe("as duas seções", () => {
+  it("separa o que já está lançado do que falta", () => {
+    const m = montarMensagemDeColeta(casa({ itens: [item("gas", { valor: "130" })] }));
+    expect(m).toContain("JÁ LANÇADO");
+    expect(m).toContain("FALTA");
+    expect(m.indexOf("JÁ LANÇADO")).toBeLessThan(m.indexOf("FALTA"));
+  });
+
+  it("não abre a seção de lançados numa casa em que nada foi preenchido", () => {
+    const m = montarMensagemDeColeta(casa({ faturas: FATURAS_VAZIAS }));
+    expect(m).not.toContain("JÁ LANÇADO");
+  });
+
+  it("diz que dá para fechar quando não falta nada", () => {
+    const moradores = MORADORES.map((m) => ({ ...m, diasFora: "0" }));
+    const m = montarMensagemDeColeta(casa({ moradores, itens: [item("gas", { valor: "130" })] }));
+    expect(m).not.toContain("FALTA:");
+    expect(m).toContain("já dá para fechar");
+  });
+});
+
+describe("seção do que já está lançado", () => {
+  it("mostra a fatura de luz com consumo e valor", () => {
+    expect(lancado(montarMensagemDeColeta(casa()))).toContain("Luz: 400 kWh, R$ 360,00");
+  });
+
+  it("mostra a fatura de água com consumo e valor", () => {
+    expect(lancado(montarMensagemDeColeta(casa()))).toContain("Água: 20 m³, R$ 180,00");
+  });
+
+  it("soma as linhas da fatura em vez de mostrar uma delas", () => {
+    const luz = fatura("kwh", "400", "330");
+    luz.linhas.push({ id: "l2", nome: "Iluminação", valor: "30", comportamento: "igual" });
+    const m = montarMensagemDeColeta(casa({ faturas: { ...FATURAS_CHEIAS, luz } }));
+    expect(lancado(m)).toContain("R$ 360,00");
+  });
+
+  it("escreve dinheiro em reais, com centavos", () => {
+    const m = montarMensagemDeColeta(casa({ itens: [item("internet", { valor: "99.9" })] }));
+    expect(lancado(m)).toContain("Internet: R$ 99,90");
+  });
+
+  it("escreve consumo com vírgula decimal", () => {
+    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { quantidade: "124.5" })] }));
+    expect(lancado(m)).toContain("Geladeira: 124,5 kWh");
+  });
+
+  it("lista quem já respondeu os dias fora", () => {
+    const moradores = [{ ...MORADORES[0], diasFora: "3" }, MORADORES[1], MORADORES[2]];
+    expect(lancado(montarMensagemDeColeta(casa({ moradores })))).toContain("Dias fora: Ana 3");
+  });
+
+  it("não lança o que está em branco", () => {
+    const m = montarMensagemDeColeta(casa({ itens: [item("gas", { valor: "" })] }));
+    expect(lancado(m)).not.toContain("Gás");
+  });
+
+  it("não lança o total de um item que divide por uso: ele vem das respostas", () => {
+    const m = montarMensagemDeColeta(
+      casa({ itens: [item("faxina", { usos: "4", rateio: "uso" })] }),
+    );
+    expect(lancado(m)).not.toContain("Faxina: 4 usos");
+  });
+});
+
+describe("seção do que falta", () => {
+  it("pede consumo e linhas quando a fatura está em branco", () => {
+    const m = falta(montarMensagemDeColeta(casa({ faturas: FATURAS_VAZIAS })));
+    expect(m).toContain("Luz: consumo em kWh e as linhas da fatura");
+    expect(m).toContain("Água: consumo em m³ e as linhas da fatura");
+  });
+
+  it("pede só o consumo quando os valores já estão lá", () => {
+    const luz = fatura("kwh", "", "360");
+    const m = falta(montarMensagemDeColeta(casa({ faturas: { ...FATURAS_CHEIAS, luz } })));
+    expect(m).toContain("Luz: consumo em kWh");
+    expect(m).not.toContain("e as linhas da fatura");
+  });
+
+  it("não pede a fatura quando ela está completa", () => {
+    expect(falta(montarMensagemDeColeta(casa()))).not.toContain("Luz:");
+  });
+
+  it("pergunta os dias fora com o tamanho certo do mês", () => {
+    expect(falta(montarMensagemDeColeta(casa()))).toContain("o mês tem 31");
   });
 
   it("fevereiro bissexto tem 29", () => {
     const m = montarMensagemDeColeta({ ...casa(), periodo: { mes: 2, ano: 2024 } });
-    expect(m).toContain("o mês tem 29");
+    expect(falta(m)).toContain("o mês tem 29");
   });
-});
 
-describe("pergunta só o que os itens exigem", () => {
-  it("sem item por uso, não pergunta sobre usos individuais", () => {
-    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { quantidade: "124.5" })] }));
-    expect(m).not.toContain("quantos usos foram seus");
+  it("nomeia só quem ainda não respondeu os dias", () => {
+    const moradores = [{ ...MORADORES[0], diasFora: "3" }, MORADORES[1], MORADORES[2]];
+    const m = falta(montarMensagemDeColeta(casa({ moradores })));
+    expect(m).toContain("Bia e Pessoa 3");
+    expect(m).not.toContain("Ana, Bia");
+  });
+
+  it("marca o que cada um responde por si", () => {
+    const m = falta(montarMensagemDeColeta(casa()));
+    expect(m).toMatch(/dias.*\(cada um responde\)/);
   });
 
   it("com máquina dividida por uso, pergunta as lavagens de cada um", () => {
     const m = montarMensagemDeColeta(
       casa({ itens: [item("maquina", { kwhPorUso: "0.46", m3PorUso: "0.188", rateio: "uso" })] }),
     );
-    expect(m).toContain("Máquina de lavar: quantos usos foram seus");
+    expect(falta(m)).toContain("Máquina de lavar: quantos usos foram seus");
+  });
+
+  it("sem item por uso, não pergunta sobre usos individuais", () => {
+    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { quantidade: "124.5" })] }));
+    expect(m).not.toContain("quantos usos foram seus");
   });
 
   it("com ar-condicionado sem horas, pergunta as horas à casa", () => {
     const m = montarMensagemDeColeta(casa({ itens: [item("ar", { porHora: "1.2", horas: "" })] }));
-    expect(m).toContain("Ar-condicionado: quantas horas ficou ligado no mês");
+    expect(falta(m)).toContain("Ar-condicionado: quantas horas ficou ligado no mês");
   });
 
   it("não pergunta o que já está preenchido", () => {
@@ -88,18 +191,12 @@ describe("pergunta só o que os itens exigem", () => {
     const m = montarMensagemDeColeta(
       casa({ itens: [item("faxina", { valorPorUso: "90", usos: "", rateio: "igual" })] }),
     );
-    expect(m).toContain("Faxina: quantos usos no mês");
+    expect(falta(m)).toContain("Faxina: quantos usos no mês");
   });
 
-  it("pede as faturas quando estão em branco", () => {
-    const m = montarMensagemDeColeta(
-      casa({ faturas: { luzKwh: "", luzValor: "", aguaM3: "", aguaValor: "" } }),
-    );
-    expect(m).toContain("faturas de luz e água");
-  });
-
-  it("não pede as faturas quando já estão preenchidas", () => {
-    expect(montarMensagemDeColeta(casa())).not.toContain("faturas de luz e água");
+  it("pergunta o valor de uma despesa em reais ainda em branco", () => {
+    const m = montarMensagemDeColeta(casa({ itens: [item("gas", { valor: "" })] }));
+    expect(falta(m)).toContain("Gás: quanto foi no mês");
   });
 
   it("ignora item sem ninguém marcado", () => {
@@ -125,7 +222,7 @@ describe("itens que não são de todo mundo", () => {
 });
 
 describe("forma da mensagem", () => {
-  it("cabe num grupo: não passa de vinte linhas numa casa comum", () => {
+  it("cabe num grupo: não passa de vinte e cinco linhas numa casa comum", () => {
     const m = montarMensagemDeColeta(
       casa({
         itens: [
@@ -137,7 +234,7 @@ describe("forma da mensagem", () => {
         ],
       }),
     );
-    expect(m.split("\n").length).toBeLessThanOrEqual(20);
+    expect(m.split("\n").length).toBeLessThanOrEqual(25);
   });
 
   it("não deixa marcação de código nem placeholder solto", () => {

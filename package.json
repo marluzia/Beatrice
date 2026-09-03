@@ -10,10 +10,13 @@
   "scripts": {
     "dev": "vite",
     "checar": "tsc --noEmit",
+    "checar:node": "node -e \"const [ma,mi]=process.versions.node.split('.').map(Number);const ok=ma>=24||(ma===22&&mi>=12)||(ma===20&&mi>=19);if(!ok){console.error('\\\\nNode '+process.versions.node+' nao serve para os testes.\\\\nO jsdom exige Node 20.19+, 22.12+ ou 24+ (require de modulo ESM).\\\\nRode: nvm use 24\\\\n');process.exit(1);}\"",
+    "pretestar": "npm run checar:node",
     "testar": "vitest run",
     "testar:vigiar": "vitest",
-    "build": "npm run checar && npm run testar && vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "build": "npm run checar && vite build",
+    "verificar": "npm run checar && npm run testar"
   },
   "dependencies": {
     "react": "^18.3.1",

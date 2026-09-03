@@ -525,7 +525,13 @@ button {
   grid-column: 2;
   display: flex;
   align-items: flex-end;
-  gap: 14px;
+  gap: 18px;
+}
+
+.dias-contados em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--tinta-fraca);
 }
 
 .dias-contados {
@@ -909,12 +915,13 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  margin: 10px 0 15px 0;
 }
 
 /* Ajuda ------------------------------------------------------------------- */
 
 .ajuda {
-  margin-top: 1rem;
+  margin: 10px 0 15px 0;
   border: 1px solid var(--regua);
   border-radius: 3px;
   background: #fff;
@@ -1154,4 +1161,327 @@ button {
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   color: var(--tinta-fraca);
+}
+/* Ciclos de leitura, calendário e ausências ------------------------------ */
+
+.ciclos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ciclo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ciclo-nome {
+  min-width: 44px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+}
+
+.ciclo-seta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--tinta-fraca);
+}
+
+.campo-data {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.caixa--data {
+  width: auto;
+  max-width: 8.5rem;
+  flex: 0 1 auto;
+}
+
+.caixa--erro {
+  border-color: var(--alerta);
+  background: var(--alerta-fundo);
+}
+
+.periodo-deduzido {
+  margin: 10px 0 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--tinta-fraca);
+}
+
+.periodo-deduzido strong {
+  color: var(--tinta);
+  font-weight: 400;
+}
+
+/* Calendário de um mês, dentro da linha do morador. */
+
+.calendario {
+  width: 100%;
+  max-width: 21rem;
+}
+
+.calendario-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.calendario-titulo {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+}
+
+.calendario-seta {
+  min-width: 30px;
+  min-height: 30px;
+  background: var(--branco);
+  border: 1px solid var(--regua);
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--tinta);
+}
+
+.calendario-grade {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calendario-cabeca {
+  padding: 2px 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-align: center;
+  color: var(--tinta-fraca);
+}
+
+.calendario-vazio {
+  aspect-ratio: 1;
+}
+
+.calendario-dia {
+  aspect-ratio: 1;
+  padding: 0;
+  background: var(--branco);
+  border: 1px solid var(--regua);
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.calendario-dia--marcado {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: var(--papel);
+}
+
+/* Dia que nenhuma fatura cobre: visível para dar noção do mês, mas apagado. */
+.calendario-dia--fora {
+  background: transparent;
+  border-color: transparent;
+  color: var(--regua);
+}
+
+.calendario-seta:disabled {
+  color: var(--regua);
+  border-color: var(--regua);
+}
+
+.morador-ausencia {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.periodos-fora {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.periodo-fora {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  background: var(--branco);
+  border: 1px solid var(--regua);
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.usos-pessoa {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--regua);
+}
+
+.usos-pessoa:last-child {
+  border-bottom: none;
+}
+
+.detalhe-nota {
+  margin: 8px 0 0;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--tinta-fraca);
+  border-left: 2px solid var(--aviso);
+  border-radius: 0;
+  padding-left: 8px;
+}
+
+.lista-orfas {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lista-orfas strong {
+  font-weight: 500;
+}
+
+.uso-derivado {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 90px;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.uso-derivado em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--tinta-fraca);
+}
+
+.linha-fatura__quantidade {
+  max-width: 90px;
+  flex: 0 1 auto;
+}
+
+.consumo-somado {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.consumo-somado em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--tinta-fraca);
+}
+
+.evento-uso {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--regua);
+}
+
+.evento-uso:last-of-type {
+  border-bottom: none;
+}
+
+.evento-uso__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.botao--ligado {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: var(--papel);
+}
+
+.selo--erro {
+  background: var(--alerta-fundo);
+  border-color: var(--alerta);
+  color: var(--alerta);
+}
+
+.item-falta {
+  margin: 0;
+  padding: 8px 12px 10px;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--tinta-fraca);
+  border-top: 1px solid var(--regua);
+}
+
+.item-acao:disabled {
+  color: var(--regua);
+}
+
+/* Dia do uso -------------------------------------------------------------- */
+
+.dia-do-uso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.dia-do-uso .calendario {
+  flex: 1 1 100%;
+}
+
+.dia-do-uso__marca {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--tinta);
+  padding: 0.25rem 0.5rem;
+  background: var(--papel-fundo);
+  border-radius: 3px;
+}
+
+.consumo-somado--vazio {
+  color: var(--tinta-fraca);
+}
+
+.dica--alerta {
+  color: var(--alerta, #b24232);
 }

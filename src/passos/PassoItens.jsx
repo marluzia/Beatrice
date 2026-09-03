@@ -26,6 +26,8 @@ export default function PassoItens({ estado, resultado, indicePorId, acoes }) {
                 moradores={estado.moradores}
                 indicePorId={indicePorId}
                 resultado={resultado}
+                periodo={estado.periodo}
+                faturas={estado.faturas}
                 acoes={acoes}
               />
             ))}
@@ -53,8 +55,6 @@ export default function PassoItens({ estado, resultado, indicePorId, acoes }) {
           </div>
         ))}
       </Ficha>
-
-     
 
       <MensagemDeColeta estado={estado} />
     </div>

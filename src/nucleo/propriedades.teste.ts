@@ -2,21 +2,8 @@ import { describe, expect, it } from "vitest";
 import { calcular, conferir, diasDoPeriodo } from "./motor.ts";
 import type { Estado, Item, Rateio } from "./motor.ts";
 
-/**
- * Testes de propriedade.
- *
- * Os testes de cenário provam que casos escolhidos a dedo dão certo. Estes
- * provam que nenhum caso dá errado, gerando repúblicas aleatórias e afirmando
- * as regras que precisam valer sempre.
- *
- * O sorteio é determinístico: cada república nasce de uma semente numérica.
- * Quando um teste falha, a semente aparece na mensagem e o caso pode ser
- * reproduzido exatamente com `republica(semente)`.
- */
-
 const REPETICOES = 400;
 
-/** Gerador congruente linear. Pequeno, determinístico e suficiente aqui. */
 function sorteio(semente: number) {
   let estado = semente >>> 0 || 1;
   return () => {
@@ -38,7 +25,6 @@ export function republica(semente: number): Estado {
   const moradores = Array.from({ length: quantos }, (_, i) => ({
     id: `m${i}`,
     nome: talvez(0.2) ? "" : `Pessoa ${i + 1}`,
-    // Passa do tamanho do mês de propósito, para exercitar o corte.
     diasFora: talvez(0.15) ? inteiro(0, 60) : inteiro(0, dias),
   }));
   const ids = moradores.map((m) => m.id);
@@ -94,7 +80,6 @@ export function republica(semente: number): Estado {
   };
 }
 
-/** Roda uma afirmação contra muitas repúblicas, apontando a semente que falhou. */
 function paraToda(nome: string, afirmar: (estado: Estado, resultado: ReturnType<typeof calcular>) => void) {
   it(nome, () => {
     for (let semente = 1; semente <= REPETICOES; semente++) {
@@ -116,8 +101,6 @@ function paraToda(nome: string, afirmar: (estado: Estado, resultado: ReturnType<
 describe(`propriedades, em ${REPETICOES} repúblicas sorteadas`, () => {
   paraToda("a soma cobrada é igual ao total devido", (e, r) => {
     if (e.moradores.length === 0) {
-      // Sem morador não há a quem cobrar. O que se exige aqui é que o motor
-      // diga isso em voz alta, em vez de devolver um rateio vazio calado.
       if (Math.abs(r.somaDevida) > 0.005) {
         expect(r.alertas.some((a) => a.nivel === "erro")).toBe(true);
       }
@@ -167,7 +150,6 @@ describe(`propriedades, em ${REPETICOES} repúblicas sorteadas`, () => {
   paraToda("casa sem morador e com conta a pagar sempre acusa erro", (e, r) => {
     if (e.moradores.length > 0 || Math.abs(r.somaDevida) <= 0.005) return;
     expect(r.alertas.some((a) => a.nivel === "erro")).toBe(true);
-    // E não fica falando de arredondamento, que não é o problema ali.
     expect(r.alertas.some((a) => a.texto.includes("Arredondando"))).toBe(false);
   });
 

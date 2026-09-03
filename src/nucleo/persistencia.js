@@ -1,28 +1,8 @@
-/**
- * Guarda a casa no navegador de quem está usando.
- *
- * Sem isso, recarregar a página apaga sete moradores e seis itens de uma vez.
- * Numa república real isso não vira crítica ao produto: vira uma pessoa
- * desistindo no meio.
- *
- * Nada sai deste navegador. Não há servidor, conta nem sincronização — trocar
- * de aparelho ou abrir numa aba anônima começa do zero.
- *
- * Tudo aqui é à prova de falha. Navegador com armazenamento bloqueado, cota
- * estourada ou dado corrompido não pode derrubar a aplicação: na dúvida, o CDR
- * abre vazio, que é um estado ruim mas utilizável.
- */
 
 const CHAVE = "cdr:casa";
 
-/**
- * Versão do formato salvo. Suba este número sempre que a forma do estado mudar
- * de um jeito que o código novo não saiba ler — um dado antigo lido errado é
- * pior que dado nenhum, porque produz conta errada em silêncio.
- */
-const VERSAO = 3;
+const VERSAO = 4;
 
-/** Nem todo navegador tem localStorage utilizável (anônimo, cota, políticas). */
 function deposito() {
   try {
     const teste = "cdr:teste";
@@ -41,13 +21,10 @@ export function salvarCasa(estado) {
     guarda.setItem(CHAVE, JSON.stringify({ versao: VERSAO, estado }));
     return true;
   } catch {
-    // Cota estourada ou estado que não vira JSON. Perder o salvamento é
-    // aceitável; derrubar a tela de quem está no meio do cálculo, não.
     return false;
   }
 }
 
-/** Devolve o estado salvo, ou null se não houver nada confiável para ler. */
 export function carregarCasa() {
   const guarda = deposito();
   if (!guarda) return null;
@@ -67,7 +44,7 @@ export function carregarCasa() {
     const estado = migrar(pacote.estado, pacote.versao);
     if (!estado) return null;
 
-    return pareceUmaCasa(estado) ? estado : null;
+    return pareceUmaCasa(estado) ? sanear(estado) : null;
   } catch {
     return null;
   }
@@ -78,35 +55,15 @@ export function limparCasa() {
   if (!guarda) return;
   try {
     guarda.removeItem(CHAVE);
-  } catch {
-    // Sem nada a fazer, e nada que justifique quebrar a tela.
-  }
+  } catch {}
 }
 
-/**
- * Conferência mínima de forma antes de aceitar o que veio do disco.
- *
- * Não valida cada campo: valida que é o tipo de objeto certo. O objetivo é
- * barrar lixo — outra aplicação escrevendo na mesma chave, um recorte pela
- * metade — sem virar um segundo esquema para manter em dia.
- */
-/**
- * Traz uma casa salva num formato antigo para o formato de hoje.
- *
- * Descartar seria mais simples, mas quem tem casa salva é justamente quem já
- * está usando o CDR — perder a configuração de sete moradores por causa de uma
- * atualização é o pior momento possível para pedir que comecem de novo.
- *
- * Formato desconhecido, aí sim, é descartado: dado antigo lido errado produz
- * conta errada em silêncio, que é pior que começar do zero.
- */
 function migrar(estado, versao) {
   if (!estado || typeof estado !== "object") return null;
   if (versao === VERSAO) return estado;
 
   const numero = (v) => Number(String(v ?? "").replace(",", ".")) || 0;
 
-  /** Versão 1: valor da fatura já incluía as taxas, num campo só. */
   if (versao === 1) {
     const f = estado.faturas ?? {};
 
@@ -135,16 +92,18 @@ function migrar(estado, versao) {
       return { unidade, consumo: consumo ?? "", linhas };
     };
 
-    return {
-      ...estado,
-      faturas: {
-        luz: converter("kwh", f.luzKwh, f.luzValor, f.luzTaxasFixas, "Iluminação pública"),
-        agua: converter("m3", f.aguaM3, f.aguaValor, f.aguaTaxasFixas, "Custo mínimo fixo"),
+    return migrar(
+      {
+        ...estado,
+        faturas: {
+          luz: converter("kwh", f.luzKwh, f.luzValor, f.luzTaxasFixas, "Iluminação pública"),
+          agua: converter("m3", f.aguaM3, f.aguaValor, f.aguaTaxasFixas, "Custo mínimo fixo"),
+        },
       },
-    };
+      3,
+    );
   }
 
-  /** Versão 2: consumo separado das taxas, mas ainda sem comportamento por linha. */
   if (versao === 2) {
     const converter = (fatura, unidade) => {
       if (!fatura) return { unidade, consumo: "", linhas: [] };
@@ -176,16 +135,92 @@ function migrar(estado, versao) {
       return { unidade, consumo: fatura.consumo ?? "", linhas };
     };
 
+    return migrar(
+      {
+        ...estado,
+        faturas: {
+          luz: converter(estado.faturas?.luz, "kwh"),
+          agua: converter(estado.faturas?.agua, "m3"),
+        },
+      },
+      3,
+    );
+  }
+
+  if (versao === 3) {
+    const converter = (fatura) => {
+      if (!fatura) return fatura;
+      const { consumo, ...resto } = fatura;
+      const total = numero(consumo);
+      if (total <= 0) return resto;
+
+      const linhas = [...(resto.linhas ?? [])];
+      const alvo = linhas.findIndex((l) => l.comportamento === "consumo");
+
+      if (alvo >= 0) {
+        linhas[alvo] = { ...linhas[alvo], quantidade: String(total) };
+      } else {
+        linhas.unshift({
+          id: `l-migrada-${resto.unidade}-quantidade`,
+          nome: resto.unidade === "kwh" ? "Energia elétrica" : "Tarifa água",
+          quantidade: String(total),
+          valor: "",
+          comportamento: "consumo",
+        });
+      }
+
+      return { ...resto, linhas };
+    };
+
     return {
       ...estado,
       faturas: {
-        luz: converter(estado.faturas?.luz, "kwh"),
-        agua: converter(estado.faturas?.agua, "m3"),
+        luz: converter(estado.faturas?.luz),
+        agua: converter(estado.faturas?.agua),
       },
     };
   }
 
   return null;
+}
+
+function eventosDeDiasAntigos(item) {
+  const porPessoa = item.diasPorPessoa;
+  if (!porPessoa || typeof porPessoa !== "object") return [];
+
+  const eventos = [];
+  for (const [id, dias] of Object.entries(porPessoa)) {
+    if (!Array.isArray(dias)) continue;
+    for (const data of dias) {
+      if (typeof data === "string") {
+        eventos.push({ id: `ev-${id}-${data}`, data, quantidade: "1", participantes: [id] });
+      }
+    }
+  }
+
+  return eventos.sort((a, b) => a.data.localeCompare(b.data));
+}
+
+export function sanear(estado) {
+  return {
+    ...estado,
+    moradores: estado.moradores.filter(Boolean).map((m) => ({
+      ...m,
+      nome: typeof m.nome === "string" ? m.nome : "",
+      diasFora: typeof m.diasFora === "string" ? m.diasFora : "",
+      ausencias: Array.isArray(m.ausencias)
+        ? m.ausencias.filter((d) => typeof d === "string")
+        : undefined,
+    })),
+    itens: estado.itens.filter(Boolean).map((i) => ({
+      ...i,
+      participantes: Array.isArray(i.participantes) ? i.participantes : [],
+      usosPorPessoa:
+        i.usosPorPessoa && typeof i.usosPorPessoa === "object" ? i.usosPorPessoa : {},
+      eventos: Array.isArray(i.eventos) ? i.eventos : eventosDeDiasAntigos(i),
+      rateios: Array.isArray(i.rateios) ? i.rateios : ["igual", "dias", "uso"],
+    })),
+  };
 }
 
 function pareceUmaCasa(estado) {

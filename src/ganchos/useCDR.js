@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { estadoInicial, novaLinha } from "../nucleo/estadoInicial.js";
+import { periodoDasFaturas } from "../nucleo/calendario.js";
 import { calcular } from "../nucleo/adaptador.js";
 import { criarItem } from "../nucleo/catalogo.js";
 import { novoId } from "../nucleo/formato.js";
@@ -8,14 +9,8 @@ import { carregarCasa, limparCasa, salvarCasa } from "../nucleo/persistencia.js"
 const MAXIMO_DE_MORADORES = 20;
 
 export function useCDR() {
-  // Abre com o que estiver salvo neste navegador; se não houver nada
-  // confiável, começa uma casa nova.
   const [estado, definir] = useState(() => carregarCasa() ?? estadoInicial());
 
-  /**
-   * Salva a cada mudança, mas não a cada tecla: esperar meio segundo de
-   * silêncio evita escrever no disco a cada dígito digitado num campo.
-   */
   const agendado = useRef(null);
   useEffect(() => {
     clearTimeout(agendado.current);
@@ -25,19 +20,21 @@ export function useCDR() {
 
   const resultado = useMemo(() => calcular(estado), [estado]);
 
-  /** Posição de cada morador na lista, é ela que decide a cor. */
   const indicePorId = useMemo(() => {
     const mapa = {};
     estado.moradores.forEach((m, i) => (mapa[m.id] = i));
     return mapa;
   }, [estado.moradores]);
 
-  /** `qual` é "luz" ou "agua"; `campo` é consumo, preco, valor ou modo. */
   const definirFatura = useCallback((qual, campo, valor) => {
-    definir((e) => ({
-      ...e,
-      faturas: { ...e.faturas, [qual]: { ...e.faturas[qual], [campo]: valor } },
-    }));
+    definir((e) => {
+      const faturas = { ...e.faturas, [qual]: { ...e.faturas[qual], [campo]: valor } };
+
+      const periodo =
+        campo === "janela" ? { ...e.periodo, ...periodoDasFaturas(faturas, e.periodo) } : e.periodo;
+
+      return { ...e, faturas, periodo };
+    });
   }, []);
 
   const adicionarLinha = useCallback((qual, nome = "", comportamento = "consumo") => {
@@ -82,7 +79,6 @@ export function useCDR() {
   }, []);
 
   const definirPeriodo = useCallback((campo, valor) => {
-    // "dias" aceita ficar em branco: sem número, vale o tamanho do mês.
     if (campo === "dias") {
       const texto = String(valor ?? "").trim();
       const n = parseInt(texto, 10);
@@ -103,7 +99,7 @@ export function useCDR() {
       const lista = [...e.moradores];
       const novos = [];
       while (lista.length < n) {
-        const m = { id: novoId("m"), nome: "", diasFora: "" };
+        const m = { id: novoId("m"), nome: "", diasFora: "", ausencias: [] };
         lista.push(m);
         novos.push(m.id);
       }
@@ -113,8 +109,6 @@ export function useCDR() {
       return {
         ...e,
         moradores: lista,
-        // quem entra depois passa a participar dos itens que já existem;
-        // quem sai é apagado de todos eles.
         itens: e.itens.map((i) => ({
           ...i,
           participantes: [...i.participantes.filter((id) => vivos.has(id)), ...novos],

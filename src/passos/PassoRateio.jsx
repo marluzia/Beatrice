@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alerta, Ficha, Titulo } from "../componentes/index.js";
-import { corDe, nomeOu, num, reais } from "../nucleo/formato.js";
+import { corDe, nomeOu, reais } from "../nucleo/formato.js";
+import { lavagensForaDoCiclo, totalDaFatura } from "../nucleo/adaptador.js";
 import Regua from "./Regua.jsx";
 import Apoio from "./Apoio.jsx";
 import { AjudaCentavos } from "./ajudas.jsx";
@@ -8,7 +9,6 @@ import { AjudaCentavos } from "./ajudas.jsx";
 export default function PassoRateio({ estado, resultado, indicePorId }) {
   const [abertos, setAbertos] = useState({});
   const fecha = Math.abs(resultado.diferenca) < 0.005;
-  const f = estado.faturas;
 
   const centavos = resultado.residuoDeCentavos;
   const sobrouCentavo = fecha && centavos !== 0;
@@ -30,6 +30,10 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
       : "veredito";
 
   const alternar = (id) => setAbertos((s) => ({ ...s, [id]: !s[id] }));
+
+  const orfas = lavagensForaDoCiclo(estado);
+  const orfasDe = (id) => orfas.filter((o) => o.moradorId === id);
+  const diaCurto = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
   return (
     <div className="coluna">
@@ -70,6 +74,15 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
                   <div className="detalhe-resumo">
                     LUZ {reais(m.luz)} · ÁGUA {reais(m.agua)} · REAIS {reais(m.reais)}
                   </div>
+
+                  {orfasDe(m.moradorId).map((o) => (
+                    <p className="detalhe-nota" key={`${o.itemId}-${o.dia}`}>
+                      {o.item} em {diaCurto(o.dia)}:{" "}
+                      {o.quando === "futuro"
+                        ? `a ${o.faltando === "luz" ? "energia" : "água"} desse dia vem na próxima fatura e não está cobrada aqui. Marque o mesmo dia no fechamento do mês que vem.`
+                        : `a ${o.faltando === "luz" ? "energia" : "água"} desse dia entrou na fatura anterior, que já foi fechada. Aqui não é cobrada de novo.`}
+                    </p>
+                  ))}
                 </div>
               )}
             </div>
@@ -97,8 +110,8 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
         </Titulo>
         <div className="conferencia">
           {[
-            ["Fatura de luz", num(f.luzValor)],
-            ["Fatura de água", num(f.aguaValor)],
+            ["Fatura de luz", totalDaFatura(estado.faturas.luz)],
+            ["Fatura de água", totalDaFatura(estado.faturas.agua)],
             ["Despesas em reais", resultado.totalEmReais],
           ].map(([rotulo, valor]) => (
             <div className="conferencia-linha" key={rotulo}>

@@ -1,29 +1,47 @@
-// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { calcular } from "./adaptador.js";
 import { conferir } from "./motor.ts";
 
-/** A fatura real: 141 kWh, energia 168,61, CIP 21,65, total 190,26, 35 dias. */
-const linha = (id, nome, valor, comportamento) => ({ id, nome, valor, comportamento });
+const linha = (id, nome, valor, comportamento, quantidade = "") => ({
+  id,
+  nome,
+  valor,
+  comportamento,
+  quantidade,
+});
 
 describe("fatura CEMIG real", () => {
   const casa = {
-    periodo: { mes: 9, ano: 2025, dias: 35 },
+    periodo: { mes: 9, ano: 2025 },
     faturas: {
       luz: {
         unidade: "kwh",
-        consumo: "141",
+        ativa: true,
+        janela: { de: "2025-08-05", ate: "2025-09-09" },
         linhas: [
-          linha("l1", "Energia elétrica", "168,61", "consumo"),
+          linha("l1", "Energia elétrica", "168,61", "consumo", "141"),
           linha("l2", "Contrib Ilum Pública Municipal", "21,65", "igual"),
         ],
       },
-      agua: { unidade: "m3", consumo: "", linhas: [] },
+      agua: { unidade: "m3", ativa: false, janela: null, linhas: [] },
     },
     moradores: [
-      { id: "m0", nome: "Ana", diasFora: "0" },
-      { id: "m1", nome: "Bia", diasFora: "12" },
-      { id: "m2", nome: "Cau", diasFora: "35" },
+      { id: "m0", nome: "Ana", diasFora: "", ausencias: [] },
+      {
+        id: "m1",
+        nome: "Bia",
+        diasFora: "",
+        ausencias: Array.from({ length: 12 }, (_, i) => `2025-08-${String(6 + i).padStart(2, "0")}`),
+      },
+      {
+        id: "m2",
+        nome: "Cau",
+        diasFora: "",
+        ausencias: Array.from({ length: 35 }, (_, i) => {
+          const d = new Date(Date.UTC(2025, 7, 5 + i));
+          return d.toISOString().slice(0, 10);
+        }),
+      },
     ],
     itens: [],
   };
@@ -35,7 +53,6 @@ describe("fatura CEMIG real", () => {
 
   it("a tarifa deduzida bate com o preço impresso", () => {
     const r = calcular(casa);
-    // 168,61 ÷ 141 = 1,1958
     expect(r.tarifaLuz).toBeCloseTo(168.61 / 141, 6);
   });
 

@@ -2,13 +2,6 @@ import { useState } from "react";
 import { Botao, Ficha, Titulo } from "../componentes/index.js";
 import { montarMensagemDeColeta } from "../nucleo/coleta.js";
 
-/**
- * A mensagem de coleta.
- *
- * Fica no fim do passo de itens porque só depois de a casa estar configurada
- * dá para saber o que perguntar. Sem item por uso, ninguém é perguntado sobre
- * lavagens; sem ar-condicionado, ninguém é perguntado sobre horas.
- */
 export default function MensagemDeColeta({ estado }) {
   const [copiado, setCopiado] = useState(false);
   const mensagem = montarMensagemDeColeta(estado);
@@ -19,8 +12,6 @@ export default function MensagemDeColeta({ estado }) {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      // Navegador sem permissão de área de transferência: o texto está à
-      // vista e selecionável, então dá para copiar na mão.
       setCopiado(false);
     }
   };

@@ -19,35 +19,35 @@ export default function MarcaCDR({ tamanho = 44, titulo = "República e calculad
         strokeLinejoin="round"
         strokeLinecap="round"
       >
-        {/* fumaça saindo da chaminé */}
+        {}
         <path d="M39.5 12.5c2.2-1.5.5-3.2 2.6-4.6" strokeWidth="1.5" />
 
-        {/* chaminé, atrás do telhado */}
+        {}
         <path d="M36 14h6.5v10H36z" fill="#B24232" />
 
-        {/* mastro e bandeira */}
+        {}
         <path d="M24 7.5V1" strokeWidth="1.5" />
         <path d="M24.4 1.4l7 2.1-7 2.6z" fill="#C08A1E" strokeWidth="1.4" />
 
-        {/* telhado torto */}
+        {}
         <path d="M1 30.2L24 7l23 22.2z" fill="#B24232" />
 
-        {/* corpo da casa */}
+        {}
         <path d="M5.5 29.4h40.2V57H5.5z" fill="#FFFFFF" />
 
-        {/* janelas que são olhos */}
+        {}
         <path d="M10 34h10.4v9.2H10z" fill="#EDEFE8" />
         <path d="M27 34h10.4v9.2H27z" fill="#EDEFE8" />
 
-        {/* braço que segura a calculadora, some atrás dela */}
+        {}
         <path d="M41 40.5c3.6.4 5.6 1.6 6.4 3.4" />
       </g>
 
-      {/* pupilas olhando de canto para a calculadora */}
+      {}
       <circle cx="18.2" cy="39.2" r="2.1" fill="#17201C" />
       <circle cx="35.2" cy="39.2" r="2.1" fill="#17201C" />
 
-      {/* porta aberta que é boca, com o degrau de dente */}
+      {}
       <path
         d="M19.5 57v-6.4a6.8 5.6 0 0 1 11.8 0V57z"
         fill="#17201C"
@@ -57,7 +57,7 @@ export default function MarcaCDR({ tamanho = 44, titulo = "República e calculad
       />
       <path d="M22.4 57v-2.8h6v2.8z" fill="#EDEFE8" />
 
-      {/* calculadora, torta na mão da casa */}
+      {}
       <g transform="rotate(-6 59 43)">
         <rect
           x="46"
@@ -102,7 +102,7 @@ export default function MarcaCDR({ tamanho = 44, titulo = "República e calculad
         </g>
       </g>
 
-      {/* mão segurando a lateral da calculadora */}
+      {}
       <circle cx="47" cy="44" r="3.1" fill="#FFFFFF" stroke="#17201C" strokeWidth="2" />
     </svg>
   );

@@ -2,19 +2,9 @@ import { describe, expect, it } from "vitest";
 import { ausentesEntre, calcular, conferir } from "./motor.ts";
 import type { Estado, Item, Morador } from "./motor.ts";
 
-/**
- * Rateio por presença.
- *
- * A conta que este rateio faz: o custo de cada dia é dividido entre quem
- * estava em casa naquele dia. Os testes abaixo comparam sempre com o rateio
- * por dias, porque a diferença entre os dois é justamente a razão de o novo
- * existir.
- */
-
 const moradores = (fora: number[]): Morador[] =>
   fora.map((diasFora, i) => ({ id: `m${i}`, nome: `Pessoa ${i + 1}`, diasFora }));
 
-/** Abril tem 30 dias. Fatura de luz de R$ 300 com tarifa de R$ 1 por kWh. */
 const quarto = (fora: number[], rateio: Item["rateio"], participantes: string[]): Estado => ({
   periodo: { mes: 4, ano: 2026 },
   faturas: { luzKwh: 1000, luzValor: 1000, aguaM3: 0, aguaValor: 0 },
@@ -37,19 +27,17 @@ const fatiaDe = (estado: Estado, id: string) => {
 };
 
 describe("uma pessoa viajou: o resultado é exato", () => {
-  // Bia em casa os 30 dias, Cau em casa 10. O ar custa R$ 300 no mês.
   const fora = [0, 20, 0];
   const dupla = ["m0", "m1"];
 
   it("por dias divide na proporção da presença", () => {
     const estado = quarto(fora, { tipo: "dias" }, dupla);
-    expect(fatiaDe(estado, "m0")).toBeCloseTo(225, 6); // 30/40
-    expect(fatiaDe(estado, "m1")).toBeCloseTo(75, 6); // 10/40
+    expect(fatiaDe(estado, "m0")).toBeCloseTo(225, 6);
+    expect(fatiaDe(estado, "m1")).toBeCloseTo(75, 6);
   });
 
   it("por presença cobra os dias sozinha de quem estava sozinha", () => {
     const estado = quarto(fora, { tipo: "presenca" }, dupla);
-    // 20 dias só a Bia: R$ 200 dela. 10 dias as duas: R$ 100 divididos.
     expect(fatiaDe(estado, "m0")).toBeCloseTo(250, 6);
     expect(fatiaDe(estado, "m1")).toBeCloseTo(50, 6);
   });

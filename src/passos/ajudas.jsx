@@ -4,11 +4,6 @@ export function AjudaContas() {
   return (
     <Ajuda titulo="Como lançar dados da fatura">
       <p>
-        <strong>Consumo faturado</strong> é a quantidade medida no ciclo: kWh na
-        luz, m³ na água. Cuidado que consumo medido e consumo faturado às vezes
-        diferem. Vale o faturado, que é o que virou dinheiro.
-      </p>
-      <p>
         Pegue a conta. Para cada item das <strong>linhas da fatura</strong> (energia consumida, taxas etc), insira o valor descrito e escolha como ela se comporta:
       </p>
       <p>
@@ -40,15 +35,13 @@ export function AjudaContas() {
         da linha de energia, e repetir cobra duas vezes.
       </p>
       <p>
-        Duas conferências aparecem sozinhas no fim de cada bloco. O
-        <strong> preço por unidade</strong> deve bater com o impresso na fatura;
-        se não bater, alguma linha ficou de fora. E o <strong>total</strong>{" "}
-        deve bater com o valor a pagar.
+        <strong>Parcelamento e juros de dívida antiga</strong> não são consumo
+        de ninguém. Lance como divide igual se a casa combinou dividir, ou
+        deixe de fora se a dívida é anterior a algum morador.
       </p>
       <p>
-        <strong>Dias entre leituras</strong> vem na fatura e nem sempre é 30.
-        Pode ser 21 num mês e 35 no seguinte. É esse número que divide a
-        presença de cada um. Em branco, vale o tamanho do mês escolhido.
+         O{" "}
+        <strong>total</strong> deve bater com o valor a pagar.
       </p>
     </Ajuda>
   );
@@ -58,8 +51,9 @@ export function AjudaMoradores() {
   return (
     <Ajuda titulo="Ajuda">
       <p>
-        <strong>Dias fora</strong> é o tempo que a pessoa passou longe da casa:
-        viagem, feriado na casa da família, intercâmbio.
+        <strong>Dias fora</strong> são os dias em que a pessoa não dormiu em
+        casa: viagem, feriado na casa da família, intercâmbio. Marque um a um
+        no calendário, inclusive fins de semana soltos.
       </p>
       <p>
         <strong>Dias contados</strong> é o peso usado nas
@@ -76,7 +70,7 @@ export function AjudaItens() {
   return (
     <Ajuda titulo="Ajuda">
       <p>
-        <strong>Seleciona a forma de divisão que julgar conveniente</strong> 
+        <strong>Seleciona a forma de divisão que julgar justa</strong> 
       </p>
       <p>
         <strong>Igual</strong> : paga a mesma fatia,

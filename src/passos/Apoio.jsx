@@ -14,8 +14,6 @@ export default function Apoio({ resultado }) {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      // Sem permissão de área de transferência a chave continua à vista e
-      // selecionável, então dá para copiar na mão.
       setCopiado(false);
     }
   };

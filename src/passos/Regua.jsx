@@ -1,6 +1,5 @@
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
 
-/** Uma barra por item. A largura de cada cor é a fatia daquela pessoa. */
 export default function Regua({ item, moradores, indicePorId }) {
   const nomeDe = (id) => {
     const m = moradores.find((x) => x.id === id);

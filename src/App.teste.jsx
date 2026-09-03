@@ -1,8 +1,6 @@
-// @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
-
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -10,6 +8,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
   window.localStorage.clear();
 });
@@ -30,7 +29,7 @@ describe("a aplicação abre", () => {
 
   it("abre no passo das contas", () => {
     render(<App />);
-    expect(screen.getAllByText(/^Período$/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Contas e Período/i).length).toBeGreaterThan(0);
   });
 });
 
@@ -48,13 +47,13 @@ describe("dá para percorrer os quatro passos", () => {
     expect(screen.getAllByText(/quanto cada um paga/i).length).toBeGreaterThan(0);
 
     irPara("Contas");
-    expect(screen.getAllByText(/^Período$/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Contas e Período/i).length).toBeGreaterThan(0);
   });
 
   it("a mensagem de coleta é montada sem erro", () => {
     render(<App />);
     irPara("Itens");
-    expect(screen.getByText(/Fechamento de/)).toBeTruthy();
+    expect(screen.getAllByText(/Fechamento de/).length).toBeGreaterThan(0);
   });
 
   it("o rateio mostra a conferência", () => {
@@ -74,5 +73,48 @@ describe("os painéis de ajuda existem em todos os passos", () => {
         `passo ${passo} ficou sem ajuda`,
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("as contas seguram os outros passos", () => {
+  const digitar = (indice, texto) => {
+    const campos = screen.getAllByPlaceholderText("dd/mm/aaaa");
+    fireEvent.change(campos[indice], { target: { value: texto } });
+  };
+
+  it("com tudo em branco, dá para seguir", () => {
+    render(<App />);
+    irPara("Moradores");
+    expect(screen.getAllByText(/quem mora aqui/i).length).toBeGreaterThan(0);
+  });
+
+  it("com meia data escrita, a navegação trava e diz o que falta", () => {
+    render(<App />);
+    digitar(0, "25/07/2026");
+
+    expect(screen.getByText(/resolva o período das faturas/i)).toBeTruthy();
+    expect(screen.getByText(/data final/i)).toBeTruthy();
+
+    irPara("Moradores");
+    expect(screen.getAllByText(/Contas e Período/i).length).toBeGreaterThan(0);
+  });
+
+  it("completar o ciclo libera a navegação", () => {
+    render(<App />);
+    digitar(0, "25/07/2026");
+    digitar(1, "21/08/2026");
+
+    expect(screen.queryByText(/resolva o período das faturas/i)).toBeNull();
+    irPara("Moradores");
+    expect(screen.getAllByText(/quem mora aqui/i).length).toBeGreaterThan(0);
+  });
+
+  it("apagar a data de volta destrava", () => {
+    render(<App />);
+    digitar(0, "25/07/2026");
+    expect(screen.getByText(/resolva o período das faturas/i)).toBeTruthy();
+
+    digitar(0, "");
+    expect(screen.queryByText(/resolva o período das faturas/i)).toBeNull();
   });
 });

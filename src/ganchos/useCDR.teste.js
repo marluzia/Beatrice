@@ -1,14 +1,7 @@
-// @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCDR } from "./useCDR.js";
 import { modeloPorChave } from "../nucleo/catalogo.js";
-
-/**
- * O gancho guarda o estado da casa. Os testes aqui cobrem as ações que mexem
- * em duas coisas ao mesmo tempo — mexer em morador mexe nos itens — porque é
- * onde mora o risco de alguém ficar de fora do rateio sem ninguém perceber.
- */
 
 const montar = () => renderHook(() => useCDR());
 
@@ -136,7 +129,7 @@ describe("faturas e período", () => {
     const { result } = montar();
     const linha = result.current.estado.faturas.luz.linhas[0];
     act(() => {
-      result.current.acoes.definirFatura("luz", "consumo", "122");
+      result.current.acoes.editarLinha("luz", linha.id, "quantidade", "122");
       result.current.acoes.editarLinha("luz", linha.id, "valor", "101,01");
     });
     expect(result.current.resultado.tarifaLuz).toBeCloseTo(101.01 / 122, 8);
@@ -146,11 +139,10 @@ describe("faturas e período", () => {
     const { result } = montar();
     const [consumo, taxa] = result.current.estado.faturas.luz.linhas;
     act(() => {
-      result.current.acoes.definirFatura("luz", "consumo", "122");
+      result.current.acoes.editarLinha("luz", consumo.id, "quantidade", "122");
       result.current.acoes.editarLinha("luz", consumo.id, "valor", "101,01");
       result.current.acoes.editarLinha("luz", taxa.id, "valor", "12,73");
     });
-    // A tarifa continua sendo só a linha de consumo.
     expect(result.current.resultado.tarifaLuz).toBeCloseTo(101.01 / 122, 8);
     const item = result.current.resultado.itens.find((i) => i.nome === "Iluminação pública");
     expect(item?.custoTotal).toBeCloseTo(12.73, 8);
@@ -160,7 +152,7 @@ describe("faturas e período", () => {
     const { result } = montar();
     const [consumo, taxa] = result.current.estado.faturas.luz.linhas;
     act(() => {
-      result.current.acoes.definirFatura("luz", "consumo", "100");
+      result.current.acoes.editarLinha("luz", consumo.id, "quantidade", "100");
       result.current.acoes.editarLinha("luz", consumo.id, "valor", "100");
       result.current.acoes.editarLinha("luz", taxa.id, "valor", "50");
     });
@@ -170,16 +162,42 @@ describe("faturas e período", () => {
     expect(result.current.resultado.tarifaLuz).toBeCloseTo(1.5, 8);
   });
 
-  it("dias entre leituras em branco volta a valer o tamanho do mês", () => {
+  it("o ciclo da fatura manda no tamanho do fechamento", () => {
+    const { result } = montar();
+    act(() =>
+      result.current.acoes.definirFatura("luz", "janela", {
+        de: "2026-04-03",
+        ate: "2026-05-08",
+      }),
+    );
+
+    expect(result.current.resultado.diasNoPeriodo).toBe(35);
+  });
+
+  it("sem ciclo escrito, vale o mês de referência", () => {
     const { result } = montar();
     act(() => {
       result.current.acoes.definirPeriodo("ano", "2026");
       result.current.acoes.definirPeriodo("mes", "4");
-      result.current.acoes.definirPeriodo("dias", "35");
+    });
+    expect(result.current.resultado.diasNoPeriodo).toBe(30);
+  });
+
+  it("apagar o ciclo devolve o tamanho do mês", () => {
+    const { result } = montar();
+    act(() => {
+      result.current.acoes.definirPeriodo("ano", "2026");
+      result.current.acoes.definirPeriodo("mes", "4");
+      result.current.acoes.definirFatura("luz", "janela", {
+        de: "2026-04-03",
+        ate: "2026-05-08",
+      });
     });
     expect(result.current.resultado.diasNoPeriodo).toBe(35);
 
-    act(() => result.current.acoes.definirPeriodo("dias", ""));
+    act(() =>
+      result.current.acoes.definirFatura("luz", "janela", { de: "2026-04-03", ate: null }),
+    );
     expect(result.current.resultado.diasNoPeriodo).toBe(30);
   });
 });
@@ -222,7 +240,7 @@ describe("linhas da fatura", () => {
     const { result } = montar();
     const [consumo] = result.current.estado.faturas.luz.linhas;
     act(() => {
-      result.current.acoes.definirFatura("luz", "consumo", "100");
+      result.current.acoes.editarLinha("luz", consumo.id, "quantidade", "100");
       result.current.acoes.editarLinha("luz", consumo.id, "valor", "100");
       result.current.acoes.adicionarLinha("luz", "Crédito de energia", "consumo");
     });
@@ -241,7 +259,6 @@ describe("persistência", () => {
       primeira.result.current.estado.moradores[0].id, "nome", "Marluzia",
     ));
 
-    // o salvamento é adiado meio segundo para não escrever a cada tecla
     act(() => vi.advanceTimersByTime(600));
 
     const segunda = montar();

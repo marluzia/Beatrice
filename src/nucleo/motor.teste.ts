@@ -9,8 +9,6 @@ import {
 } from "./motor.ts";
 import type { Estado, Item, Morador } from "./motor.ts";
 
-/* --------------------------------------------------------------- fixtures */
-
 const moradores = (fora: number[]): Morador[] =>
   fora.map((diasFora, i) => ({ id: `m${i}`, nome: `Pessoa ${i + 1}`, diasFora }));
 
@@ -24,11 +22,8 @@ const casa = (parcial: Partial<Estado> = {}): Estado => ({
   ...parcial,
 });
 
-/** Soma de todas as fatias de um item, para checar contra o custo dele. */
 const somaDasFatias = (fatias: { total: number }[]) =>
   fatias.reduce((s, f) => s + f.total, 0);
-
-/* ------------------------------------------------------------- o período */
 
 describe("período", () => {
   it("conta os dias reais de cada mês", () => {
@@ -47,8 +42,6 @@ describe("período", () => {
   });
 });
 
-/* ------------------------------------------------------------- as faturas */
-
 describe("faturas", () => {
   it("deriva a tarifa dividindo valor por consumo", () => {
     const r = calcular(casa());
@@ -62,7 +55,6 @@ describe("faturas", () => {
     );
     expect(r.tarifaLuz).toBe(0);
     expect(Number.isFinite(r.somaCobrada)).toBe(true);
-    // O valor da fatura continua sendo cobrado: vira uso comum.
     expect(r.somaCobrada).toBeCloseTo(200, 10);
   });
 
@@ -82,8 +74,6 @@ describe("faturas", () => {
   });
 });
 
-/* --------------------------------------------------------- tipos de custo */
-
 describe("tipos de custo", () => {
   it("consumo em kWh sai da fatura de luz", () => {
     const item: Item = {
@@ -92,7 +82,7 @@ describe("tipos de custo", () => {
       participantes: TODOS(3), rateio: { tipo: "igual" },
     };
     const r = calcular(casa({ itens: [item] }));
-    expect(r.itens[0].custoTotal).toBeCloseTo(90, 10); // 100 × 0,90
+    expect(r.itens[0].custoTotal).toBeCloseTo(90, 10);
     expect(r.sobraLuz).toBeCloseTo(270, 10);
     expect(r.sobraAgua).toBeCloseTo(180, 10);
     expect(r.totalEmReais).toBe(0);
@@ -105,7 +95,7 @@ describe("tipos de custo", () => {
       participantes: TODOS(3), rateio: { tipo: "igual" },
     };
     const r = calcular(casa({ itens: [item] }));
-    expect(r.itens[0].custoTotal).toBeCloseTo(18, 10); // 2 × 9
+    expect(r.itens[0].custoTotal).toBeCloseTo(18, 10);
     expect(r.sobraLuz).toBeCloseTo(360, 10);
     expect(r.sobraAgua).toBeCloseTo(162, 10);
   });
@@ -119,7 +109,7 @@ describe("tipos de custo", () => {
       participantes: TODOS(3), rateio: { tipo: "igual" },
     };
     const r = calcular(casa({ itens: [item] }));
-    expect(r.itens[0].custoTotal).toBeCloseTo(108, 10); // 120 kWh × 0,90
+    expect(r.itens[0].custoTotal).toBeCloseTo(108, 10);
   });
 
   it("por hora com zero horas custa zero", () => {
@@ -144,7 +134,6 @@ describe("tipos de custo", () => {
       rateio: { tipo: "uso", usos: { m0: 4, m1: 2, m2: 0 } },
     };
     const r = calcular(casa({ itens: [item] }));
-    // 6 ciclos: 3 kWh × 0,90 = 2,70 e 1,2 m³ × 9 = 10,80
     expect(r.itens[0].custoTotal).toBeCloseTo(13.5, 10);
     expect(r.itens[0].origem).toBe("mista");
     expect(r.totalEmReais).toBe(0);
@@ -159,8 +148,7 @@ describe("tipos de custo", () => {
     const r = calcular(casa({ itens: [item] }));
     expect(r.itens[0].custoTotal).toBeCloseTo(360, 10);
     expect(r.totalEmReais).toBeCloseTo(360, 10);
-    expect(r.somaDevida).toBeCloseTo(900, 10); // 360 + 180 + 360
-    // Não tem teto: as faturas continuam inteiras como uso comum.
+    expect(r.somaDevida).toBeCloseTo(900, 10);
     expect(r.sobraLuz).toBeCloseTo(360, 10);
   });
 
@@ -175,8 +163,6 @@ describe("tipos de custo", () => {
     expect(r.moradores[0].reais).toBeCloseTo(40, 10);
   });
 });
-
-/* ------------------------------------------------------------- os rateios */
 
 describe("rateios", () => {
   const emReais = (valor: number, participantes: string[], rateio: Item["rateio"]): Item => ({
@@ -195,7 +181,6 @@ describe("rateios", () => {
         itens: [emReais(90, TODOS(3), { tipo: "dias" })],
       }),
     );
-    // 30, 15 e 0 dias contados: pesos 30/45 e 15/45
     expect(r.moradores[0].reais).toBeCloseTo(60, 10);
     expect(r.moradores[1].reais).toBeCloseTo(30, 10);
     expect(r.moradores[2].reais).toBeCloseTo(0, 10);
@@ -248,8 +233,6 @@ describe("rateios", () => {
   });
 });
 
-/* --------------------------------------------------- divisões disponíveis */
-
 describe("divisões oferecidas", () => {
   const comCusto = (custo: Item["custo"], rateiosDoItem?: Item["rateiosDoItem"]): Item => ({
     id: "x", nome: "Item", custo, participantes: TODOS(3), rateio: { tipo: "igual" },
@@ -299,8 +282,6 @@ describe("divisões oferecidas", () => {
   });
 });
 
-/* ----------------------------------------------------------- o teto e a sobra */
-
 describe("teto das faturas", () => {
   it("desconta os itens de consumo antes do uso comum", () => {
     const item: Item = {
@@ -326,8 +307,6 @@ describe("teto das faturas", () => {
     expect(conferir(r)).toBe(true);
   });
 });
-
-/* ------------------------------------------------------------- invariantes */
 
 describe("invariantes", () => {
   const completa = casa({
@@ -381,8 +360,6 @@ describe("invariantes", () => {
   });
 });
 
-/* --------------------------------------------------------------- centavos */
-
 describe("centavos", () => {
   it("fecha exatamente quando a divisão é redonda", () => {
     const item: Item = {
@@ -404,7 +381,6 @@ describe("centavos", () => {
     const r = calcular(
       casa({ faturas: { luzKwh: 0, luzValor: 0, aguaM3: 0, aguaValor: 0 }, itens: [item] }),
     );
-    // 33,33 três vezes são 99,99: falta um centavo.
     expect(r.somaCobradaArredondada).toBeCloseTo(99.99, 10);
     expect(r.residuoDeCentavos).toBe(1);
     expect(conferirEmCentavos(r)).toBe(false);
@@ -421,8 +397,6 @@ describe("centavos", () => {
   });
 });
 
-/* ------------------------------------------------------- casa sem gente */
-
 describe("casos degenerados", () => {
   it("acusa erro quando há conta a pagar e nenhum morador", () => {
     const r = calcular(casa({ moradores: [], itens: [] }));
@@ -430,7 +404,6 @@ describe("casos degenerados", () => {
     expect(r.somaCobrada).toBe(0);
     expect(r.somaDevida).toBeCloseTo(540, 10);
     expect(r.alertas.some((a) => a.nivel === "erro")).toBe(true);
-    // O aviso de arredondamento sairia de contexto aqui.
     expect(r.alertas.some((a) => a.texto.includes("Arredondando"))).toBe(false);
   });
 

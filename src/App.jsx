@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Botao, Cabecalho, Navegacao } from "./componentes/index.js";
+import { Alerta, Botao, Cabecalho, Navegacao } from "./componentes/index.js";
+import { faltasDoFechamento } from "./nucleo/calendario.js";
 import { useCDR } from "./ganchos/useCDR.js";
 import PassoContas from "./passos/PassoContas.jsx";
 import PassoMoradores from "./passos/PassoMoradores.jsx";
@@ -12,11 +13,15 @@ export default function App() {
   const [passo, setPasso] = useState(0);
   const { estado, resultado, indicePorId, acoes } = useCDR();
 
+  const faltas = faltasDoFechamento(estado.faturas);
+  const preso = faltas.length > 0;
+
   const irPara = (i) => {
+    if (preso && i > 0) {
+      setPasso(0);
+      return;
+    }
     setPasso(Math.max(0, Math.min(PASSOS.length - 1, i)));
-    // matchMedia e scrollTo com opções não existem em toda WebView. Numa
-    // falha aqui, o React derruba a árvore inteira e a pessoa vê tela branca
-    // por causa de uma animação de rolagem.
     try {
       const reduz =
         typeof window.matchMedia === "function" &&
@@ -32,7 +37,27 @@ export default function App() {
   return (
     <div className="folha">
       <Cabecalho />
-      <Navegacao passos={PASSOS} atual={passo} aoEscolher={irPara} />
+      <Navegacao
+        passos={PASSOS}
+        atual={passo}
+        aoEscolher={irPara}
+        bloqueadosApos={preso ? 0 : undefined}
+      />
+
+      {preso && (
+        <Alerta nivel="erro">
+          <p>Para seguir, resolva o período das faturas:</p>
+          <ul>
+            {faltas.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+          <p>
+            Se não tiver as datas em mãos, deixe as duas em branco — o
+            fechamento passa a valer o mês inteiro — ou desligue a fatura.
+          </p>
+        </Alerta>
+      )}
 
       <main>
         {passo === 0 && <PassoContas {...comuns} />}
@@ -45,7 +70,10 @@ export default function App() {
         <Botao tipo="fantasma" aoClicar={() => irPara(passo - 1)} desabilitado={passo === 0}>
           Voltar
         </Botao>
-        <Botao aoClicar={() => irPara(passo + 1)} desabilitado={passo === PASSOS.length - 1}>
+        <Botao
+          aoClicar={() => irPara(passo + 1)}
+          desabilitado={passo === PASSOS.length - 1 || preso}
+        >
           {passo === 2 ? "Ver o rateio" : "Continuar"}
         </Botao>
       </div>

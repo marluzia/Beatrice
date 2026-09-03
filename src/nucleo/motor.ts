@@ -1,5 +1,4 @@
 
-// ---------------------------------------------------------------- entidades
 
 export type MoradorId = string;
 
@@ -7,57 +6,36 @@ export interface Morador {
   id: MoradorId;
   nome: string;
   diasFora: number;
+  diasForaLuz?: number;
+  diasForaAgua?: number;
 }
 
 export type Unidade = "kwh" | "m3";
 
-/** De onde sai o custo do item. */
 export type Custo =
-  /** Consumo medido ou estimado no período. Sai da fatura correspondente. */
   | { tipo: "consumo"; quantidade: number; unidade: Unidade }
-  /**
-   * Aparelho ou serviço cobrado por uso. Custo total = usos × valor unitário.
-   * O unitário pode sair da fatura (máquina de lavar gasta kWh e m³) ou do
-   * bolso (faxina é paga em reais, por fora).
-   */
   | {
       tipo: "porUso";
       usosTotais?: number;
+      usosTotaisLuz?: number;
+      usosTotaisAgua?: number;
       unitario:
         | { origem: "fatura"; kwhPorUso: number; m3PorUso: number }
         | { origem: "reais"; valorPorUso: number };
     }
-  /**
-   * Consumo declarado pela potência do aparelho vezes o tempo ligado.
-   * Total = porHora × horas, e daí em diante é idêntico a "consumo".
-   *
-   * Existe porque ninguém sabe quantos kWh o ar-condicionado gastou no mês.
-   * O que a pessoa tem à mão é a etiqueta do aparelho, que traz o consumo por
-   * hora, e uma estimativa de quantas horas ele ficou ligado. É a mesma conta,
-   * feita a partir dos números que existem de verdade.
-   */
   | { tipo: "porHora"; porHora: number; horas: number; unidade: Unidade }
-  /** Valor em reais, por fora das faturas. Gás, internet, streaming. */
   | { tipo: "reais"; valor: number };
 
-/** Como o custo se distribui entre os participantes. */
 export type Rateio =
-  /** Todo mundo do grupo paga a mesma fatia. */
   | { tipo: "igual" }
-  /** Peso proporcional aos dias contados de cada um. */
   | { tipo: "dias" }
-  /**
-   * Divide o custo de cada dia entre quem estava em casa naquele dia.
-   *
-   * Existe porque "por dias" assume que o gasto acompanha a presença de cada
-   * um, e há aparelho em que isso é falso. Um ar-condicionado não gasta mais
-   * porque tem duas pessoas no quarto: ele gasta o mesmo resfriando o cômodo.
-   * Nos dias em que só uma delas estava, o ar rodou inteiro para ela, e é ela
-   * quem deve pagar aquele dia inteiro.
-   */
   | { tipo: "presenca" }
-  /** Peso proporcional a usos individuais, lavagens, banhos, o que for. */
-  | { tipo: "uso"; usos: Record<MoradorId, number> };
+  | {
+      tipo: "uso";
+      usos: Record<MoradorId, number>;
+      usosLuz?: Record<MoradorId, number>;
+      usosAgua?: Record<MoradorId, number>;
+    };
 
 export interface Item {
   id: string;
@@ -65,66 +43,31 @@ export interface Item {
   custo: Custo;
   participantes: MoradorId[];
   rateio: Rateio;
-  /**
-   * Restrição opcional, vinda do catálogo. Uma geladeira não tem "por uso":
-   * ela liga sozinha o mês inteiro. Serve para a interface não oferecer
-   * divisões que não querem dizer nada para aquele item específico.
-   */
   rateiosDoItem?: Rateio["tipo"][];
 }
 
-/** Uma cobrança da fatura que não depende de consumo. */
 export interface TaxaFixa {
   nome: string;
   valor: number;
 }
 
 export interface Faturas {
-  /** Consumo total da fatura de luz, em kWh. */
   luzKwh: number;
-  /** Valor total da fatura de luz, em reais, taxas fixas incluídas. */
   luzValor: number;
-  /**
-   * Parte da fatura de luz que não depende de consumo: iluminação pública e,
-   * quando aparece, o custo de disponibilidade do padrão de entrada.
-   *
-   * Precisa ser separada porque o CDR deduz a tarifa dividindo valor por
-   * consumo. Com as taxas fixas dentro, a tarifa sai inflada e o custo delas
-   * acaba distribuído na proporção do que cada aparelho gasta — quem usa mais
-   * energia paga mais iluminação pública, o que não faz sentido. Taxa da
-   * distribuidora é da casa, e divide igual.
-   */
   luzTaxasFixas?: number;
-  /**
-   * As taxas discriminadas, quando a pessoa preencheu linha por linha.
-   * Cada uma vira um item próprio no resultado, com o nome que veio da fatura,
-   * em vez de um bolo chamado "taxas". Quando presente, manda; `luzTaxasFixas`
-   * fica como forma curta para quem só tem o total.
-   */
   luzTaxas?: TaxaFixa[];
-  /** Consumo total da fatura de água, em m³. */
   aguaM3: number;
-  /** Valor total da fatura de água, em reais, taxas fixas incluídas. */
   aguaValor: number;
-  /** Mesma ideia na água: tarifa mínima, esgoto fixo, taxas do fornecedor. */
   aguaTaxasFixas?: number;
-  /** Mesma ideia na água. */
   aguaTaxas?: TaxaFixa[];
 }
 
 export interface Periodo {
-  /**
-   * Dias do ciclo de faturamento, quando informado.
-   *
-   * A fatura não fecha no dia 1º: o ciclo de leitura tem começo e fim próprios
-   * e às vezes dá 33 dias, às vezes 28. É esse número que precisa dividir a
-   * presença de cada um, não o tamanho do mês do calendário. Sem ele, cai para
-   * o mês de referência.
-   */
   dias?: number;
-  /** Mês de referência, 1 a 12. */
   mes: number;
   ano: number;
+  diasLuz?: number;
+  diasAgua?: number;
 }
 
 export interface Estado {
@@ -134,7 +77,6 @@ export interface Estado {
   itens: Item[];
 }
 
-/** Dias do mês de referência. Fevereiro bissexto sai certo. */
 export function diasDoPeriodo(periodo: Periodo): number {
   const informado = periodo.dias;
   if (typeof informado === "number" && Number.isFinite(informado) && informado > 0) {
@@ -143,18 +85,6 @@ export function diasDoPeriodo(periodo: Periodo): number {
   return new Date(periodo.ano, periodo.mes, 0).getDate();
 }
 
-/**
- * Rateios que fazem sentido para um item.
- *
- * Há uma regra estrutural e uma restrição de catálogo. A estrutural: um item
- * cobrado por uso é uma sequência de eventos discretos, quatro faxinas, oito
- * lavagens. Ninguém fica exposto a uma faxina por mais tempo por ter dormido
- * mais noites em casa; ou a pessoa contratou aquela diária ou não contratou.
- * Por isso "dias" nunca entra ali. Consumo e valores em reais são fluxos ao
- * longo do mês, e nesses o peso por dias é legítimo.
- *
- * Por cima disso, o item pode restringir mais (ver rateiosDoItem).
- */
 export function rateiosPermitidos(item: Item): Rateio["tipo"][] {
   const estrutural: Rateio["tipo"][] =
     item.custo.tipo === "porUso"
@@ -169,8 +99,6 @@ export const NOMES_DOS_MESES = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
-// ---------------------------------------------------------------- resultado
-
 export interface Fatia {
   moradorId: MoradorId;
   peso: number;
@@ -181,7 +109,6 @@ export interface Fatia {
 export interface ItemCalculado {
   id: string;
   nome: string;
-  /** true para os dois rateios de uso comum, gerados automaticamente. */
   automatico: boolean;
   origem: "luz" | "agua" | "reais" | "mista";
   custoTotal: number;
@@ -206,9 +133,13 @@ export interface Alerta {
 
 export interface Resultado {
   diasNoPeriodo: number;
+  diasNoPeriodoLuz: number;
+  diasNoPeriodoAgua: number;
   tarifaLuz: number;
   tarifaAgua: number;
   diasContados: Record<MoradorId, number>;
+  diasContadosLuz: Record<MoradorId, number>;
+  diasContadosAgua: Record<MoradorId, number>;
   somaDiasContados: number;
   itens: ItemCalculado[];
   moradores: TotalMorador[];
@@ -217,43 +148,23 @@ export interface Resultado {
   totalEmReais: number;
   somaCobrada: number;
   somaDevida: number;
-  /** Deve ser ~0 sempre. Se não for, há erro no rateio. */
   diferenca: number;
-  /**
-   * O que a casa realmente consegue pagar: cada pessoa arredondada ao centavo.
-   * Dinheiro não tem terça parte. Cem reais entre três dá 33,33 para cada um,
-   * e 33,33 três vezes são 99,99. o centavo que falta não existe em nenhum
-   * lugar do cálculo, ele morre no arredondamento.
-   */
   somaCobradaArredondada: number;
-  /**
-   * Centavos devidos menos centavos cobrados, já arredondados.
-   * Positivo: falta esse tanto. Negativo: sobra. Zero: fecha de verdade.
-   */
   residuoDeCentavos: number;
   alertas: Alerta[];
 }
-
-// ---------------------------------------------------------------- auxiliares
 
 const TOLERANCIA = 0.005;
 
 const dividir = (a: number, b: number) => (b > 0 ? a / b : 0);
 
-/** Reais -> centavos inteiros. É nessa moeda que a conta é paga de verdade. */
 const emCentavos = (valor: number) => Math.round(valor * 100);
 
-/** Formata para o texto dos alertas, com vírgula. */
 const escrito = (valor: number) => valor.toFixed(2).replace(".", ",");
 
 const plural = (n: number, um: string, muitos: string) =>
   n === 1 ? `1 ${um}` : `${n} ${muitos}`;
 
-/**
- * Quanto um aparelho declarado por hora consumiu no período.
- * Exportada porque a tela mostra esse total enquanto a pessoa digita, e a
- * conta precisa ser a mesma nos dois lugares.
- */
 export function consumoDeclaradoPorHora(custo: {
   porHora: number;
   horas: number;
@@ -261,16 +172,27 @@ export function consumoDeclaradoPorHora(custo: {
   return custo.porHora * custo.horas;
 }
 
-function usosTotaisDe(item: Item): number {
+type Mundo = "luz" | "agua" | null;
+
+function usosTotaisDe(item: Item, mundo: Mundo = null): number {
   if (item.custo.tipo !== "porUso") return 0;
+
   if (item.rateio.tipo === "uso") {
-    const { usos } = item.rateio;
+    const datados =
+      mundo === "luz" ? item.rateio.usosLuz : mundo === "agua" ? item.rateio.usosAgua : undefined;
+    const usos = datados ?? item.rateio.usos;
     return item.participantes.reduce((s, id) => s + (usos[id] ?? 0), 0);
   }
-  return item.custo.usosTotais ?? 0;
+
+  const datado =
+    mundo === "luz"
+      ? item.custo.usosTotaisLuz
+      : mundo === "agua"
+        ? item.custo.usosTotaisAgua
+        : undefined;
+  return datado ?? item.custo.usosTotais ?? 0;
 }
 
-/** Custo bruto do item, separado pela fatura de origem. */
 function custoDe(
   item: Item,
   tarifaLuz: number,
@@ -289,36 +211,22 @@ function custoDe(
         : { luz: 0, agua: quantidade * tarifaAgua, reais: 0 };
     }
     case "porUso": {
-      const usos = usosTotaisDe(item);
-      return custo.unitario.origem === "fatura"
-        ? {
-            luz: usos * custo.unitario.kwhPorUso * tarifaLuz,
-            agua: usos * custo.unitario.m3PorUso * tarifaAgua,
-            reais: 0,
-          }
-        : { luz: 0, agua: 0, reais: usos * custo.unitario.valorPorUso };
+      if (custo.unitario.origem !== "fatura") {
+        return { luz: 0, agua: 0, reais: usosTotaisDe(item) * custo.unitario.valorPorUso };
+      }
+      return {
+        luz: usosTotaisDe(item, "luz") * custo.unitario.kwhPorUso * tarifaLuz,
+        agua: usosTotaisDe(item, "agua") * custo.unitario.m3PorUso * tarifaAgua,
+        reais: 0,
+      };
     }
     case "reais":
       return { luz: 0, agua: 0, reais: custo.valor };
   }
 }
 
-/**
- * Peso de cada participante. Se a regra escolhida zera todos os pesos -
- * ninguém lavou, ou o grupo inteiro ficou fora o mês inteiro - cai para
- * divisão igual, que é o resultado menos surpreendente e não produz NaN.
- */
-/** Acima disso o cálculo por presença fica caro; cai para "por dias". */
 const MAXIMO_PARA_PRESENCA = 12;
 
-/**
- * Quantos participantes de um item se ausentaram no período.
- *
- * Decide se o rateio por presença é exato ou estimado: com no máximo uma
- * ausência, quem faltou necessariamente esteve em casa em dias que os outros
- * também estavam, e a sobreposição é conhecida sem precisar de datas. Com duas
- * ou mais, não dá para saber se as viagens coincidiram.
- */
 export function ausentesEntre(
   participantes: MoradorId[],
   diasContados: Record<MoradorId, number>,
@@ -327,19 +235,6 @@ export function ausentesEntre(
   return participantes.filter((id) => (diasContados[id] ?? 0) < diasNoPeriodo).length;
 }
 
-/**
- * Fatia de cada participante quando o custo de cada dia é dividido entre quem
- * estava em casa naquele dia.
- *
- * Sem as datas das viagens, o que se sabe de cada pessoa é a fração do mês em
- * que ela esteve presente. O cálculo percorre as combinações possíveis de quem
- * estava em casa, pesa cada uma pela sua probabilidade e divide aquele pedaço
- * do mês entre os presentes. Assume que as ausências não foram combinadas
- * entre si — quando só uma pessoa viajou, a suposição não é usada e o
- * resultado é exato.
- *
- * Dias em que ninguém estava dividem igual: a conta chegou do mesmo jeito.
- */
 function fatiasPorPresenca(
   participantes: MoradorId[],
   diasContados: Record<MoradorId, number>,
@@ -392,6 +287,7 @@ function pesosDe(
   item: Item,
   diasContados: Record<MoradorId, number>,
   diasNoPeriodo: number,
+  mundo: Mundo = null,
 ): { pesos: Record<MoradorId, number>; soma: number } {
   const pesos: Record<MoradorId, number> = {};
 
@@ -406,7 +302,13 @@ function pesosDe(
       if (item.rateio.tipo === "dias" || item.rateio.tipo === "presenca") {
         pesos[id] = diasContados[id] ?? 0;
       } else if (item.rateio.tipo === "uso") {
-        pesos[id] = item.rateio.usos[id] ?? 0;
+        const datados =
+          mundo === "luz"
+            ? item.rateio.usosLuz
+            : mundo === "agua"
+              ? item.rateio.usosAgua
+              : undefined;
+        pesos[id] = (datados ?? item.rateio.usos)[id] ?? 0;
       } else {
         pesos[id] = 1;
       }
@@ -421,15 +323,6 @@ function pesosDe(
   return { pesos, soma };
 }
 
-// ------------------------------------------------------------------- cálculo
-
-/**
- * Reduz as duas formas de informar taxa a uma só.
- *
- * Quem preencheu linha por linha manda; quem só tem o total ganha uma linha
- * genérica. Linha sem valor é descartada — campo em branco no formulário não
- * pode virar item de R$ 0,00 poluindo o resultado.
- */
 function normalizarTaxas(
   lista: TaxaFixa[] | undefined,
   total: number | undefined,
@@ -451,21 +344,9 @@ export function calcular(estado: Estado): Resultado {
   const alertas: Alerta[] = [];
   const diasNoPeriodo = diasDoPeriodo(estado.periodo);
 
-  /**
-   * As taxas fixas saem da conta antes de tudo. O que sobra é o que de fato
-   * foi consumido, e é sobre isso que a tarifa por kWh e por m³ é deduzida.
-   */
   const listaTaxasLuz = normalizarTaxas(faturas.luzTaxas, faturas.luzTaxasFixas, "Taxas fixas da luz");
   const listaTaxasAgua = normalizarTaxas(faturas.aguaTaxas, faturas.aguaTaxasFixas, "Taxas fixas da água");
 
-  /**
-   * Com as linhas discriminadas, a soma delas manda: o valor da fatura foi
-   * montado a partir delas, então não há o que recortar. Um crédito negativo
-   * precisa sobreviver inteiro até aqui.
-   *
-   * Já quem informou só um total avulso pode ter digitado uma taxa maior que a
-   * própria fatura, e aí o teto vale.
-   */
   const recortar = (lista: TaxaFixa[], valorDaFatura: number, veioDeLista: boolean) => {
     const soma = somaDeTaxas(lista);
     return veioDeLista ? soma : Math.max(0, Math.min(valorDaFatura, soma));
@@ -480,10 +361,33 @@ export function calcular(estado: Estado): Resultado {
   const tarifaLuz = dividir(consumoLuz, faturas.luzKwh);
   const tarifaAgua = dividir(consumoAgua, faturas.aguaM3);
 
-  const diasContados: Record<MoradorId, number> = {};
-  for (const m of moradores) {
-    diasContados[m.id] = Math.max(0, Math.min(diasNoPeriodo, diasNoPeriodo - m.diasFora));
-  }
+  const tamanhoDaJanela = (informado: number | undefined) =>
+    typeof informado === "number" && Number.isFinite(informado) && informado > 0
+      ? Math.min(90, Math.round(informado))
+      : diasNoPeriodo;
+
+  const diasNoPeriodoLuz = tamanhoDaJanela(estado.periodo.diasLuz);
+  const diasNoPeriodoAgua = tamanhoDaJanela(estado.periodo.diasAgua);
+
+  const presencaEm = (dias: number, fora: (m: Morador) => number) => {
+    const contados: Record<MoradorId, number> = {};
+    for (const m of moradores) {
+      const ausente = Number.isFinite(fora(m)) ? fora(m) : 0;
+      contados[m.id] = Math.max(0, Math.min(dias, dias - ausente));
+    }
+    return contados;
+  };
+
+  const diasContados = presencaEm(diasNoPeriodo, (m) => m.diasFora);
+  const diasContadosLuz = presencaEm(diasNoPeriodoLuz, (m) => m.diasForaLuz ?? m.diasFora);
+  const diasContadosAgua = presencaEm(diasNoPeriodoAgua, (m) => m.diasForaAgua ?? m.diasFora);
+
+  const janelaIgual = (dias: number, contados: Record<MoradorId, number>) =>
+    dias === diasNoPeriodo && moradores.every((m) => contados[m.id] === diasContados[m.id]);
+
+  const luzSegueOMes = janelaIgual(diasNoPeriodoLuz, diasContadosLuz);
+  const aguaSegueOMes = janelaIgual(diasNoPeriodoAgua, diasContadosAgua);
+
   const somaDiasContados = moradores.reduce((s, m) => s + diasContados[m.id], 0);
   const todos = moradores.map((m) => m.id);
 
@@ -538,18 +442,32 @@ export function calcular(estado: Estado): Resultado {
     bruto: { luz: number; agua: number; reais: number },
     automatico: boolean,
   ) => {
-    const { pesos, soma } = pesosDe(item, diasContados, diasNoPeriodo);
+    const usoDatado =
+      item.rateio.tipo === "uso" && Boolean(item.rateio.usosLuz || item.rateio.usosAgua);
+
+    const noMes = pesosDe(item, diasContados, diasNoPeriodo);
+    const naLuz =
+      luzSegueOMes && !usoDatado
+        ? noMes
+        : pesosDe(item, diasContadosLuz, diasNoPeriodoLuz, "luz");
+    const naAgua =
+      aguaSegueOMes && !usoDatado
+        ? noMes
+        : pesosDe(item, diasContadosAgua, diasNoPeriodoAgua, "agua");
+
     const custoTotal = bruto.luz + bruto.agua + bruto.reais;
     const fatias: Fatia[] = [];
 
     for (const id of item.participantes) {
-      const proporcao = dividir(pesos[id], soma);
-      const luz = bruto.luz * proporcao;
-      const agua = bruto.agua * proporcao;
-      const emReais = bruto.reais * proporcao;
+      const luz = bruto.luz * dividir(naLuz.pesos[id], naLuz.soma);
+      const agua = bruto.agua * dividir(naAgua.pesos[id], naAgua.soma);
+      const emReais = bruto.reais * dividir(noMes.pesos[id], noMes.soma);
       const total = luz + agua + emReais;
 
-      fatias.push({ moradorId: id, peso: pesos[id], proporcao, total });
+      const proporcao =
+        Math.abs(custoTotal) > 1e-12 ? total / custoTotal : dividir(noMes.pesos[id], noMes.soma);
+
+      fatias.push({ moradorId: id, peso: noMes.pesos[id], proporcao, total });
 
       const alvo = totais[id];
       if (!alvo) continue;
@@ -571,12 +489,6 @@ export function calcular(estado: Estado): Resultado {
 
   validos.forEach((item, i) => processar(item, custos[i], false));
 
-  /**
-   * O rateio por presença precisa saber quando as ausências se sobrepõem. Com
-   * uma pessoa viajando, isso é dedutível; com duas ou mais, não. O motor
-   * assume que as viagens não coincidiram e diz que assumiu, em vez de
-   * apresentar uma estimativa como se fosse conta fechada.
-   */
   const estimados = validos.filter(
     (item) =>
       item.rateio.tipo === "presenca" &&
@@ -603,21 +515,8 @@ export function calcular(estado: Estado): Resultado {
       true,
     );
 
-    /**
-     * Taxa da distribuidora é da casa, não de quem gasta mais. Divide igual
-     * entre todo mundo, inclusive quem viajou o mês inteiro: a taxa veio na
-     * fatura de qualquer jeito.
-     */
     const taxaIgual = { participantes: todos, rateio: { tipo: "igual" } as Rateio };
 
-    /**
-     * Cada taxa vira um item com o nome que veio da fatura. "Iluminação
-     * pública R$ 12,73" diz o que "Taxas fixas R$ 12,73" não diz, e quem
-     * conferir a conta reconhece a linha.
-     *
-     * Se a soma das taxas passar do valor da fatura, tudo é reduzido na mesma
-     * proporção: o teto da fatura vale acima do que foi digitado.
-     */
     const publicar = (
       lista: TaxaFixa[],
       permitido: number,
@@ -653,23 +552,10 @@ export function calcular(estado: Estado): Resultado {
   const somaCobrada = lista.reduce((s, t) => s + t.total, 0);
   const somaDevida = faturas.luzValor + faturas.aguaValor + totalEmReais;
 
-  /**
-   * A conta fecha em números reais e mesmo assim não fecha em dinheiro.
-   * Aqui a divisão é refeita na moeda em que ela vai ser paga - centavos
-   * inteiros - e o que sobrar ou faltar é dito em voz alta, em vez de ficar
-   * escondido atrás de um "fecha certinho" que ninguém consegue reproduzir
-   * somando os valores da tela.
-   */
   const centavosCobrados = lista.reduce((s, t) => s + emCentavos(t.total), 0);
   const residuoDeCentavos = emCentavos(somaDevida) - centavosCobrados;
   const somaCobradaArredondada = centavosCobrados / 100;
 
-  /**
-   * Casa sem morador nenhum é um estado que a tela alcança: basta zerar a
-   * quantidade de moradores. Aí existe conta a pagar e não existe quem pague,
-   * e nada do que vem abaixo quer dizer coisa alguma. O aviso de centavos, em
-   * particular, ficaria falando de arredondamento quando o problema é outro.
-   */
   const casaVazia = moradores.length === 0 && Math.abs(somaDevida) > TOLERANCIA;
 
   if (casaVazia) {
@@ -691,20 +577,15 @@ export function calcular(estado: Estado): Resultado {
   }
 
   return {
-    diasNoPeriodo, tarifaLuz, tarifaAgua, diasContados, somaDiasContados,
+    diasNoPeriodo, diasNoPeriodoLuz, diasNoPeriodoAgua,
+    tarifaLuz, tarifaAgua,
+    diasContados, diasContadosLuz, diasContadosAgua, somaDiasContados,
     itens: calculados, moradores: lista, sobraLuz, sobraAgua, totalEmReais,
     somaCobrada, somaDevida, diferenca: somaCobrada - somaDevida,
     somaCobradaArredondada, residuoDeCentavos, alertas,
   };
 }
 
-/**
- * O invariante do sistema: ninguém paga a mais nem a menos no agregado.
- * Vale para qualquer configuração de moradores, itens e regras — desde que
- * exista ao menos um morador. Sem morador não há a quem cobrar, e aí a
- * diferença é o próprio valor da conta; esse caso vira alerta de erro em vez
- * de invariante quebrado.
- */
 export function conferir(resultado: Resultado): boolean {
   if (resultado.moradores.length === 0) {
     return Math.abs(resultado.somaDevida) < TOLERANCIA;
@@ -712,11 +593,6 @@ export function conferir(resultado: Resultado): boolean {
   return Math.abs(resultado.diferenca) < TOLERANCIA;
 }
 
-/**
- * O invariante mais duro: fechar também depois de arredondar ao centavo.
- * Este falha de propósito em casos como cem reais para três pessoas, e é por
- * isso que a interface avisa em vez de dizer que está tudo certo.
- */
 export function conferirEmCentavos(resultado: Resultado): boolean {
   return resultado.residuoDeCentavos === 0;
 }

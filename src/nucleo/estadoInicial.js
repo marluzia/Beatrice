@@ -1,11 +1,10 @@
 import { novoId } from "./formato.js";
 import { criarItem, modeloPorChave } from "./catalogo.js";
 
-// Itens que quase toda república tem, para a tela não abrir vazia. 
 const ITENS_DE_PARTIDA = ["faxina", "geladeira", "maquina", "gas", "internet"];
 
 export function novaLinha(nome = "", comportamento = "consumo") {
-  return { id: novoId("l"), nome, valor: "", comportamento };
+  return { id: novoId("l"), nome, quantidade: "", valor: "", comportamento };
 }
 
 export function faturaVazia(unidade) {
@@ -14,7 +13,7 @@ export function faturaVazia(unidade) {
       ? [novaLinha("Energia elétrica", "consumo"), novaLinha("Iluminação pública", "igual")]
       : [novaLinha("Tarifa água", "consumo")];
 
-  return { unidade, consumo: "", linhas };
+  return { unidade, ativa: true, janela: null, linhas };
 }
 
 export function estadoInicial(quantosMoradores = 3) {
@@ -22,6 +21,7 @@ export function estadoInicial(quantosMoradores = 3) {
     id: novoId("m"),
     nome: "",
     diasFora: "",
+    ausencias: [],
   }));
   const ids = moradores.map((m) => m.id);
   const hoje = new Date();

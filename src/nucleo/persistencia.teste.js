@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { carregarCasa, limparCasa, salvarCasa } from "./persistencia.js";
 import { estadoInicial } from "./estadoInicial.js";
@@ -26,13 +25,15 @@ describe("ida e volta", () => {
     const casa = estadoInicial(2);
     casa.moradores[0].nome = "Ana";
     casa.moradores[0].diasFora = "12";
-    casa.faturas.luzValor = "360,50";
+    casa.faturas.luz.consumo = "400";
+    casa.faturas.luz.linhas[0].valor = "360,50";
     salvarCasa(casa);
 
     const voltou = carregarCasa();
     expect(voltou.moradores[0].nome).toBe("Ana");
     expect(voltou.moradores[0].diasFora).toBe("12");
-    expect(voltou.faturas.luzValor).toBe("360,50");
+    expect(voltou.faturas.luz.consumo).toBe("400");
+    expect(voltou.faturas.luz.linhas[0].valor).toBe("360,50");
   });
 
   it("devolve null quando não há nada salvo", () => {
@@ -122,7 +123,6 @@ describe("navegador hostil", () => {
 });
 
 describe("migração da versão 1", () => {
-  /** Como uma casa ficava salva antes das taxas discriminadas. */
   const casaAntiga = {
     versao: 1,
     estado: {
@@ -156,13 +156,14 @@ describe("migração da versão 1", () => {
     window.localStorage.setItem("cdr:casa", JSON.stringify(casaAntiga));
     const luz = carregarCasa().faturas.luz;
 
-    expect(luz.consumo).toBe("122");
+    const daLinha = luz.linhas.find((l) => l.comportamento === "consumo");
+    expect(daLinha.quantidade).toBe("122");
+    expect(luz.consumo).toBeUndefined();
     expect(luz.linhas).toHaveLength(2);
 
     const consumo = luz.linhas.find((l) => l.comportamento === "consumo");
     const taxa = luz.linhas.find((l) => l.comportamento === "igual");
 
-    // 113,74 na versão 1 já incluía a taxa: o consumo é o que sobra.
     expect(Number(consumo.valor)).toBeCloseTo(101.01, 8);
     expect(taxa.nome).toBe("Iluminação pública");
     expect(Number(taxa.valor)).toBeCloseTo(12.73, 8);
@@ -187,7 +188,7 @@ describe("migração da versão 1", () => {
     window.localStorage.setItem("cdr:casa", JSON.stringify(casaAntiga));
     salvarCasa(carregarCasa());
     const pacote = JSON.parse(window.localStorage.getItem("cdr:casa"));
-    expect(pacote.versao).toBe(3);
+    expect(pacote.versao).toBe(4);
     expect(pacote.estado.faturas.luz).toBeDefined();
   });
 
@@ -200,9 +201,7 @@ describe("migração da versão 1", () => {
   });
 });
 
-
 describe("migração da versão 2", () => {
-  /** Formato intermediário: consumo separado, mas sem comportamento por linha. */
   const casaV2 = {
     versao: 2,
     estado: {
@@ -251,6 +250,73 @@ describe("migração da versão 2", () => {
 
   it("a casa migrada passa pelo motor e fecha", () => {
     window.localStorage.setItem("cdr:casa", JSON.stringify(casaV2));
+    expect(conferir(calcular(carregarCasa()))).toBe(true);
+  });
+});
+
+describe("migração da versão 3", () => {
+  const casaV3 = {
+    versao: 3,
+    estado: {
+      periodo: { mes: 8, ano: 2026 },
+      faturas: {
+        luz: {
+          unidade: "kwh",
+          ativa: true,
+          janela: null,
+          consumo: "141",
+          linhas: [
+            { id: "l1", nome: "Energia elétrica", valor: "168,61", comportamento: "consumo" },
+            { id: "l2", nome: "Iluminação pública", valor: "21,65", comportamento: "igual" },
+          ],
+        },
+        agua: { unidade: "m3", ativa: true, janela: null, consumo: "", linhas: [] },
+      },
+      moradores: [{ id: "m0", nome: "Ana", diasFora: "", ausencias: [] }],
+      itens: [],
+    },
+  };
+
+  it("leva o consumo solto para a primeira linha de consumo", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV3));
+    const luz = carregarCasa().faturas.luz;
+
+    expect(luz.consumo).toBeUndefined();
+    expect(luz.linhas[0].quantidade).toBe("141");
+    expect(luz.linhas[1].comportamento).toBe("igual");
+  });
+
+  it("a tarifa continua a mesma depois de migrar", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV3));
+    const r = calcular(carregarCasa());
+    expect(r.tarifaLuz).toBeCloseTo(168.61 / 141, 8);
+  });
+
+  it("fatura sem consumo não ganha linha inventada", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV3));
+    expect(carregarCasa().faturas.agua.linhas).toEqual([]);
+  });
+
+  it("consumo solto sem linha de consumo vira uma linha", () => {
+    const semLinha = {
+      versao: 3,
+      estado: {
+        ...casaV3.estado,
+        faturas: {
+          luz: { unidade: "kwh", ativa: true, janela: null, consumo: "80", linhas: [] },
+          agua: casaV3.estado.faturas.agua,
+        },
+      },
+    };
+    window.localStorage.setItem("cdr:casa", JSON.stringify(semLinha));
+    const linhas = carregarCasa().faturas.luz.linhas;
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].quantidade).toBe("80");
+    expect(linhas[0].comportamento).toBe("consumo");
+  });
+
+  it("a casa migrada passa pelo motor e fecha", () => {
+    window.localStorage.setItem("cdr:casa", JSON.stringify(casaV3));
     expect(conferir(calcular(carregarCasa()))).toBe(true);
   });
 });
