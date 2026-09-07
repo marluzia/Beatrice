@@ -53,8 +53,8 @@ export default function App() {
             ))}
           </ul>
           <p>
-            Se não tiver as datas em mãos, deixe as duas em branco — o
-            fechamento passa a valer o mês inteiro — ou desligue a fatura.
+            Se não tiver as datas em mãos, deixe as duas em branco que o
+            fechamento passa a valer o mês inteiro, ou desligue a fatura.
           </p>
         </Alerta>
       )}

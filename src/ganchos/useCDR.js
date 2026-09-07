@@ -78,6 +78,10 @@ export function useCDR() {
     }));
   }, []);
 
+  const definirCalibragem = useCallback((valor) => {
+    definir((e) => ({ ...e, calibragem: valor }));
+  }, []);
+
   const definirPeriodo = useCallback((campo, valor) => {
     if (campo === "dias") {
       const texto = String(valor ?? "").trim();
@@ -172,7 +176,8 @@ export function useCDR() {
       adicionarLinha,
       editarLinha,
       removerLinha,
-      definirPeriodo,
+      definirCalibragem,
+    definirPeriodo,
       ajustarQuantidadeDeMoradores,
       editarMorador,
       adicionarItem,

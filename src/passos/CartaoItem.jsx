@@ -34,7 +34,7 @@ const NOMES_DOS_RATEIOS = {
 
 const EXPLICACOES_DOS_RATEIOS = {
   dias: "Cada um paga na proporção dos dias que passou em casa.",
-  presenca: "O custo de cada dia é dividido entre quem estava em casa naquele dia. Quem ficou sozinho num dia paga aquele dia inteiro — é o certo para aparelho que gasta o mesmo com uma ou com várias pessoas.",
+  presenca: "O custo de cada dia é dividido entre quem estava em casa naquele dia. Quem ficou sozinho num dia paga aquele dia inteiro. É uma opção para aparelho que gasta o mesmo com uma ou com várias pessoas.",
 };
 
 function dicaDoItem(item, temLuz, temAgua) {
@@ -169,7 +169,7 @@ export default function CartaoItem({
 
       {bloqueado && (
         <p className="item-falta">
-          Falta {falta.join(" e ")} — lance em Contas para este item entrar na conta.
+          Falta {falta.join(" e ")} . Lance em Contas para este item entrar na conta.
         </p>
       )}
 
@@ -363,7 +363,7 @@ export default function CartaoItem({
                         {oQueFalta(o)} dele{" "}
                         {o.quando === "passado"
                           ? "entrou na fatura anterior, que já foi fechada. Aqui ela não é cobrada de novo."
-                          : "virá na próxima fatura. Não está cobrada aqui — lance este mesmo dia no fechamento do mês que vem."}
+                          : "virá na próxima fatura. Não está cobrada aqui. Lance este mesmo dia no fechamento do mês que vem."}
                       </li>
                     ))}
                   </ul>
@@ -494,7 +494,7 @@ export default function CartaoItem({
                     <Alerta nivel="aviso">
                       Sem as datas, o CDR não sabe em que ciclo cada uso caiu. Os ciclos de
                       luz e água têm {diasSoltos} {diasSoltos === 1 ? "dia" : "dias"} que uma
-                      cobre e a outra não — um uso nesses dias vai ser cobrado nas duas, e a
+                      cobre e a outra não. Um uso nesses dias vai ser cobrado nas duas, e a
                       conta fica imprecisa. Lançar por data resolve.
                     </Alerta>
                   )}

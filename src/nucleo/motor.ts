@@ -30,6 +30,7 @@ export type Rateio =
   | { tipo: "igual" }
   | { tipo: "dias" }
   | { tipo: "presenca" }
+  | { tipo: "misto"; igual: number }
   | {
       tipo: "uso";
       usos: Record<MoradorId, number>;
@@ -71,6 +72,7 @@ export interface Periodo {
 }
 
 export interface Estado {
+  calibragem?: number;
   periodo: Periodo;
   faturas: Faturas;
   moradores: Morador[];
@@ -299,7 +301,12 @@ function pesosDe(
     for (const id of item.participantes) pesos[id] = fatias[id];
   } else {
     for (const id of item.participantes) {
-      if (item.rateio.tipo === "dias" || item.rateio.tipo === "presenca") {
+      if (item.rateio.tipo === "misto") {
+        const k = Math.min(1, Math.max(0, item.rateio.igual));
+        const soma = item.participantes.reduce((t, x) => t + (diasContados[x] ?? 0), 0);
+        const porDias = soma > 0 ? (diasContados[id] ?? 0) / soma : 1 / item.participantes.length;
+        pesos[id] = (1 - k) * porDias + k / item.participantes.length;
+      } else if (item.rateio.tipo === "dias" || item.rateio.tipo === "presenca") {
         pesos[id] = diasContados[id] ?? 0;
       } else if (item.rateio.tipo === "uso") {
         const datados =
@@ -503,7 +510,11 @@ export function calcular(estado: Estado): Resultado {
   }
 
   if (todos.length > 0) {
-    const comum = { participantes: todos, rateio: { tipo: "dias" } as Rateio };
+    const calibragem = Math.min(1, Math.max(0, estado.calibragem ?? 0));
+    const comum = {
+      participantes: todos,
+      rateio: { tipo: "misto", igual: calibragem } as Rateio,
+    };
     processar(
       { ...comum, id: "__luz", nome: "Uso comum de luz", custo: { tipo: "reais", valor: sobraLuz } },
       { luz: sobraLuz, agua: 0, reais: 0 },
@@ -571,8 +582,8 @@ export function calcular(estado: Estado): Resultado {
       nivel: "aviso",
       texto:
         residuoDeCentavos > 0
-          ? `Arredondando cada pessoa ao centavo, a soma dá R$ ${escrito(somaCobradaArredondada)} e não os R$ ${escrito(somaDevida)} devidos: ${quanto} de menos. Não existe divisão exata aqui. combinem quem cobre a diferença.`
-          : `Arredondando cada pessoa ao centavo, a soma dá R$ ${escrito(somaCobradaArredondada)} contra os R$ ${escrito(somaDevida)} devidos: ${quanto} de sobra. Não existe divisão exata aqui. combinem quem fica com a diferença.`,
+          ? `Arredondando, a soma dá R$ ${escrito(somaCobradaArredondada)} e não os R$ ${escrito(somaDevida)} devidos: ${quanto} de menos. Fiz meu melhor, mas esse sistema monetário não cedeu para mim. Passo a moeda para vocês...`
+          : `Arredondando, a soma dá R$ ${escrito(somaCobradaArredondada)} contra os R$ ${escrito(somaDevida)} devidos: ${quanto} de sobra. Fiz meu melhor, mas esse sistema monetário não cedeu para mim. Passo a moeda para vocês...`,
     });
   }
 

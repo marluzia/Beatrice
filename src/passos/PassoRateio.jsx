@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Alerta, Ficha, Titulo } from "../componentes/index.js";
+import { Alerta, Botao, Ficha, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
 import { lavagensForaDoCiclo, totalDaFatura } from "../nucleo/adaptador.js";
+import { montarRelatorio, nomeDoArquivo } from "../nucleo/relatorio.js";
+import RelatorioImpresso from "./RelatorioImpresso.jsx";
 import Regua from "./Regua.jsx";
 import Apoio from "./Apoio.jsx";
 import { AjudaCentavos } from "./ajudas.jsx";
 
-export default function PassoRateio({ estado, resultado, indicePorId }) {
+export default function PassoRateio({ estado, resultado, indicePorId, acoes }) {
   const [abertos, setAbertos] = useState({});
   const fecha = Math.abs(resultado.diferenca) < 0.005;
 
@@ -19,8 +21,8 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
     ? `diferença de R$ ${reais(resultado.diferenca)}`
     : sobrouCentavo
       ? centavos > 0
-        ? `arredondado ao centavo, falta ${quantos} para os R$ ${reais(resultado.somaDevida)} devidos`
-        : `arredondado ao centavo, sobra ${quantos} sobre os R$ ${reais(resultado.somaDevida)} devidos`
+        ? `arredondado, falta ${quantos} para os R$ ${reais(resultado.somaDevida)} devidos`
+        : `arredondado, sobra ${quantos} sobre os R$ ${reais(resultado.somaDevida)} devidos`
       : `fecha com os R$ ${reais(resultado.somaDevida)} devidos`;
 
   const classeDoVeredito = !fecha
@@ -32,7 +34,23 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
   const alternar = (id) => setAbertos((s) => ({ ...s, [id]: !s[id] }));
 
   const orfas = lavagensForaDoCiclo(estado);
-  const orfasDe = (id) => orfas.filter((o) => o.moradorId === id);
+  const orfasDe = (id) =>
+    orfas.filter((o) => (o.participantes ?? [o.moradorId]).includes(id));
+
+  const imprimir = () => window.print();
+
+  const exportarTexto = () => {
+    const texto = montarRelatorio(estado, resultado);
+    const url = URL.createObjectURL(new Blob([texto], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nomeDoArquivo(estado);
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const calibragem = Number(estado.calibragem) || 0;
+  const emIgual = Math.round(calibragem * 100);
   const diaCurto = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
   return (
@@ -42,6 +60,49 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
           {a.texto}
         </Alerta>
       ))}
+
+      <Ficha>
+        <Titulo nota="Traz tudo: as faturas linha a linha, os dias contados de cada um em cada conta, os dias fora, os usos por data e os avisos do que fica para o próximo fechamento.">
+          Relatório completo
+        </Titulo>
+        <div className="linha-acoes">
+          <Botao aoClicar={imprimir}>Exportar em PDF</Botao>
+          <Botao tipo="fantasma" aoClicar={exportarTexto}>
+            Baixar em texto
+          </Botao>
+        </div>
+        <p className="dica">
+          O PDF abre a janela de impressão do navegador: escolha "Salvar como PDF" no
+          destino. O texto serve para conferir linha a linha ou colar no grupo da casa.
+        </p>
+      </Ficha>
+
+      <Ficha>
+        <Titulo nota="A parte da luz e da água que nenhum aparelho explica. Arraste para ver o efeito de dividir por dias ou por igual.">
+          Calibrar o uso comum
+        </Titulo>
+        <div className="calibragem">
+          <span className="calibragem__ponta">por dias</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={emIgual}
+            className="calibragem__barra"
+            aria-label="Quanto do uso comum divide por igual"
+            onChange={(e) => acoes.definirCalibragem(Number(e.target.value) / 100)}
+          />
+          <span className="calibragem__ponta">por igual</span>
+        </div>
+        <p className="dica">
+          {emIgual === 0
+            ? "Tudo pelos dias em casa: quem viajou paga menos."
+            : emIgual === 100
+              ? "Tudo por igual: os dias em casa deixam de contar no uso comum."
+              : `${100 - emIgual}% por dias em casa, ${emIgual}% por igual.`}
+        </p>
+      </Ficha>
 
       <Ficha>
       <AjudaCentavos />
@@ -133,6 +194,8 @@ export default function PassoRateio({ estado, resultado, indicePorId }) {
         </div>
       </Ficha>
       <Apoio resultado={resultado} />
+
+      <RelatorioImpresso estado={estado} resultado={resultado} />
     </div>
   );
 }

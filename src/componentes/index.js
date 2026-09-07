@@ -7,7 +7,7 @@ export { default as Calendario } from "./Calendario.jsx";
 export { default as Campo } from "./Campo.jsx";
 export { default as CampoData } from "./CampoData.jsx";
 export { default as Ficha } from "./Ficha.jsx";
-export { default as MarcaCDR } from "./MarcaCDR.jsx";
+export { default as MarcaCeder } from "./MarcaCeder.jsx";
 export { default as Navegacao } from "./Navegacao.jsx";
 export { default as Pastilha } from "./Pastilha.jsx";
 export { default as Rotulo } from "./Rotulo.jsx";

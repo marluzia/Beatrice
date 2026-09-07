@@ -1,12 +1,12 @@
-import MarcaCDR from "./MarcaCDR.jsx";
+import MarcaCeder from "./MarcaCeder.jsx";
 
 export default function Cabecalho() {
   return (
     <header className="cabecalho">
-      <MarcaCDR tamanho={46} />
+      <MarcaCeder tamanho={46} />
       <div>
-        <h1 className="sigla">CDR</h1>
-        <p className="subtitulo">Calculadora de Despesas Republicanas</p>
+        <h1 className="marca-nome">CEDER</h1>
+        <p className="subtitulo">Juntos dividimos justo</p>
       </div>
       <p className="lema">
         Quem viajou não paga pelo ar que não usou. Quem não lavou não paga a

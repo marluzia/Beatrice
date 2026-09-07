@@ -93,12 +93,12 @@ button {
   margin-bottom: 18px;
 }
 
-.marca-cdr {
+.marca-ceder {
   flex-shrink: 0;
   display: block;
 }
 
-.sigla {
+.marca-nome {
   margin: 0;
   font-family: var(--mono);
   font-size: 30px;
@@ -107,7 +107,7 @@ button {
 }
 
 @media (min-width: 640px) {
-  .sigla {
+  .marca-nome {
     font-size: 36px;
   }
 }
@@ -793,6 +793,7 @@ button {
 
 .regua-fatia {
   min-width: 0;
+  margin: 0px 1px 0px 1px;
 }
 
 .conferencia {
@@ -1484,4 +1485,193 @@ button {
 
 .dica--alerta {
   color: var(--alerta, #b24232);
+}
+
+.calibragem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 0;
+}
+
+.calibragem__ponta {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  white-space: nowrap;
+}
+
+.calibragem__barra {
+  flex: 1;
+  min-width: 0;
+  height: var(--toque);
+  accent-color: var(--tinta);
+}
+
+.dia-do-uso__topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dia-do-uso__marca {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.marca-nome {
+  font-family: "Baron", "Baron Neue", var(--sans);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Relatório impresso */
+
+.impresso {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .impresso,
+  .impresso * {
+    visibility: visible;
+  }
+
+  .impresso {
+    display: block;
+    position: absolute;
+    inset: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+    font-family: var(--sans);
+    font-size: 10pt;
+    line-height: 1.45;
+  }
+
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  .impresso-topo {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #000;
+  }
+
+  .impresso-topo h1 {
+    margin: 0;
+    font-size: 16pt;
+    letter-spacing: 0.16em;
+  }
+
+  .impresso-topo p {
+    margin: 2px 0 0;
+    font-size: 10pt;
+  }
+
+  .impresso-carimbo {
+    margin-left: auto;
+    text-align: right;
+    font-size: 8pt;
+    color: #444;
+  }
+
+  .impresso-bloco,
+  .impresso-pessoa {
+    margin-top: 14px;
+    break-inside: avoid;
+  }
+
+  .impresso-pessoa {
+    padding-top: 10px;
+    border-top: 1px solid #999;
+  }
+
+  .impresso h2 {
+    margin: 0 0 6px;
+    font-size: 12pt;
+  }
+
+  .impresso h3 {
+    margin: 10px 0 4px;
+    font-size: 10pt;
+  }
+
+  .impresso h3 span,
+  .impresso-resumo,
+  .impresso-presenca {
+    font-weight: 400;
+    font-size: 9pt;
+    color: #333;
+  }
+
+  .impresso-total {
+    float: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .impresso table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+    font-size: 9pt;
+  }
+
+  .impresso th,
+  .impresso td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .impresso th {
+    border-bottom: 1px solid #000;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .impresso .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .impresso tfoot td {
+    border-top: 1px solid #000;
+    border-bottom: none;
+    font-weight: 600;
+  }
+
+  .impresso-pendencia {
+    margin: 6px 0;
+    padding: 6px 8px;
+    border: 1.5px solid #000;
+    font-size: 9pt;
+  }
+
+  .impresso-pendencia ul,
+  .impresso-avisos {
+    margin: 4px 0 0;
+    padding-left: 16px;
+  }
+
+  .impresso-centavo {
+    margin-top: 6px;
+    font-size: 9pt;
+    font-style: italic;
+  }
 }

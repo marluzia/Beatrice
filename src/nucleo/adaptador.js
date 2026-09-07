@@ -7,6 +7,7 @@ import {
 import { nomeOu, num } from "./formato.js";
 import {
   dentroDaJanela,
+  partesDoDia,
   diasDaJanela,
   diasNaJanela,
   cicloValido,
@@ -60,6 +61,8 @@ export function orfasDoItem(item, faturas, periodo) {
   const achados = [];
 
   for (const evento of eventosDe(item)) {
+    if (!partesDoDia(evento.data)) continue;
+
     for (const [qual, janela] of ciclos) {
       if (dentroDaJanela(evento.data, janela)) continue;
 
@@ -239,6 +242,7 @@ export function paraMotor(estado) {
   const daAgua = janelaDaFatura(estado.faturas.agua, periodo);
 
   return {
+    calibragem: num(estado.calibragem),
     periodo: {
       ...periodo,
       dias: diasDaJanela(doFechamento, periodo),
@@ -268,6 +272,13 @@ function alertaDeLavagens(estado) {
     const i = estado.moradores.findIndex((m) => m.id === id);
     return i < 0 ? "alguém" : nomeOu(estado.moradores[i].nome, i);
   };
+
+  const quem = (fora) => {
+    const nomes = (fora.participantes ?? []).map(nome);
+    if (nomes.length === 0) return "alguém";
+    if (nomes.length === 1) return nomes[0];
+    return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+  };
   const curto = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
   const futuras = foras.filter((f) => f.quando === "futuro");
@@ -276,7 +287,7 @@ function alertaDeLavagens(estado) {
 
   if (futuras.length > 0) {
     const quais = futuras
-      .map((f) => `${nome(f.moradorId)} em ${curto(f.dia)} (${f.faltando === "luz" ? "luz" : "água"})`)
+      .map((f) => `${quem(f)} em ${curto(f.dia)} (${f.faltando === "luz" ? "luz" : "água"})`)
       .join("; ");
     alertas.push({
       nivel: "aviso",
@@ -286,11 +297,11 @@ function alertaDeLavagens(estado) {
 
   if (passadas.length > 0) {
     const quais = passadas
-      .map((f) => `${nome(f.moradorId)} em ${curto(f.dia)} (${f.faltando === "luz" ? "luz" : "água"})`)
+      .map((f) => `${quem(f)} em ${curto(f.dia)} (${f.faltando === "luz" ? "luz" : "água"})`)
       .join("; ");
     alertas.push({
       nivel: "aviso",
-      texto: `Estas lavagens aconteceram antes de um dos ciclos começar: ${quais}. Essa parte entrou na fatura anterior, que já foi fechada — aqui ela não é cobrada de novo.`,
+      texto: `Estas lavagens aconteceram antes de um dos ciclos começar: ${quais}. Essa parte entrou na fatura anterior, que já foi fechada. Ela não é cobrada no cálculo deste mês.`,
     });
   }
 

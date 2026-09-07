@@ -22,13 +22,13 @@ export default class BarreiraDeErro extends Component {
         <div className="barreira">
           <h1 className="barreira__titulo">O CDR travou</h1>
           <p>
-            Alguma coisa quebrou no meio do caminho, e o problema é nosso, não
+            Alguma coisa quebrou no meio do caminho, e o problema é meu, não
             seu. Nenhuma conta foi enviada para lugar nenhum.
           </p>
           <p>
             Recarregar costuma resolver. Se a tela travar de novo assim que
-            abrir, o problema pode estar nos dados salvos neste navegador —
-            apagar começa uma casa nova.
+            abrir, o problema pode estar nos dados salvos neste navegador. Se limpar histórico,
+            perde tudo.
           </p>
           <div className="barreira__acoes">
             <button

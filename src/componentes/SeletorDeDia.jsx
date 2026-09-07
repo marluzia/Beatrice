@@ -8,22 +8,18 @@ export default function SeletorDeDia({ valor, aoMudar, periodo, limite, etiqueta
   const [aberto, setAberto] = useState(false);
 
   const escolher = (dias) => {
-    const novo = dias.find((d) => d !== valor) ?? null;
-    aoMudar(novo);
-    if (novo) setAberto(false);
+    const novo = dias.find((d) => d !== valor);
+    if (novo) aoMudar(novo);
   };
 
   return (
     <div className="dia-do-uso">
-      <Botao
-        tipo="fantasma"
-        aoClicar={() => setAberto(!aberto)}
-        aria-expanded={aberto}
-      >
-        {aberto ? "Ocultar calendário" : valor ? "Trocar dia" : "Marcar dia"}
-      </Botao>
-
-      {valor && !aberto && <span className="dia-do-uso__marca">{diaCurto(valor)}</span>}
+      <div className="dia-do-uso__topo">
+        <Botao tipo="fantasma" aoClicar={() => setAberto(!aberto)} aria-expanded={aberto}>
+          {aberto ? "Ocultar calendário" : valor ? "Trocar dia" : "Marcar dia"}
+        </Botao>
+        {valor && <span className="dia-do-uso__marca">{diaCurto(valor)}</span>}
+      </div>
 
       {aberto && (
         <Calendario

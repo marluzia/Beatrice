@@ -27,6 +27,7 @@ export function estadoInicial(quantosMoradores = 3) {
   const hoje = new Date();
 
   return {
+    calibragem: 0,
     periodo: { mes: hoje.getMonth() + 1, ano: hoje.getFullYear() },
     faturas: {
       luz: faturaVazia("kwh"),

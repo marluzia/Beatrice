@@ -193,7 +193,7 @@ function BlocoDeFatura({ qual, titulo, fatura, acoes }) {
           <p className="dica">
             Copie cada linha da fatura com a quantidade e o valor. "Abate o
             consumo" é para crédito de energia compensada: o valor entra
-            negativo, mas a quantidade não soma de novo — é a mesma energia da
+            negativo, mas a quantidade não soma de novo, é a mesma energia da
             linha que ele abate.
           </p>
         ) : (

@@ -171,7 +171,7 @@ export function montarMensagemDeColeta(estado) {
   const linhas = [`Fechamento de ${MESES[mes - 1]} de ${ano}`, ""];
 
   if (nomes.length === 0) {
-    linhas.push("Nenhum morador cadastrado ainda — sem isso não há a quem perguntar.");
+    linhas.push("Nenhum morador cadastrado ainda, sem isso não há a quem perguntar.");
     return linhas.join("\n");
   }
 
@@ -190,7 +190,7 @@ export function montarMensagemDeColeta(estado) {
       linhas.push(`- ${p.texto}${p.pessoal ? " (cada um responde)" : ""}`);
     }
   } else {
-    linhas.push("", "Não falta nada — já dá para fechar.");
+    linhas.push("", "Não falta nada, já dá para fechar.");
   }
 
   const observacoes = observacoesDeGrupo(estado);
