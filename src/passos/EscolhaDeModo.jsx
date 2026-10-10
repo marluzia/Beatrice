@@ -1,0 +1,98 @@
+import { useState } from "react";
+import { Botao, Campo, Ficha, Rotulo, Titulo } from "../componentes/index.js";
+import { LISTA_DE_MODOS, modoDe } from "../nucleo/modos.js";
+
+/**
+ * A primeira pergunta: que tipo de lugar é este. A resposta não muda o
+ * cálculo, muda com o que a casa abre e como a tela pergunta as coisas.
+ */
+export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
+  const [escolhido, setEscolhido] = useState("moradia");
+  const [nome, setNome] = useState("");
+  const [pessoas, setPessoas] = useState("");
+
+  const modo = modoDe(escolhido);
+
+  const quantas = () => {
+    const n = parseInt(pessoas, 10);
+    return Number.isFinite(n) ? Math.max(0, Math.min(modo.maximoDeMoradores, n)) : modo.moradores;
+  };
+
+  const criar = () => aoCriar(nome.trim() || modo.nome, escolhido, quantas());
+
+  return (
+    <div className="coluna">
+      <Ficha>
+        <Titulo nota="Cada tipo abre com outros itens e pergunta as coisas de outro jeito. O cálculo é o mesmo.">
+          Que lugar é este?
+        </Titulo>
+
+        <div className="modo-grade">
+          {LISTA_DE_MODOS.map((m) => {
+            const ativo = m.chave === escolhido;
+            return (
+              <button
+                type="button"
+                key={m.chave}
+                className={`modo-cartao ${ativo ? "modo-cartao--ativo" : ""}`}
+                aria-pressed={ativo}
+                onClick={() => setEscolhido(m.chave)}
+              >
+                <span className="modo-cartao__topo">
+                  <span className="modo-cartao__nome">{m.nome}</span>
+                  {!m.pago && <span className="selo selo--livre">grátis</span>}
+                </span>
+                <span className="modo-cartao__exemplo">{m.exemplo}</span>
+                <span className="modo-cartao__descricao">{m.descricao}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Ficha>
+
+      <Ficha>
+        <Titulo>Como chamar</Titulo>
+
+        <div className="linha-campos">
+          <Campo
+            rotulo="Nome"
+            valor={nome}
+            aoMudar={setNome}
+            placeholder={modo.nome}
+            largura="campo--medio"
+            texto
+          />
+          <Campo
+            rotulo={modo.palavras.Pessoas}
+            valor={pessoas}
+            aoMudar={setPessoas}
+            placeholder={String(modo.moradores)}
+            largura="campo--minimo"
+            tipoDeTeclado="numeric"
+          />
+        </div>
+
+        <p className="dica">{modo.nota}</p>
+
+        <div className="linha-acoes">
+          <Botao aoClicar={criar}>Criar {modo.palavras.casa}</Botao>
+          {podeCancelar && (
+            <Botao tipo="fantasma" aoClicar={aoCancelar}>
+              Cancelar
+            </Botao>
+          )}
+        </div>
+
+        <p className="nota">
+          O nome serve só para você achar esta casa de novo na lista. Dá para
+          mudar depois.
+        </p>
+      </Ficha>
+    </div>
+  );
+}
+
+export function RotuloDoModo({ chave }) {
+  const modo = modoDe(chave);
+  return <span className="selo selo--modo">{modo.nome}</span>;
+}

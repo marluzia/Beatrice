@@ -1,0 +1,40 @@
+{
+  "name": "ceder",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CEDER — Calculadora de Despesas, Divisão por ciclos, eventos e uso",
+  "type": "module",
+
+  "engines": {
+    "node": ">=24"
+  },
+
+  "scripts": {
+    "dev": "vite",
+    "checar": "tsc --noEmit",
+
+    "checar:node": "node -e \"const major=Number(process.versions.node.split('.')[0]);if(major<24){console.error('\\\\nNode '+process.versions.node+' nao e suportado. Use Node 24 ou superior.\\\\n');process.exit(1)}\"",
+
+    "pretestar": "npm run checar:node",
+    "testar": "vitest run",
+    "testar:vigiar": "vitest",
+    "test": "vitest run",
+    "preview": "vite preview --host",
+    "build": "npm run checar && vite build",
+    "verificar": "npm run checar && npm run testar"
+  },
+
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.1"
+  }
+}

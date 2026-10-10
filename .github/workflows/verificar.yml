@@ -1,0 +1,37 @@
+# Roda os tipos e a suíte a cada push e a cada pull request.
+#
+# Existe por um motivo concreto: num refactor anterior, metade dos arquivos de
+# teste sumiu sem ninguém notar, e o script `testar` chegou a desaparecer do
+# package.json — `npm run verificar` ficou quebrado e o time não tinha como
+# saber. Isto aqui é o que avisa.
+#
+# O build de produção NÃO depende desta suíte (ver README): o que bloqueia a
+# publicação é erro de tipo. Mas um PR com teste vermelho fica marcado.
+
+name: verificar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tipos-e-testes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar
+        run: npm ci
+
+      - name: Tipos do motor
+        run: npm run checar
+
+      - name: Suíte
+        run: npm run testar

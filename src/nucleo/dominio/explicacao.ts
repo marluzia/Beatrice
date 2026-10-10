@@ -1,0 +1,103 @@
+// CRC: ExplicaçãoDoCálculo
+//
+// Responsabilidade: juntar as parcelas de cada pessoa num total que se
+// desmonta item a item, e dizer em palavras o que o cálculo teve de supor,
+// cortar ou arredondar.
+// Colabora com: Alocação (as parcelas), Fechamento (que decide quando cada
+// aviso vale).
+//
+// Os textos dos avisos moram todos aqui. Nenhum outro arquivo do domínio
+// escreve frase para a tela.
+
+import type { Alerta, Item, Morador, MoradorId, TotalMorador } from "./tipos.ts";
+import type { DiasContados } from "./morador.ts";
+import type { ItemAlocado } from "./alocacao.ts";
+import { escrito, plural } from "./numeros.ts";
+
+// ── o total de cada pessoa ─────────────────────────────────────────────────
+
+export type Totais = Record<MoradorId, TotalMorador>;
+
+export function totaisEmBranco(moradores: Morador[], diasContados: DiasContados): Totais {
+  const totais: Totais = {};
+
+  for (const m of moradores) {
+    totais[m.id] = {
+      moradorId: m.id,
+      nome: m.nome,
+      diasContados: diasContados[m.id],
+      luz: 0,
+      agua: 0,
+      reais: 0,
+      total: 0,
+      linhas: [],
+    };
+  }
+
+  return totais;
+}
+
+/** Soma a parte de cada um num item ao total dele, e anota a linha. */
+export function lancarNosTotais(totais: Totais, nome: string, alocado: ItemAlocado): void {
+  for (const parcela of alocado.parcelas) {
+    const alvo = totais[parcela.moradorId];
+    // Participante que não é morador da casa: a fatia existe, mas não há de quem cobrar.
+    if (!alvo) continue;
+
+    alvo.luz += parcela.luz;
+    alvo.agua += parcela.agua;
+    alvo.reais += parcela.reais;
+    alvo.total += parcela.total;
+
+    if (Math.abs(parcela.total) > 1e-9) alvo.linhas.push({ nome, valor: parcela.total });
+  }
+}
+
+// ── os avisos ──────────────────────────────────────────────────────────────
+
+export const itensSemNinguem = (quantos: number): Alerta => ({
+  nivel: "aviso",
+  texto:
+    quantos === 1
+      ? "Um item está sem ninguém marcado e ficou de fora do rateio."
+      : `${quantos} itens estão sem ninguém marcado e ficaram de fora do rateio.`,
+});
+
+export const consumoPassaDaFatura = (qual: "luz" | "agua", excesso: number): Alerta => ({
+  nivel: "erro",
+  texto:
+    qual === "luz"
+      ? `Os itens de consumo elétrico passam em R$ ${escrito(excesso)} o valor da fatura de luz. Revise os kWh informados.`
+      : `Os itens de consumo de água passam em R$ ${escrito(excesso)} o valor da fatura de água. Revise os m³ informados.`,
+});
+
+export const ninguemEmCasa = (): Alerta => ({
+  nivel: "aviso",
+  texto: "Ninguém passou nenhum dia em casa no período. O uso comum foi dividido em partes iguais.",
+});
+
+export const presencaSuposta = (item: Item): Alerta => ({
+  nivel: "aviso",
+  texto: `"${item.nome}" divide por presença e mais de uma pessoa do grupo viajou. Sem saber quais dias cada um ficou fora, o CDR supôs que as viagens não coincidiram. Se elas coincidiram, quem ficou em casa sozinho pagou menos do que devia.`,
+});
+
+export const casaSemMorador = (somaDevida: number): Alerta => ({
+  nivel: "erro",
+  texto: `Há R$ ${escrito(somaDevida)} a dividir e nenhum morador cadastrado. Cadastre quem morou na casa no período para o rateio existir.`,
+});
+
+export function centavosDeDiferenca(
+  residuo: number,
+  somaArredondada: number,
+  somaDevida: number,
+): Alerta {
+  const quanto = plural(Math.abs(residuo), "centavo", "centavos");
+
+  return {
+    nivel: "aviso",
+    texto:
+      residuo > 0
+        ? `Arredondando, a soma dá R$ ${escrito(somaArredondada)} e não os R$ ${escrito(somaDevida)} devidos: ${quanto} de menos. Fiz meu melhor, mas esse sistema monetário não cedeu para mim. Passo a moeda para vocês...`
+        : `Arredondando, a soma dá R$ ${escrito(somaArredondada)} contra os R$ ${escrito(somaDevida)} devidos: ${quanto} de sobra. Fiz meu melhor, mas esse sistema monetário não cedeu para mim. Passo a moeda para vocês...`,
+  };
+}
