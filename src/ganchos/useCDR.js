@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { estadoInicial, novaLinha, novaPessoa, proximoMes } from "../nucleo/estadoInicial.js";
+import {
+  estadoInicial,
+  novaLinha,
+  novaPessoa,
+  novaTarefa,
+  proximoMes,
+} from "../nucleo/estadoInicial.js";
 import { periodoDasFaturas } from "../nucleo/calendario.js";
 import { calcular } from "../nucleo/adaptador.js";
-import { criarItem } from "../nucleo/catalogo.js";
-import { modoDe, PADRAO } from "../nucleo/modos.js";
+import { criarItem, modeloPorChave } from "../nucleo/catalogo.js";
+import { modoDe, PADRAO, polaridadeDe } from "../nucleo/modos.js";
+import { novoId } from "../nucleo/formato.js";
 import {
   carregarCasa,
   casaAtual,
@@ -275,7 +282,108 @@ export function useCDR() {
     }));
   }, []);
 
-  /** Zera esta casa, mantendo o modo e o nome dela. */
+
+  // ── o que acontece num dia ───────────────────────────────────────────────
+  //
+  // Tudo aqui é lançado pelo calendário. Nenhuma destas ações fala com o
+  // motor: elas mexem no mesmo estado de sempre, nos campos que o motor já
+  // sabia ler. Tarefa é a única entidade nova, e ela não tem dinheiro.
+
+  /** Liga ou desliga um dia na ausência (ou na estadia) de uma pessoa. */
+  const alternarDiaDaPessoa = useCallback((idDoMorador, dia) => {
+    definir((e) => {
+      const campo = polaridadeDe(e.modo) === "presenca" ? "presencas" : "ausencias";
+
+      return {
+        ...e,
+        moradores: e.moradores.map((m) => {
+          if (m.id !== idDoMorador) return m;
+          const dias = Array.isArray(m[campo]) ? m[campo] : [];
+          return {
+            ...m,
+            [campo]: dias.includes(dia)
+              ? dias.filter((d) => d !== dia)
+              : [...dias, dia].sort(),
+          };
+        }),
+      };
+    });
+  }, []);
+
+  /** Uma despesa em reais lançada num dia. Vira um item como qualquer outro. */
+  const lancarDespesaNoDia = useCallback((dia) => {
+    definir((e) => {
+      const modelo = modeloPorChave("outra");
+      const item = {
+        ...criarItem(modelo, e.moradores.map((m) => m.id)),
+        nome: "",
+        data: dia,
+      };
+      return { ...e, itens: [...e.itens, item] };
+    });
+  }, []);
+
+  /** Um uso com data de um item que já existe (uma lavagem, um ciclo). */
+  const lancarUsoNoDia = useCallback((idDoItem, dia) => {
+    definir((e) => ({
+      ...e,
+      itens: e.itens.map((i) =>
+        i.id !== idDoItem
+          ? i
+          : {
+              ...i,
+              rateio: i.rateios?.includes("uso") ? "uso" : i.rateio,
+              eventos: [
+                ...(i.eventos ?? []),
+                { id: novoId("ev"), data: dia, quantidade: "1", participantes: [...i.participantes] },
+              ],
+            },
+      ),
+    }));
+  }, []);
+
+  const removerUso = useCallback((idDoItem, idDoUso) => {
+    definir((e) => ({
+      ...e,
+      itens: e.itens.map((i) =>
+        i.id !== idDoItem ? i : { ...i, eventos: (i.eventos ?? []).filter((u) => u.id !== idDoUso) },
+      ),
+    }));
+  }, []);
+
+  /** Trabalho feito por quem mora. Fica registrado e não mexe em valor nenhum. */
+  const lancarTarefaNoDia = useCallback((dia) => {
+    definir((e) => ({ ...e, tarefas: [...(e.tarefas ?? []), novaTarefa(dia)] }));
+  }, []);
+
+  const editarTarefa = useCallback((id, campo, valor) => {
+    definir((e) => ({
+      ...e,
+      tarefas: (e.tarefas ?? []).map((t) => (t.id === id ? { ...t, [campo]: valor } : t)),
+    }));
+  }, []);
+
+  const removerTarefa = useCallback((id) => {
+    definir((e) => ({ ...e, tarefas: (e.tarefas ?? []).filter((t) => t.id !== id) }));
+  }, []);
+
+  const alternarResponsavel = useCallback((idDaTarefa, idDoMorador) => {
+    definir((e) => ({
+      ...e,
+      tarefas: (e.tarefas ?? []).map((t) =>
+        t.id !== idDaTarefa
+          ? t
+          : {
+              ...t,
+              responsaveis: t.responsaveis.includes(idDoMorador)
+                ? t.responsaveis.filter((r) => r !== idDoMorador)
+                : [...t.responsaveis, idDoMorador],
+            },
+      ),
+    }));
+  }, []);
+
+  /** Zera este conjunto, mantendo o modo e o nome dele. */
   const recomecar = useCallback(() => {
     definir((e) => estadoInicial(e?.modo ?? PADRAO));
   }, []);
@@ -310,6 +418,15 @@ export function useCDR() {
       removerItem,
       editarItem,
       alternarParticipante,
+      // calendário
+      alternarDiaDaPessoa,
+      lancarDespesaNoDia,
+      lancarUsoNoDia,
+      removerUso,
+      lancarTarefaNoDia,
+      editarTarefa,
+      removerTarefa,
+      alternarResponsavel,
       recomecar,
     },
   };

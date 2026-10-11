@@ -1,8 +1,13 @@
-// Modos: o que muda entre uma república, uma casa de temporada, uma família
-// e um rolê.
+// Modos: o que muda entre uma república, uma propriedade de temporada, uma
+// família e um evento.
+//
+// A CEDER divide despesas de CONJUNTOS. Os quatro modos são o mesmo objeto em
+// escalas diferentes: moradia compartilhada é o caso completo (n contas, cada
+// uma com seu ciclo) e evento é o degenerado (nenhuma conta, nenhum ciclo).
+// Entre os dois muda quantos ciclos independentes se sobrepõem, não o cálculo.
 //
 // Um modo é um conjunto de PADRÕES, nunca um cálculo diferente. Ele decide com
-// o que a casa abre (itens, quantas pessoas, faturas ligadas), como a tela
+// o que o conjunto abre (itens, quantas pessoas, faturas ligadas), como a tela
 // pergunta a presença, e que palavras usar. O domínio não sabe que modos
 // existem: tudo o que está aqui vira estado comum antes de chegar ao motor.
 //
@@ -20,12 +25,13 @@ export const PADRAO = "moradia";
  */
 export const POLARIDADES = ["ausencia", "presenca", "nenhuma"];
 
-const PASSOS_COM_CONTAS = ["contas", "moradores", "itens", "rateio"];
+const PASSOS_COM_CONTAS = ["contas", "moradores", "itens", "calendario", "rateio"];
 
 export const MODOS = {
   moradia: {
     chave: "moradia",
     nome: "Moradia compartilhada",
+    tipo: "Moradia",
     exemplo: "República, coliving, alojamento, flat dividido",
     descricao:
       "Todo mundo mora aqui o mês inteiro, e quem viaja é a exceção. As contas de luz e água têm ciclo próprio.",
@@ -43,8 +49,8 @@ export const MODOS = {
       pessoa: "morador",
       pessoas: "moradores",
       Pessoas: "Moradores",
-      casa: "república",
-      aCasa: "a república",
+      conjunto: "república",
+      oConjunto: "a república",
       quemMora: "Quem mora aqui",
       semPessoas: "Diga quantas pessoas dividem a casa para montar a lista.",
     },
@@ -55,6 +61,7 @@ export const MODOS = {
   temporada: {
     chave: "temporada",
     nome: "Multipropriedade",
+    tipo: "Cotas",
     exemplo: "Casa de praia, chalé, lancha, imóvel de temporada",
     descricao:
       "Ninguém fica o mês inteiro. Marca-se quem foi e quando, não quem faltou. O que ninguém usou continua sendo de todos.",
@@ -72,8 +79,8 @@ export const MODOS = {
       pessoa: "cotista",
       pessoas: "cotistas",
       Pessoas: "Cotistas",
-      casa: "propriedade",
-      aCasa: "a propriedade",
+      conjunto: "propriedade",
+      oConjunto: "a propriedade",
       quemMora: "Quem usa a propriedade",
       semPessoas: "Diga quantos cotistas dividem a propriedade para montar a lista.",
     },
@@ -85,6 +92,7 @@ export const MODOS = {
   familia: {
     chave: "familia",
     nome: "Casa ou família",
+    tipo: "Família",
     exemplo: "Casal, família, duas ou três pessoas dividindo",
     descricao:
       "Pouca gente e pouca cerimônia. O que sobra das contas divide por igual, sem contar dia de ninguém.",
@@ -102,8 +110,8 @@ export const MODOS = {
       pessoa: "pessoa",
       pessoas: "pessoas",
       Pessoas: "Pessoas",
-      casa: "casa",
-      aCasa: "a casa",
+      conjunto: "casa",
+      oConjunto: "a casa",
       quemMora: "Quem mora aqui",
       semPessoas: "Diga quantas pessoas moram aqui para montar a lista.",
     },
@@ -114,6 +122,7 @@ export const MODOS = {
   evento: {
     chave: "evento",
     nome: "Evento",
+    tipo: "Evento",
     exemplo: "Churrasco, rolê, viagem, carona",
     descricao:
       "Sem fatura e sem ciclo: um punhado de despesas em reais e um grupo para dividir entre.",
@@ -125,14 +134,14 @@ export const MODOS = {
     moradores: 4,
     maximoDeMoradores: 20,
     itens: ["outra", "outra"],
-    passos: ["moradores", "itens", "rateio"],
+    passos: ["moradores", "itens", "calendario", "rateio"],
 
     palavras: {
       pessoa: "participante",
       pessoas: "participantes",
       Pessoas: "Participantes",
-      casa: "evento",
-      aCasa: "o evento",
+      conjunto: "evento",
+      oConjunto: "o evento",
       quemMora: "Quem participou",
       semPessoas: "Diga quantas pessoas participaram para montar a lista.",
     },
@@ -143,7 +152,7 @@ export const MODOS = {
 
 export const LISTA_DE_MODOS = Object.values(MODOS);
 
-/** O modo de uma casa, com o padrão para casa antiga que não tem modo. */
+/** O modo de um conjunto, com o padrão para conjunto antigo sem modo. */
 export const modoDe = (chave) => MODOS[chave] ?? MODOS[PADRAO];
 
 /** As palavras deste modo, sempre completas. */
@@ -162,6 +171,7 @@ export function passosDe(chave) {
     contas: "Contas",
     moradores: modo.palavras.Pessoas,
     itens: chave === "evento" ? "Despesas" : "Itens",
+    calendario: chave === "evento" ? "Dias" : "Calendário",
     rateio: chave === "evento" ? "Divisão" : "Rateio",
   };
 

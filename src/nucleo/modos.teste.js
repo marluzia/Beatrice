@@ -16,10 +16,22 @@ describe("modos", () => {
     expect(modoDe("inventado").chave).toBe("moradia");
   });
 
+  it("todo modo tem um tipo curto para o painel agrupar", () => {
+    for (const modo of Object.values(MODOS)) {
+      expect(modo.tipo, modo.chave).toBeTruthy();
+    }
+  });
+
+  it("os três modos cíclicos têm calendário; o evento também", () => {
+    for (const chave of ["moradia", "temporada", "familia", "evento"]) {
+      expect(passosDe(chave).map((p) => p.chave), chave).toContain("calendario");
+    }
+  });
+
   it("evento não tem passo de contas", () => {
     const passos = passosDe("evento").map((p) => p.chave);
     expect(passos).not.toContain("contas");
-    expect(passos).toEqual(["moradores", "itens", "rateio"]);
+    expect(passos).toEqual(["moradores", "itens", "calendario", "rateio"]);
   });
 
   it("os passos falam a língua do modo", () => {
@@ -29,7 +41,7 @@ describe("modos", () => {
   });
 
   it("todo modo tem o vocabulário completo", () => {
-    const precisa = ["pessoa", "pessoas", "Pessoas", "casa", "aCasa", "quemMora", "semPessoas"];
+    const precisa = ["pessoa", "pessoas", "Pessoas", "conjunto", "oConjunto", "quemMora", "semPessoas"];
     for (const modo of Object.values(MODOS)) {
       for (const palavra of precisa) {
         expect(modo.palavras[palavra], `${modo.chave}.${palavra}`).toBeTruthy();

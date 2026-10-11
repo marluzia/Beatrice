@@ -5,8 +5,8 @@ const LEMA_PADRAO =
   "Quem viajou não paga pelo ar que não usou. Quem não lavou não paga a máquina. O resto divide por dias em casa.";
 
 /**
- * Sem casa aberta, o cabeçalho é só a marca. Com uma casa aberta, ele também
- * diz qual é e oferece a volta para o painel.
+ * Sem conjunto aberto, o cabeçalho é só a marca. Com um conjunto aberto, ele
+ * também diz qual é e oferece a volta para o painel.
  */
 export default function Cabecalho({ casa, modo, aoSair }) {
   return (
@@ -25,7 +25,7 @@ export default function Cabecalho({ casa, modo, aoSair }) {
             {modo && <p className="cabecalho__casa-modo">{modo.nome}</p>}
           </div>
           <Botao tipo="fantasma" aoClicar={aoSair}>
-            Minhas casas
+            Meus conjuntos
           </Botao>
         </div>
       ) : (

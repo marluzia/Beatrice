@@ -3,8 +3,8 @@ import { Botao, Campo, Ficha, Rotulo, Titulo } from "../componentes/index.js";
 import { LISTA_DE_MODOS, modoDe } from "../nucleo/modos.js";
 
 /**
- * A primeira pergunta: que tipo de lugar é este. A resposta não muda o
- * cálculo, muda com o que a casa abre e como a tela pergunta as coisas.
+ * A primeira pergunta: que tipo de conjunto é este. A resposta não muda o
+ * cálculo, muda com o que ele abre e como a tela pergunta as coisas.
  */
 export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
   const [escolhido, setEscolhido] = useState("moradia");
@@ -23,8 +23,8 @@ export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
   return (
     <div className="coluna">
       <Ficha>
-        <Titulo nota="Cada tipo abre com outros itens e pergunta as coisas de outro jeito. O cálculo é o mesmo.">
-          Que lugar é este?
+        <Titulo nota="Os quatro são o mesmo motor em escalas diferentes: moradia compartilhada é o caso completo, evento é o mais simples. O que muda é com o que o conjunto abre e como a tela pergunta as coisas.">
+          Criar conjunto
         </Titulo>
 
         <div className="modo-grade">
@@ -75,7 +75,7 @@ export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
         <p className="dica">{modo.nota}</p>
 
         <div className="linha-acoes">
-          <Botao aoClicar={criar}>Criar {modo.palavras.casa}</Botao>
+          <Botao aoClicar={criar}>Criar {modo.palavras.conjunto}</Botao>
           {podeCancelar && (
             <Botao tipo="fantasma" aoClicar={aoCancelar}>
               Cancelar
@@ -84,8 +84,8 @@ export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
         </div>
 
         <p className="nota">
-          O nome serve só para você achar esta casa de novo na lista. Dá para
-          mudar depois.
+          O nome serve só para você achar este conjunto de novo na lista. Dá
+          para mudar depois.
         </p>
       </Ficha>
     </div>

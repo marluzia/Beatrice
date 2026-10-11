@@ -1,16 +1,13 @@
-import { useState } from "react";
 import { AjudaMoradores } from "./ajudas.jsx";
-import { Botao, Calendario, Campo, Ficha, Rotulo, Titulo } from "../componentes/index.js";
+import { Botao, Campo, Ficha, Rotulo, Titulo } from "../componentes/index.js";
 import {
   diasDaJanela,
-  diasEntre,
   intervalosDe,
   janelaTotal,
   ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
 import { corDe } from "../nucleo/formato.js";
 import {
-  campoDaPresenca,
   datasMarcadas,
   diasContadosNaFatura,
   janelaDaFatura,
@@ -56,26 +53,15 @@ const VOCABULARIO = {
 
 export default function PassoMoradores({ estado, acoes, modo }) {
   const { moradores } = estado;
-  const [aberto, setAberto] = useState(null);
 
   const polaridade = modo.presenca;
   const contaDias = polaridade !== "nenhuma";
-  const campo = campoDaPresenca(polaridade);
   const palavras = modo.palavras;
   const fala = VOCABULARIO[polaridade] ?? VOCABULARIO.ausencia;
 
   const limite = janelaTotal(estado.faturas, estado.periodo);
 
   const nomeDe = (m, i) => m.nome || `${palavras.Pessoas.slice(0, -2)} ${i + 1}`;
-
-  const tirarTrecho = (m, trecho) => {
-    const fora = new Set(diasEntre(trecho.de, trecho.ate));
-    acoes.editarMorador(
-      m.id,
-      campo,
-      datasMarcadas(m, polaridade).filter((d) => !fora.has(d)),
-    );
-  };
 
   return (
     <div className="coluna">
@@ -122,9 +108,15 @@ export default function PassoMoradores({ estado, acoes, modo }) {
         )}
 
         {contaDias && (
-          <p className="dica">
-            {fala.janela(diaCurto(limite.de), diaCurto(ultimoDiaDaJanela(limite)))}
-          </p>
+          <>
+            <p className="dica">
+              {fala.janela(diaCurto(limite.de), diaCurto(ultimoDiaDaJanela(limite)))}
+            </p>
+            <p className="dica">
+              Os dias de cada um são marcados no <strong>Calendário</strong>, o
+              passo depois de Itens. Aqui ficam só os nomes e a contagem.
+            </p>
+          </>
         )}
 
         {moradores.length === 0 ? (
@@ -171,49 +163,16 @@ export default function PassoMoradores({ estado, acoes, modo }) {
                     </div>
                   )}
 
-                  {contaDias && (
-                    <div className="morador-ausencia">
-                      <Botao
-                        tipo="fantasma"
-                        aoClicar={() => setAberto(aberto === m.id ? null : m.id)}
-                        aria-expanded={aberto === m.id}
-                      >
-                        {aberto === m.id
-                          ? "Ocultar calendário"
-                          : marcados.length === 0
-                            ? fala.acao
-                            : fala.contado(marcados.length)}
-                      </Botao>
-
-                      {aberto === m.id && (
-                        <Calendario
-                          periodo={estado.periodo}
-                          limite={limite}
-                          dias={marcados}
-                          aoMudar={(v) => acoes.editarMorador(m.id, campo, v)}
-                          etiqueta={fala.etiqueta(quem)}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {contaDias && intervalosDe(marcados).length > 0 && (
+                  {contaDias && marcados.length > 0 && (
                     <div className="periodos-fora">
                       {intervalosDe(marcados).map((trecho) => (
                         <span className="periodo-fora" key={trecho.de}>
                           {escritoDoTrecho(trecho)}
-                          <button
-                            type="button"
-                            className="linha-fatura__remover"
-                            aria-label={fala.tirar(escritoDoTrecho(trecho), quem)}
-                            onClick={() => tirarTrecho(m, trecho)}
-                          >
-                            ×
-                          </button>
                         </span>
                       ))}
                     </div>
                   )}
+
                 </div>
               );
             })}

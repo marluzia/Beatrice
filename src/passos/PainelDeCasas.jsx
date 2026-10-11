@@ -50,6 +50,14 @@ export default function PainelDeCasas({ casas, acoes }) {
     );
   }
 
+  // Os tipos já criados, do mais numeroso para o menos.
+  const porTipo = Object.entries(
+    casas.reduce((conta, c) => {
+      const tipo = modoDe(c.modo).tipo;
+      return { ...conta, [tipo]: (conta[tipo] ?? 0) + 1 };
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
+
   const exportar = (casa) => {
     const texto = acoes.exportar(casa.id);
     if (texto) baixar(casa.nome, texto);
@@ -62,7 +70,7 @@ export default function PainelDeCasas({ casas, acoes }) {
     const leitor = new FileReader();
     leitor.onload = () => {
       const id = acoes.importar(String(leitor.result));
-      if (!id) window.alert("Não consegui ler esse arquivo como uma casa da CEDER.");
+      if (!id) window.alert("Não consegui ler esse arquivo como um conjunto da CEDER.");
     };
     leitor.readAsText(escolhido);
     evento.target.value = "";
@@ -71,12 +79,12 @@ export default function PainelDeCasas({ casas, acoes }) {
   return (
     <div className="coluna">
       <Ficha>
-        <Titulo nota="Cada casa guarda o próprio fechamento. Abra uma para continuar de onde parou.">
-          Suas casas
+        <Titulo nota="Cada conjunto guarda o próprio fechamento. Abra um para continuar de onde parou.">
+          Meus conjuntos
         </Titulo>
 
         <div className="linha-acoes">
-          <Botao aoClicar={() => setCriando(true)}>Criar casa</Botao>
+          <Botao aoClicar={() => setCriando(true)}>Criar conjunto</Botao>
           <Botao tipo="fantasma" aoClicar={() => arquivo.current?.click()}>
             Trazer de um arquivo
           </Botao>
@@ -88,6 +96,17 @@ export default function PainelDeCasas({ casas, acoes }) {
             style={{ display: "none" }}
           />
         </div>
+
+        {/* Quais tipos de conjunto já existem aqui, e quantos de cada. */}
+        {porTipo.length > 0 && (
+          <div className="tipos-resumo">
+            {porTipo.map(([tipo, quantos]) => (
+              <span className="selo selo--modo" key={tipo}>
+                {tipo} · {quantos}
+              </span>
+            ))}
+          </div>
+        )}
       </Ficha>
 
       <div className="lista-casas">
@@ -131,7 +150,7 @@ export default function PainelDeCasas({ casas, acoes }) {
                 <Botao
                   tipo="fantasma"
                   aoClicar={() => {
-                    const nome = window.prompt("Novo nome para esta casa:", casa.nome);
+                    const nome = window.prompt("Novo nome para este conjunto:", casa.nome);
                     if (nome !== null) acoes.renomear(casa.id, nome);
                   }}
                 >
@@ -157,9 +176,9 @@ export default function PainelDeCasas({ casas, acoes }) {
 
       <Ficha>
         <p className="nota">
-          As casas ficam salvas neste navegador, e só nele. Limpar os dados do
-          site ou trocar de aparelho apaga todas. Para uma casa que você não
-          pode perder, use <strong>Baixar</strong> e guarde o arquivo.
+          Os conjuntos ficam salvos neste navegador, e só nele. Limpar os dados
+          do site ou trocar de aparelho apaga todos. Para um conjunto que você
+          não pode perder, use <strong>Baixar</strong> e guarde o arquivo.
         </p>
       </Ficha>
     </div>

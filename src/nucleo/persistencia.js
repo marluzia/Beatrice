@@ -19,7 +19,7 @@ const INDICE = "cdr:casas";
 const PREFIXO = "cdr:casa:";
 const CHAVE_ANTIGA = "cdr:casa";
 
-const VERSAO = 5;
+const VERSAO = 6;
 
 function deposito() {
   try {
@@ -415,10 +415,16 @@ function migrar(estado, versao) {
     );
   }
 
-  // v4 → v5: a casa passa a saber de que modo ela é. Toda casa que já existia
-  // foi preenchida como república, que é o que o app era até aqui.
+  // v4 → v5: o conjunto passa a saber de que modo ele é. Todo conjunto que já
+  // existia foi preenchido como república, que é o que o app era até aqui.
   if (versao === 4) {
-    return { ...estado, modo: estado.modo ?? PADRAO };
+    return migrar({ ...estado, modo: estado.modo ?? PADRAO }, 5);
+  }
+
+  // v5 → v6: entram as tarefas (trabalho de quem mora, sem dinheiro). Conjunto
+  // antigo não tinha nenhuma, e lista vazia é exatamente a verdade sobre ele.
+  if (versao === 5) {
+    return { ...estado, tarefas: Array.isArray(estado.tarefas) ? estado.tarefas : [] };
   }
 
   return null;
@@ -454,6 +460,15 @@ export function sanear(estado) {
       ausencias: soDatas(m.ausencias),
       presencas: soDatas(m.presencas),
     })),
+    tarefas: (Array.isArray(estado.tarefas) ? estado.tarefas : [])
+      .filter(Boolean)
+      .map((t) => ({
+        ...t,
+        nome: typeof t.nome === "string" ? t.nome : "",
+        data: typeof t.data === "string" ? t.data : null,
+        responsaveis: Array.isArray(t.responsaveis) ? t.responsaveis : [],
+        observacao: typeof t.observacao === "string" ? t.observacao : "",
+      })),
     itens: estado.itens.filter(Boolean).map((i) => ({
       ...i,
       participantes: Array.isArray(i.participantes) ? i.participantes : [],

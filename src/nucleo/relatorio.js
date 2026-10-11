@@ -10,6 +10,7 @@ import {
   valorDoConsumo,
 } from "./adaptador.js";
 import { diasDaJanela, faturaAtiva, janelaValida } from "./calendario.js";
+import { historicoEmTexto } from "./agenda.js";
 import { MESES, nomeOu, reais } from "./formato.js";
 
 const diaCurto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "—");
@@ -336,6 +337,13 @@ export function montarRelatorio(estado, resultado) {
   linhas.push(regua("O QUE A CASA TEM"), "");
   for (const i of d.itens) {
     linhas.push(`  ${i.nome.padEnd(30)} R$ ${reais(i.custoTotal).padStart(10)}  divide por ${i.rateio}`);
+  }
+
+  // O mês em ordem: serve para a casa conferir o que foi lançado e ver o que
+  // ficou sem marcação. Tarefa aparece aqui e em nenhum cálculo.
+  const historico = historicoEmTexto(estado);
+  if (historico.length > 0) {
+    linhas.push("", regua("O QUE ACONTECEU, EM ORDEM"), "", ...historico);
   }
 
   linhas.push("", regua("CADA PESSOA"), "");

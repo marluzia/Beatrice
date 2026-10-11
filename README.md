@@ -11,13 +11,17 @@ O que sobra das faturas depois dos itens de consumo vira uso comum, dividido por
 > entregue — o arquivo é [`EQUIPE.md`](EQUIPE.md). Este README é sobre o
 > código.
 
-## Modos e casas
+## Conjuntos e modos
 
-O app não abre mais numa casa só. Ele abre num **painel de casas**: cada casa
-guarda o próprio fechamento, e dá para ter quantas quiser no mesmo navegador —
-uma por cliente, ou uma por mês do mesmo cliente.
+A CEDER divide despesas de **conjuntos**. O app abre no painel de **Meus
+conjuntos**: cada um guarda o próprio fechamento, e dá para ter quantos quiser
+no mesmo navegador — um por cliente, ou um por mês do mesmo cliente.
 
-Ao criar uma casa, escolhe-se o **modo**. Um modo é um conjunto de padrões,
+Ao criar um conjunto, escolhe-se o **modo**. Os quatro são o mesmo motor em
+escalas diferentes: moradia compartilhada é o caso completo (n contas, cada uma
+com o seu ciclo) e evento é o degenerado (nenhuma conta, nenhum ciclo). O que
+cresce entre eles é **quantos ciclos independentes se sobrepõem**, não o
+cálculo. Um modo é um conjunto de padrões,
 nunca um cálculo diferente:
 
 | modo | quem é | como pergunta a presença | régua do uso comum |
@@ -56,24 +60,46 @@ A inversão acontece inteira em `traducao/morador.js`. O domínio continua
 recebendo só `diasFora: number` e não sabe que existem dois jeitos de
 perguntar.
 
-### Onde as casas ficam
+### O calendário
+
+Depois de Contas, Moradores e Itens vem o **Calendário**: um mês, e o que
+aconteceu em cada dia. É por ali que entra tudo o que tem data —
+
+| natureza | de onde vem no estado | entra no cálculo? |
+| --- | --- | --- |
+| presença | `morador.ausencias[]` ou `.presencas[]` | sim, como dias contados |
+| uso | `item.eventos[]` | sim, no item por uso |
+| despesa | item em reais com `data` | sim, como qualquer item em reais |
+| tarefa | `estado.tarefas[]` | **não** |
+
+**Tarefa é registro, não dinheiro.** Lavar louça, passar pano e tirar o lixo
+ficam anotados com data e com quem fez, e nenhum valor muda por causa disso.
+Faxineira paga tem nome parecido e é outra coisa: ali sai dinheiro, então é um
+item do catálogo (`faxina`, por uso, em reais).
+
+`nucleo/agenda.js` é o único lugar que junta as quatro origens numa lista só.
+Ele não calcula nada — é uma leitura do estado, e o motor continua recebendo o
+mesmo estado de antes. A mesma lista vira o **Histórico**, no fim do passo e no
+relatório: o mês em ordem, que é onde se enxerga o dia que ficou em branco.
+
+### Onde os conjuntos ficam
 
 No `localStorage` deste navegador, em duas chaves de natureza diferente:
 
 ```
-cdr:casas      o índice: uma ficha por casa (nome, modo, mês) e qual está aberta
-cdr:casa:<id>  o estado de uma casa, lido só quando ela abre
+cdr:casas      o índice: uma ficha por conjunto (nome, modo, mês) e qual está aberto
+cdr:casa:<id>  o estado de um conjunto, lido só quando ele abre
 ```
 
-Guardar o índice separado é o que faz o painel abrir rápido com trinta casas
-salvas. A casa única das versões anteriores (`cdr:casa`) é adotada como a
-primeira do índice na primeira vez que o app abre, e a chave antiga sai do
-caminho.
+Guardar o índice separado é o que faz o painel abrir rápido com trinta
+conjuntos salvos. A casa única das versões anteriores (`cdr:casa`) é adotada
+como a primeira do índice na primeira vez que o app abre, e a chave antiga sai
+do caminho.
 
 **Limpar os dados do site apaga tudo, e nenhum outro aparelho vê nada.** Por
-isso o painel tem *Baixar* e *Trazer de um arquivo*: para uma casa que não
-pode ser perdida, o arquivo é o backup. *Próximo mês* copia a casa com as
-mesmas pessoas e os mesmos itens, já virada para o mês seguinte e com os
+isso o painel tem *Baixar* e *Trazer de um arquivo*: para um conjunto que não
+pode ser perdido, o arquivo é o backup. *Próximo mês* copia o conjunto com as
+mesmas pessoas e os mesmos itens, já virado para o mês seguinte e com os
 valores em branco.
 
 ## Rodar
@@ -95,8 +121,9 @@ src/
 │  ├─ adaptador.js          porta de entrada da tradução (só reexporta)
 │  ├─ traducao/             a tela (texto) vira o domínio (números)
 │  ├─ catalogo.js           itens que a casa pode adicionar
-│  ├─ modos.js              os padrões de cada tipo de casa
-│  ├─ persistencia.js       as casas salvas neste navegador
+│  ├─ modos.js              os padrões de cada tipo de conjunto
+│  ├─ agenda.js             tudo o que tem data, numa lista só
+│  ├─ persistencia.js       os conjuntos salvos neste navegador
 │  ├─ estadoInicial.js      com o que a tela abre, conforme o modo
 │  └─ formato.js            num, reais, tarifa, cores, nomes
 │
@@ -112,7 +139,7 @@ src/
 ├─ passos/                  
 │  ├─ PainelDeCasas.jsx  EscolhaDeModo.jsx
 │  ├─ PassoContas.jsx  PassoMoradores.jsx
-│  ├─ PassoItens.jsx  CartaoItem.jsx
+│  ├─ PassoItens.jsx  CartaoItem.jsx  PassoCalendario.jsx
 │  └─ PassoRateio.jsx  Regua.jsx
 │
 └─ estilos/base.css         tokens em variáveis CSS + toda a responsividade

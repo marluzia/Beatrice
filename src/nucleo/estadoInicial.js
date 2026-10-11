@@ -20,11 +20,34 @@ export function novaPessoa() {
 }
 
 /**
+ * Uma tarefa é trabalho feito por quem mora: lavar louça, passar pano, tirar o
+ * lixo. Fica registrada com data e com quem fez, e NÃO entra em nenhum
+ * cálculo — nenhum valor muda por causa dela.
+ *
+ * Faxina paga é outra coisa, apesar do nome parecido: ali existe dinheiro
+ * saindo, então é um item do catálogo (`faxina`, por uso, em reais), não uma
+ * tarefa.
+ */
+export function novaTarefa(data = null) {
+  return { id: novoId("t"), data, nome: "", responsaveis: [], observacao: "" };
+}
+
+/**
  * Com o que a tela abre. O modo decide quantas pessoas, quais itens, se as
  * faturas entram e como o uso comum divide; daqui para a frente é estado
  * comum, e o domínio não sabe de que modo ele veio.
  */
 export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
+  // A assinatura já foi `estadoInicial(quantosMoradores)`. Quem chamar do jeito
+  // antigo recebe o padrão com o número errado de pessoas e não descobre —
+  // então aqui é erro, não tolerância.
+  if (typeof chaveDoModo !== "string") {
+    throw new TypeError(
+      `estadoInicial espera a chave do modo primeiro, e veio ${typeof chaveDoModo}. ` +
+        `A forma certa é estadoInicial("${PADRAO}", ${chaveDoModo}).`,
+    );
+  }
+
   const modo = modoDe(chaveDoModo);
 
   const quantos = Math.max(
@@ -45,6 +68,7 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
       agua: faturaVazia("m3", modo.faturas),
     },
     moradores,
+    tarefas: [],
     itens: modo.itens
       .map((chave) => modeloPorChave(chave))
       .filter(Boolean)
@@ -80,6 +104,8 @@ export function proximoMes(estado) {
       ausencias: [],
       presencas: [],
     })),
+    // As tarefas são do mês que passou; o mês novo começa sem nenhuma.
+    tarefas: [],
     itens: estado.itens.map((i) => ({
       ...i,
       quantidade: "",

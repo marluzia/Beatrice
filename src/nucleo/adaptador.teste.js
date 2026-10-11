@@ -177,7 +177,7 @@ describe("apoio à tela", () => {
 
 describe("estado inicial", () => {
   it("abre com itens válidos e todo mundo marcado", () => {
-    const estado = estadoInicial(4);
+    const estado = estadoInicial("moradia", 4);
     expect(estado.moradores).toHaveLength(4);
     expect(estado.itens.length).toBeGreaterThan(0);
     for (const item of estado.itens) {
@@ -186,13 +186,13 @@ describe("estado inicial", () => {
   });
 
   it("calcula sem erro e sem alerta de erro logo na abertura", () => {
-    const r = calcular(estadoInicial(3));
+    const r = calcular(estadoInicial("moradia", 3));
     expect(r.alertas.filter((a) => a.nivel === "erro")).toHaveLength(0);
     expect(Number.isFinite(r.somaCobrada)).toBe(true);
   });
 
   it("converte para o formato do motor sem campo perdido", () => {
-    const doMotor = paraMotor(estadoInicial(3));
+    const doMotor = paraMotor(estadoInicial("moradia", 3));
     expect(doMotor.moradores.every((m) => typeof m.diasFora === "number")).toBe(true);
     expect(doMotor.itens.every((i) => typeof i.custo.tipo === "string")).toBe(true);
   });

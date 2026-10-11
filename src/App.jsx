@@ -7,12 +7,14 @@ import PainelDeCasas from "./passos/PainelDeCasas.jsx";
 import PassoContas from "./passos/PassoContas.jsx";
 import PassoMoradores from "./passos/PassoMoradores.jsx";
 import PassoItens from "./passos/PassoItens.jsx";
+import PassoCalendario from "./passos/PassoCalendario.jsx";
 import PassoRateio from "./passos/PassoRateio.jsx";
 
 const TELAS = {
   contas: PassoContas,
   moradores: PassoMoradores,
   itens: PassoItens,
+  calendario: PassoCalendario,
   rateio: PassoRateio,
 };
 
@@ -31,7 +33,7 @@ export default function App() {
   const [passo, setPasso] = useState(0);
   const { estado, resultado, indicePorId, modo, idDaCasa, casas, acoes } = useCDR();
 
-  // Trocar de casa recomeça o assistente no primeiro passo.
+  // Trocar de conjunto recomeça o assistente no primeiro passo.
   useEffect(() => setPasso(0), [idDaCasa]);
 
   if (!estado) {
@@ -68,12 +70,12 @@ export default function App() {
   const Tela = TELAS[atual.chave];
   const comuns = { estado, resultado, indicePorId, modo, acoes };
 
-  const nomeDaCasa = casas.find((c) => c.id === idDaCasa)?.nome;
+  const nomeDoConjunto = casas.find((c) => c.id === idDaCasa)?.nome;
 
   return (
     <div className="folha">
       <Cabecalho
-        casa={nomeDaCasa}
+        casa={nomeDoConjunto}
         modo={modo}
         aoSair={() => {
           acoes.fecharCasa();
@@ -121,14 +123,14 @@ export default function App() {
 
       <div className="salvamento">
         <span>
-          O que você preencheu está salvo neste navegador, nesta casa. Fechar a
-          aba não apaga. Limpar os dados do site, sim.
+          O que você preencheu está salvo neste navegador, neste conjunto.
+          Fechar a aba não apaga. Limpar os dados do site, sim.
         </span>
         <Botao
           tipo="fantasma"
           aoClicar={() => {
             const certeza = window.confirm(
-              `Isso zera "${nomeDaCasa ?? "esta casa"}" e começa do zero, mantendo o tipo dela. Continuar?`,
+              `Isso zera "${nomeDoConjunto ?? "este conjunto"}" e começa do zero, mantendo o tipo dele. Continuar?`,
             );
             if (certeza) {
               acoes.recomecar();
@@ -136,7 +138,7 @@ export default function App() {
             }
           }}
         >
-          Zerar esta casa
+          Zerar este conjunto
         </Botao>
       </div>
 
