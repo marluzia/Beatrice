@@ -60,6 +60,33 @@ A inversão acontece inteira em `traducao/morador.js`. O domínio continua
 recebendo só `diasFora: number` e não sabe que existem dois jeitos de
 perguntar.
 
+### As sete divisões
+
+Todo item oferece as sete, qualquer que seja o tipo de custo:
+
+| regra | o que pesa | observação |
+| --- | --- | --- |
+| `igual` | 1 por cabeça | |
+| `dias` | dias em casa | |
+| `presenca` | probabilidade de estar em casa | estimativa com 2+ ausentes; o motor avisa |
+| `uso` | vezes que usou | inteiro |
+| `horas` | horas que usou | decimal; mesmo mecanismo do uso |
+| `porcentagem` | a fatia declarada | avisa se não somar 100 |
+| `valor` | os reais declarados | **erro** se não somar o custo do item |
+
+Antes o catálogo restringia as regras por item — geladeira só aceitava igual e
+dias. Isso ia contra a tese: a base da divisão é escolha da casa, não da
+calculadora. `rateiosDoItem` continua existindo, mas como **sugestão** (o que a
+tela destaca), não como permissão. `rateiosSugeridos` lê isso; `rateiosPermitidos`
+devolve sempre as sete.
+
+**`valor` é a única regra em que o número digitado é o valor final**, e não uma
+proporção. Por isso é a única que pode não fechar, e por isso o alerta dela é
+vermelho: dinheiro declarado que não soma o custo do item é erro de quem
+lançou. Enquanto não é consertado, o motor divide na proporção escrita e o
+invariante continua de pé — ele nunca inventa nem perde dinheiro por causa de
+um lançamento torto.
+
 ### O calendário
 
 Depois de Contas, Moradores e Itens vem o **Calendário**: um mês, e o que
@@ -233,6 +260,18 @@ supõe que não coincidiram e **avisa na tela que supôs**. A resposta definitiv
 para esse caso é coletar as datas, não só a contagem de dias — e é aí que um
 formulário preenchido por cada morador passa a valer mais que uma mensagem no
 grupo.
+
+### Leitura, não dia
+
+As duas datas do ciclo são **leituras**, não um intervalo de dias. A segunda é
+o instante em que o ciclo seguinte começa, então o dia dela não é cobrado aqui:
+de 01/12 a 30/12 são **29 dias**, e o último dia cobrado é 29/12. É o que
+garante que o fim de um ciclo seja o começo do outro sem nenhum dia ser contado
+duas vezes — se o dia 30 contasse inteiro, ele seria cobrado nesta fatura e na
+próxima.
+
+Isso já confundiu em uso real, então o selo do ciclo mostra sempre o último dia
+contado (`29 dias · até 29/12`) em vez de só o número.
 
 ## O período segura o resto
 

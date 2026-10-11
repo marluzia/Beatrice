@@ -18,6 +18,7 @@ import {
   janelaPreenchida,
   janelaValida,
   temCicloInvalido,
+  ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
 
 const SUGESTOES = {
@@ -104,6 +105,8 @@ function CicloDeLeitura({ qual, titulo, fatura, periodo, acoes }) {
 
   const marcar = (campo, ruim) => setMalEscrita((m) => ({ ...m, [campo]: ruim }));
 
+  const curto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "—");
+
   const vazio = !janela?.de && !janela?.ate;
   const completa = janelaPreenchida(janela);
   const escritaRuim = Boolean(malEscrita.de || malEscrita.ate);
@@ -122,7 +125,11 @@ function CicloDeLeitura({ qual, titulo, fatura, periodo, acoes }) {
     selo = `${dias} dias. Ciclo tem entre ${LIMITES_DO_CICLO.minimo} e ${LIMITES_DO_CICLO.maximo}`;
     erro = true;
   } else if (completa) {
-    selo = `${dias} dias`;
+    // Dizer só "29 dias" confunde quem digitou 01/12 e 30/12 e esperava 30.
+    // As datas são LEITURAS: a segunda é o instante em que o ciclo seguinte
+    // começa, e por isso o dia dela não é cobrado aqui. Mostrar o último dia
+    // efetivamente contado resolve a dúvida sem mudar a conta.
+    selo = `${dias} dias · até ${curto(ultimoDiaDaJanela(janela))}`;
   } else if (!vazio) {
     selo = `PERÍODO ${titulo.toUpperCase()}`;
   }
@@ -143,7 +150,7 @@ function CicloDeLeitura({ qual, titulo, fatura, periodo, acoes }) {
         valor={janela?.ate ?? null}
         aoMudar={(v) => definir("ate", v)}
         aoInvalidar={(ruim) => marcar("ate", ruim)}
-        etiqueta={`Leitura atual da ${titulo.toLowerCase()}`}
+        etiqueta={`Leitura atual da ${titulo.toLowerCase()} (abre o ciclo seguinte)`}
       />
       <span className={`selo ${erro ? "selo--erro" : ""}`} role={erro ? "alert" : undefined}>
         {selo}
@@ -311,6 +318,10 @@ export default function PassoContas({ estado, acoes }) {
           </p>
           <p className="dica">
             Cada fatura tem o seu ciclo de leitura, com datas inicial e final impressas.
+            Copie as duas do jeito que estão: a segunda é a leitura que fecha este
+            ciclo e abre o seguinte, então o dia dela já é cobrado na próxima conta.
+            Por isso 01/12 a 30/12 dá 29 dias, e o último dia cobrado aqui é 29/12 —
+            o selo ao lado mostra sempre qual é.
           </p>
           <div className="ciclos">
             {faturaAtiva(estado.faturas.luz) && (

@@ -81,6 +81,38 @@ export const presencaSuposta = (item: Item): Alerta => ({
   texto: `"${item.nome}" divide por presença e mais de uma pessoa do grupo viajou. Sem saber quais dias cada um ficou fora, o CDR supôs que as viagens não coincidiram. Se elas coincidiram, quem ficou em casa sozinho pagou menos do que devia.`,
 });
 
+/**
+ * Porcentagem que não soma 100. Os pesos são normalizados, então a divisão
+ * acontece mesmo assim — 30 e 30 viram metade para cada um. O aviso existe
+ * porque isso quase nunca é o que a pessoa quis dizer ao escrever 30 e 30.
+ */
+export const porcentagemNaoFecha = (item: Item, soma: number): Alerta => ({
+  nivel: "aviso",
+  texto:
+    `As porcentagens de "${item.nome}" somam ${escrito(soma)}%, não 100%. ` +
+    `A divisão saiu na proporção do que foi escrito, mas confira se é isso mesmo.`,
+});
+
+/**
+ * Valores em reais que não somam o custo do item. Aqui é erro, não aviso: a
+ * pessoa escreveu quanto cada um paga, e esse número não fecha com o que o
+ * item custa. Ajustar em silêncio seria inventar uma conta que ninguém pediu.
+ */
+export const valorNaoFecha = (item: Item, soma: number, custo: number): Alerta => {
+  const diferenca = custo - soma;
+
+  return {
+    nivel: "erro",
+    texto:
+      `"${item.nome}" custa R$ ${escrito(custo)} e os valores lançados somam ` +
+      `R$ ${escrito(soma)}: ` +
+      (diferenca > 0
+        ? `faltam R$ ${escrito(diferenca)} sem dono.`
+        : `sobram R$ ${escrito(-diferenca)} a mais do que o item custa.`) +
+      " Acerte os valores ou troque a regra de divisão.",
+  };
+};
+
 export const casaSemMorador = (somaDevida: number): Alerta => ({
   nivel: "erro",
   texto: `Há R$ ${escrito(somaDevida)} a dividir e nenhum morador cadastrado. Cadastre quem morou na casa no período para o rateio existir.`,

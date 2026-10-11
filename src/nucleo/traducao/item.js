@@ -69,11 +69,28 @@ function custoDoItem(item) {
   return { tipo: "reais", valor: num(item.valor) };
 }
 
+/** Uma tabela "id do morador → número", lida do que a tela guardou em texto. */
+const tabelaDe = (item, campo) =>
+  Object.fromEntries(
+    (item.participantes ?? []).map((id) => [id, num(item[campo]?.[id])]),
+  );
+
 function rateioDoItem(item, janelas) {
-  if (item.rateio !== "uso") return { tipo: item.rateio };
+  // Porcentagem e valor são tabelas que a pessoa preenche nome a nome.
+  if (item.rateio === "porcentagem") {
+    return { tipo: "porcentagem", porcentagens: tabelaDe(item, "porcentagens") };
+  }
+
+  if (item.rateio === "valor") {
+    return { tipo: "valor", valores: tabelaDe(item, "valores") };
+  }
+
+  // Uso e horas compartilham o mesmo campo: a diferença está na tela, que pede
+  // inteiro num caso e decimal no outro.
+  if (item.rateio !== "uso" && item.rateio !== "horas") return { tipo: item.rateio };
 
   return {
-    tipo: "uso",
+    tipo: item.rateio,
     usos: Object.fromEntries((item.participantes ?? []).map((id) => [id, usosDe(item, id)])),
     // Com data, os usos de cada ciclo são contados à parte.
     ...(temUsoDatado(item) && janelas

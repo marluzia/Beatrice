@@ -3,6 +3,7 @@ import {
   Alerta,
   Botao,
   Campo,
+  CampoData,
   Pastilha,
   Rotulo,
   Segmentado,
@@ -30,11 +31,30 @@ const NOMES_DOS_RATEIOS = {
   dias: "por dias",
   presenca: "por presença",
   uso: "por uso",
+  horas: "por horas",
+  porcentagem: "%",
+  valor: "R$",
 };
 
 const EXPLICACOES_DOS_RATEIOS = {
+  igual: "Todo mundo marcado paga a mesma fatia, não importa quanto usou nem quanto tempo ficou.",
   dias: "Cada um paga na proporção dos dias que passou em casa.",
-  presenca: "O custo de cada dia é dividido entre quem estava em casa naquele dia. Quem ficou sozinho num dia paga aquele dia inteiro. É uma opção para aparelho que gasta o mesmo com uma ou com várias pessoas.",
+  presenca:
+    "O custo de cada dia é dividido entre quem estava em casa naquele dia. Quem ficou sozinho num dia paga aquele dia inteiro. É uma opção para aparelho que gasta o mesmo com uma ou com várias pessoas.",
+  uso: "Cada um paga pelas vezes que usou. Um uso dividido entre duas pessoas conta meio para cada.",
+  horas:
+    "Cada um paga pelas horas que usou. Serve para o que é cobrado por tempo de funcionamento — ar-condicionado, hora de motor.",
+  porcentagem: "Cada um declara a própria fatia. Deveria somar 100%.",
+  valor:
+    "Cada um declara quanto paga, em reais. Esta é a única divisão em que o número é o valor final: a soma precisa bater com o custo do item.",
+};
+
+/** As divisões em que cada participante escreve o próprio número. */
+const TABELAS = {
+  porcentagem: { campo: "porcentagens", sufixo: "%", teclado: "decimal", passo: "qualquer" },
+  valor: { campo: "valores", sufixo: "R$", teclado: "decimal", passo: "qualquer" },
+  uso: { campo: "usosPorPessoa", sufixo: "usos", teclado: "numeric", passo: "inteiro" },
+  horas: { campo: "usosPorPessoa", sufixo: "h", teclado: "decimal", passo: "qualquer" },
 };
 
 function dicaDoItem(item, temLuz, temAgua) {
@@ -69,6 +89,10 @@ export default function CartaoItem({
   const temLuz = faturaAtiva(faturas?.luz);
   const temAgua = faturaAtiva(faturas?.agua);
   const escolheUnidade = temLuz && temAgua;
+
+  // Quem é medido em kWh ou m³ pode ser declarado pelo total do mês ou pelo
+  // consumo por hora. Quem é por uso ou em reais não tem essa escolha.
+  const podeTrocarEspecie = item.especie === "consumo" || item.especie === "porHora";
 
   const diasSoltos = diasSemSobreposicao(faturas, periodo);
 
@@ -176,6 +200,21 @@ export default function CartaoItem({
       {aberto && !bloqueado && (
         <div className="item-corpo">
           {dica && <p className="dica">{dica}</p>}
+
+          {/* Aparelho pode ser medido de dois jeitos: o total do mês, ou o que
+              ele gasta por hora vezes as horas ligadas. A etiqueta costuma
+              trazer o segundo, então vale poder trocar. */}
+          {podeTrocarEspecie && (
+            <Segmentado
+              rotuloDoGrupo="Como medir o aparelho"
+              opcoes={[
+                { valor: "consumo", texto: "total do mês" },
+                { valor: "porHora", texto: "por hora" },
+              ]}
+              valor={item.especie}
+              aoMudar={(v) => set("especie", v)}
+            />
+          )}
 
           <div className="linha-campos">
             {item.especie === "consumo" && (
@@ -335,6 +374,30 @@ export default function CartaoItem({
           </div>
 
           <div className="grupo">
+            <Rotulo>Quando foi</Rotulo>
+            <div className="linha-campos">
+              <CampoData
+                valor={item.data ?? null}
+                aoMudar={(v) => set("data", v || null)}
+                etiqueta={`Data de ${item.nome || "este item"}`}
+              />
+              {item.data && (
+                <Botao
+                  tipo="fantasma"
+                  aoClicar={() => set("data", null)}
+                  rotuloAcessivel="Tirar a data deste item"
+                >
+                  sem data
+                </Botao>
+              )}
+            </div>
+            <p className="dica">
+              Opcional. Com data, o item aparece no calendário e no histórico do
+              mês. Sem data, ele vale para o fechamento inteiro.
+            </p>
+          </div>
+
+          <div className="grupo">
             <Rotulo>Quem paga</Rotulo>
             <div className="pastilhas">
               {moradores.map((m) => (
@@ -349,9 +412,20 @@ export default function CartaoItem({
             </div>
           </div>
 
-          {item.rateio === "uso" && item.participantes.length > 0 && (
+          {TABELAS[item.rateio] && item.rateio !== "uso" && item.rateio !== "horas" &&
+            item.participantes.length > 0 && (
+              <TabelaDeclarada
+                item={item}
+                moradores={moradores}
+                indicePorId={indicePorId}
+                custoTotal={calculado?.custoTotal ?? 0}
+                set={set}
+              />
+            )}
+
+          {(item.rateio === "uso" || item.rateio === "horas") && item.participantes.length > 0 && (
             <div className="grupo">
-              <Rotulo>Usos de cada um</Rotulo>
+              <Rotulo>{item.rateio === "horas" ? "Horas de cada um" : "Usos de cada um"}</Rotulo>
 
               {orfas.length > 0 && (
                 <Alerta nivel="aviso">
@@ -480,13 +554,15 @@ export default function CartaoItem({
                           aoMudar={(v) => set("usosPorPessoa", { ...item.usosPorPessoa, [id]: v })}
                           largura="campo--minimo"
                           placeholder="0"
+                          sufixo={item.rateio === "horas" ? "h" : undefined}
+                          tipoDeTeclado={item.rateio === "horas" ? "decimal" : "numeric"}
                         />
                       );
                     })}
                   </div>
 
                   <p className="dica">
-                    Total de usos:{" "}
+                    {item.rateio === "horas" ? "Total de horas: " : "Total de usos: "}
                     {totalDeUsos.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}
                   </p>
 
@@ -504,6 +580,75 @@ export default function CartaoItem({
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * As divisões em que cada participante escreve o próprio número: porcentagem e
+ * reais.
+ *
+ * As duas mostram a soma enquanto a pessoa digita, porque as duas podem não
+ * fechar — e descobrir isso só no fim, lendo um alerta, é pior do que ver o
+ * número andando. Em reais o aviso é duro de propósito: ali o número digitado
+ * é o valor final, não uma proporção, e um item que não soma o próprio custo
+ * é dinheiro sem dono.
+ */
+function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
+  const { campo, sufixo } = TABELAS[item.rateio];
+  const tabela = item[campo] ?? {};
+
+  const soma = item.participantes.reduce((t, id) => t + (Number(tabela[id]) || 0), 0);
+  const alvo = item.rateio === "porcentagem" ? 100 : custoTotal;
+  const diferenca = alvo - soma;
+  const fecha = Math.abs(diferenca) < 0.005;
+
+  const escrito = (v) =>
+    item.rateio === "porcentagem"
+      ? `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`
+      : `R$ ${reais(v)}`;
+
+  return (
+    <div className="grupo">
+      <Rotulo>{item.rateio === "porcentagem" ? "Porcentagem de cada um" : "Quanto cada um paga"}</Rotulo>
+
+      <div className="linha-campos">
+        {item.participantes.map((id) => {
+          const m = moradores.find((x) => x.id === id);
+          if (!m) return null;
+
+          return (
+            <Campo
+              key={id}
+              rotulo={nomeOu(m.nome, indicePorId[id])}
+              valor={tabela[id] ?? ""}
+              aoMudar={(v) => set(campo, { ...tabela, [id]: v })}
+              largura="campo--curto"
+              placeholder="0"
+              sufixo={sufixo}
+            />
+          );
+        })}
+      </div>
+
+      {fecha ? (
+        <p className="dica">
+          Soma: {escrito(soma)} — fecha com {item.rateio === "porcentagem" ? "100%" : "o custo do item"}.
+        </p>
+      ) : item.rateio === "valor" ? (
+        <Alerta nivel="erro">
+          Os valores somam {escrito(soma)} e o item custa {escrito(alvo)}:{" "}
+          {diferenca > 0
+            ? `faltam ${escrito(diferenca)} sem dono.`
+            : `sobram ${escrito(-diferenca)} a mais do que o item custa.`}{" "}
+          Acerte os valores ou troque a regra de divisão.
+        </Alerta>
+      ) : (
+        <Alerta nivel="aviso">
+          As porcentagens somam {escrito(soma)}, não 100%. A divisão sai na proporção
+          do que está escrito — confira se é isso mesmo.
+        </Alerta>
       )}
     </div>
   );

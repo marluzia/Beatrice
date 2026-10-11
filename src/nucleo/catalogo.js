@@ -48,8 +48,9 @@ export const CATALOGO = [
       {
         chave: "livre", nome: "Outro aparelho", especie: "consumo",
         quantidade: "", unidade: "kwh",
+        porHora: "", horas: "",
         rateio: "dias", rateios: ["igual", "dias", "presenca", "uso"],
-        dica: "Renomeie e escolha se o gasto entra em kWh ou em m³.",
+        dica: "Renomeie e escolha a unidade. Se você souber o consumo por hora da etiqueta, troque para \"por hora\" e informe quantas horas rodou no mês.",
       },
     ],
   },
@@ -109,6 +110,11 @@ export const criarItem = (modelo, participantes = []) => ({
   rateio: modelo.rateio,
   rateios: modelo.rateios ?? ["igual", "dias", "uso"],
   usosPorPessoa: {},
+  // Tabelas das regras em que cada um declara o próprio número.
+  porcentagens: {},
+  valores: {},
+  // O dia em que a despesa foi lançada, quando ela tem dia.
+  data: modelo.data ?? null,
   eventos: [],
   dica: modelo.dica,
   participantes: [...participantes],

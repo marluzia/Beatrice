@@ -229,10 +229,15 @@ describe("Regra de alocação", () => {
   });
 
   it("o misto existe, mas não é oferecido item a item", () => {
-    expect(rateiosPermitidos(item({}))).toEqual(["igual", "dias", "presenca", "uso"]);
+    expect(rateiosPermitidos(item({}))).not.toContain("misto");
+  });
+
+  it("as sete divisões valem para todo item, qualquer que seja o custo", () => {
+    const sete = ["igual", "dias", "presenca", "uso", "horas", "porcentagem", "valor"];
+    expect(rateiosPermitidos(item({}))).toEqual(sete);
     expect(
       rateiosPermitidos(item({ custo: { tipo: "porUso", unitario: { origem: "reais", valorPorUso: 1 } } })),
-    ).toEqual(["igual", "uso"]);
+    ).toEqual(sete);
   });
 });
 

@@ -14,7 +14,7 @@ import type { Item, MoradorId, Mundo } from "./tipos.ts";
 
 /** Os usos de cada participante que valem para este recurso. */
 export function usosPorPessoa(item: Item, mundo: Mundo = null): Record<MoradorId, number> {
-  if (item.rateio.tipo !== "uso") return {};
+  if (item.rateio.tipo !== "uso" && item.rateio.tipo !== "horas") return {};
 
   const datados =
     mundo === "luz" ? item.rateio.usosLuz : mundo === "agua" ? item.rateio.usosAgua : undefined;
@@ -27,7 +27,7 @@ export function usosTotaisDe(item: Item, mundo: Mundo = null): number {
   if (item.custo.tipo !== "porUso") return 0;
 
   // Quem divide por uso sabe os usos de cada um, e o total é a soma deles.
-  if (item.rateio.tipo === "uso") {
+  if (item.rateio.tipo === "uso" || item.rateio.tipo === "horas") {
     const usos = usosPorPessoa(item, mundo);
     return item.participantes.reduce((s, id) => s + (usos[id] ?? 0), 0);
   }
@@ -44,4 +44,5 @@ export function usosTotaisDe(item: Item, mundo: Mundo = null): number {
 
 /** Os usos deste item vieram com data, separados por ciclo? */
 export const usosSeparadosPorCiclo = (item: Item): boolean =>
-  item.rateio.tipo === "uso" && Boolean(item.rateio.usosLuz || item.rateio.usosAgua);
+  (item.rateio.tipo === "uso" || item.rateio.tipo === "horas") &&
+  Boolean(item.rateio.usosLuz || item.rateio.usosAgua);

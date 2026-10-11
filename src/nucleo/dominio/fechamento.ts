@@ -20,13 +20,15 @@ import { diasDoCiclo, diasDoPeriodo } from "./ciclo.ts";
 import { diasContadosEm, somaDosDias } from "./morador.ts";
 import { medirFatura, somaDeTaxas } from "./fatura.ts";
 import { custoDe } from "./custo.ts";
-import { regraExata } from "./regras.ts";
+import { regraExata, somaDeclarada } from "./regras.ts";
 import { alocar, medirJanelas } from "./alocacao.ts";
 import {
   casaSemMorador,
   centavosDeDiferenca,
   consumoPassaDaFatura,
   itensSemNinguem,
+  porcentagemNaoFecha,
+  valorNaoFecha,
   lancarNosTotais,
   ninguemEmCasa,
   presencaSuposta,
@@ -88,10 +90,26 @@ export function calcular(estado: Estado): Resultado {
 
   validos.forEach((item, i) => processar(item, custos[i], false));
 
-  for (const item of validos) {
-    const exata = regraExata({ item, diasContados, diasNoCiclo: diasNoPeriodo, mundo: null });
-    if (!exata) alertas.push(presencaSuposta(item));
-  }
+  // Cada regra tem o seu jeito de não fechar, e cada um merece a sua mensagem.
+  validos.forEach((item, i) => {
+    if (item.rateio.tipo === "presenca") {
+      const exata = regraExata({ item, diasContados, diasNoCiclo: diasNoPeriodo, mundo: null });
+      if (!exata) alertas.push(presencaSuposta(item));
+      return;
+    }
+
+    if (item.rateio.tipo === "porcentagem") {
+      const soma = somaDeclarada(item);
+      if (Math.abs(soma - 100) > 0.005) alertas.push(porcentagemNaoFecha(item, soma));
+      return;
+    }
+
+    if (item.rateio.tipo === "valor") {
+      const soma = somaDeclarada(item);
+      const custo = custos[i].luz + custos[i].agua + custos[i].reais;
+      if (Math.abs(soma - custo) > TOLERANCIA) alertas.push(valorNaoFecha(item, soma, custo));
+    }
+  });
 
   // 5. O que sobrou: uso comum e taxas fixas, entre todos os moradores
   const todos = moradores.map((m) => m.id);

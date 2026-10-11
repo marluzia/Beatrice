@@ -44,6 +44,29 @@ export interface RegraDeAlocacao {
 const cadaUm = (item: Item, peso: (id: MoradorId) => number): Pesos =>
   Object.fromEntries(item.participantes.map((id) => [id, peso(id)]));
 
+/**
+ * O que os participantes declararam, nas regras em que cada um escreve o
+ * próprio número: a soma das porcentagens, ou a soma dos reais.
+ *
+ * Só conta quem participa do item. Um número deixado para trás por alguém que
+ * saiu do grupo não deve fazer a conta parecer fechada.
+ */
+export function somaDeclarada(item: Item): number {
+  const tabela =
+    item.rateio.tipo === "porcentagem"
+      ? item.rateio.porcentagens
+      : item.rateio.tipo === "valor"
+        ? item.rateio.valores
+        : null;
+
+  if (!tabela) return 0;
+  return somar(item.participantes.map((id) => Math.max(0, tabela[id] ?? 0)));
+}
+
+/** A regra deste item é das que a pessoa declara número a número? */
+export const regraDeclarada = (item: Item): boolean =>
+  item.rateio.tipo === "porcentagem" || item.rateio.tipo === "valor";
+
 // ── por presença ───────────────────────────────────────────────────────────
 //
 // O custo de cada dia é dividido entre quem estava em casa naquele dia.
@@ -164,6 +187,48 @@ export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
     },
   },
 
+  // Horas é uso com outra unidade: três lavagens ou duas horas e meia de
+  // ar-condicionado produzem peso do mesmo jeito. Elas são regras separadas
+  // porque a tela pede coisas diferentes — inteiro de um lado, decimal do
+  // outro — e porque "R$ por hora de motor" é uma frase que a casa entende.
+  horas: {
+    chave: "horas",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: (ctx) => {
+      const horas = usosPorPessoa(ctx.item, ctx.mundo);
+      return cadaUm(ctx.item, (id) => horas[id] ?? 0);
+    },
+  },
+
+  // Cada um declara a sua fatia. Como os pesos são normalizados pela soma,
+  // 30 e 70 dividem igual a 3 e 7 — a porcentagem é uma proporção escrita de
+  // um jeito que a casa reconhece. Se não somar 100, o fechamento avisa.
+  porcentagem: {
+    chave: "porcentagem",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: ({ item }) => {
+      const declaradas = item.rateio.tipo === "porcentagem" ? item.rateio.porcentagens : {};
+      return cadaUm(item, (id) => Math.max(0, declaradas[id] ?? 0));
+    },
+    exata: ({ item }) => Math.abs(somaDeclarada(item) - 100) < 0.005,
+  },
+
+  // A única regra em que o número digitado é o valor final, e não uma
+  // proporção. Ela só é exata quando a soma bate com o custo do item: é o
+  // fechamento que confere isso e reclama em vermelho, porque dinheiro
+  // declarado que não fecha é erro de quem lançou, não arredondamento.
+  valor: {
+    chave: "valor",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: ({ item }) => {
+      const declarados = item.rateio.tipo === "valor" ? item.rateio.valores : {};
+      return cadaUm(item, (id) => Math.max(0, declarados[id] ?? 0));
+    },
+  },
+
   misto: {
     chave: "misto",
     oferecida: false,
@@ -184,16 +249,28 @@ export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
 export const regraDe = (tipo: TipoDeRateio): RegraDeAlocacao => REGRAS[tipo] ?? REGRAS.igual;
 
 /**
- * As regras que a casa pode escolher para este item: as oferecidas, as que o
- * tipo de custo permite, e dentre elas as que o próprio item aceita.
+ * As regras que a casa pode escolher para este item.
+ *
+ * São todas as oferecidas, para todo item. Antes o catálogo restringia a lista
+ * por item — a geladeira só aceitava igual e dias, por exemplo — e isso ia
+ * contra a tese da CEDER: a base da divisão é escolha da casa, não da
+ * calculadora. Dividir a faxina por dias em casa é estranho em quase toda
+ * república e é exatamente certo em alguma.
+ *
+ * `rateiosDoItem` continua existindo como SUGESTÃO: é o que a tela destaca
+ * primeiro, não o que ela permite.
  */
-export function rateiosPermitidos(item: Item): TipoDeRateio[] {
-  const estrutural = Object.values(REGRAS)
-    .filter((r) => r.oferecida && (item.custo.tipo === "porUso" ? r.serveParaPorUso : true))
+export function rateiosPermitidos(_item: Item): TipoDeRateio[] {
+  return Object.values(REGRAS)
+    .filter((r) => r.oferecida)
     .map((r) => r.chave);
+}
 
+/** As regras que este item sugere, para a tela mostrar antes das outras. */
+export function rateiosSugeridos(item: Item): TipoDeRateio[] {
+  const permitidas = rateiosPermitidos(item);
   const doItem = item.rateiosDoItem;
-  return doItem ? estrutural.filter((r) => doItem.includes(r)) : estrutural;
+  return doItem ? permitidas.filter((r) => doItem.includes(r)) : permitidas;
 }
 
 /**

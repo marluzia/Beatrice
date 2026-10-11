@@ -64,8 +64,22 @@ export type Rateio =
   | { tipo: "dias" }
   | { tipo: "presenca" }
   | { tipo: "misto"; igual: number }
+  /** Cada um declara a sua fatia em porcentagem. Deveria somar 100. */
+  | { tipo: "porcentagem"; porcentagens: Record<MoradorId, number> }
+  /**
+   * Cada um declara quanto paga, em reais. Diferente de todas as outras, esta
+   * regra não é uma proporção: são valores exatos, e por isso a soma precisa
+   * bater com o custo do item. Quando não bate, o fechamento reclama em
+   * vermelho em vez de ajustar por baixo do pano.
+   */
+  | { tipo: "valor"; valores: Record<MoradorId, number> }
   | {
-      tipo: "uso";
+      /**
+       * `uso` conta vezes (inteiros: três lavagens); `horas` conta tempo
+       * (decimais: 2,5 horas de ar-condicionado). Para o motor são a mesma
+       * coisa — uma quantidade por pessoa — e o que muda é o que a tela pede.
+       */
+      tipo: "uso" | "horas";
       usos: Record<MoradorId, number>;
       /** Usos que caíram dentro do ciclo da luz, quando os usos têm data. */
       usosLuz?: Record<MoradorId, number>;

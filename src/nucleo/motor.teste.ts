@@ -6,6 +6,7 @@ import {
   consumoDeclaradoPorHora,
   diasDoPeriodo,
   rateiosPermitidos,
+  rateiosSugeridos,
 } from "./motor.ts";
 import type { Estado, Item, Morador } from "./motor.ts";
 
@@ -239,46 +240,37 @@ describe("divisões oferecidas", () => {
     ...(rateiosDoItem ? { rateiosDoItem } : {}),
   });
 
-  it("nunca oferece 'por dias' para item cobrado por uso", () => {
-    const porUso = comCusto({
-      tipo: "porUso", unitario: { origem: "reais", valorPorUso: 90 },
-    });
-    expect(rateiosPermitidos(porUso)).toEqual(["igual", "uso"]);
-  });
+  // A CEDER oferece as sete divisões em todo item, de propósito. A base da
+  // divisão é escolha da casa; restringir por tipo de custo era a calculadora
+  // decidindo no lugar dela. Dividir a faxina por dias em casa é estranho em
+  // quase toda república e é exatamente certo em alguma.
+  const AS_SETE = ["igual", "dias", "presenca", "uso", "horas", "porcentagem", "valor"];
 
-  it("oferece as quatro para consumo e para reais", () => {
+  it("oferece as sete divisões, qualquer que seja o tipo de custo", () => {
+    const porUso = comCusto({ tipo: "porUso", unitario: { origem: "reais", valorPorUso: 90 } });
+    expect(rateiosPermitidos(porUso)).toEqual(AS_SETE);
     expect(rateiosPermitidos(comCusto({ tipo: "consumo", quantidade: 1, unidade: "kwh" })))
-      .toEqual(["igual", "dias", "presenca", "uso"]);
-    expect(rateiosPermitidos(comCusto({ tipo: "reais", valor: 1 })))
-      .toEqual(["igual", "dias", "presenca", "uso"]);
+      .toEqual(AS_SETE);
+    expect(rateiosPermitidos(comCusto({ tipo: "reais", valor: 1 }))).toEqual(AS_SETE);
+    expect(rateiosPermitidos(comCusto({ tipo: "porHora", porHora: 1.2, horas: 100, unidade: "kwh" })))
+      .toEqual(AS_SETE);
   });
 
-  it("nunca oferece 'por presença' para item cobrado por uso", () => {
-    const porUso = comCusto({
-      tipo: "porUso", unitario: { origem: "reais", valorPorUso: 90 },
-    });
-    expect(rateiosPermitidos(porUso)).not.toContain("presenca");
+  it("o misto continua fora: ele é do uso comum, não dos itens", () => {
+    expect(rateiosPermitidos(comCusto({ tipo: "reais", valor: 1 }))).not.toContain("misto");
   });
 
-  it("permite 'por dias' em consumo declarado por hora, que é um fluxo", () => {
-    const ar = comCusto({ tipo: "porHora", porHora: 1.2, horas: 100, unidade: "kwh" });
-    expect(rateiosPermitidos(ar)).toContain("dias");
-  });
-
-  it("respeita a restrição declarada pelo catálogo", () => {
+  it("o catálogo sugere, não restringe", () => {
     const geladeira = comCusto(
       { tipo: "consumo", quantidade: 124.5, unidade: "kwh" },
       ["igual", "dias"],
     );
-    expect(rateiosPermitidos(geladeira)).toEqual(["igual", "dias"]);
+    expect(rateiosSugeridos(geladeira)).toEqual(["igual", "dias"]);
+    expect(rateiosPermitidos(geladeira)).toEqual(AS_SETE);
   });
 
-  it("a restrição do catálogo não vence a regra estrutural", () => {
-    const porUso = comCusto(
-      { tipo: "porUso", unitario: { origem: "reais", valorPorUso: 90 } },
-      ["igual", "dias", "uso"],
-    );
-    expect(rateiosPermitidos(porUso)).not.toContain("dias");
+  it("item sem sugestão no catálogo sugere tudo", () => {
+    expect(rateiosSugeridos(comCusto({ tipo: "reais", valor: 1 }))).toEqual(AS_SETE);
   });
 });
 

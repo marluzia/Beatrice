@@ -39,9 +39,12 @@ export {
   MAXIMO_PARA_PRESENCA,
   pesosDe,
   rateiosPermitidos,
+  rateiosSugeridos,
   regraDe,
+  regraDeclarada,
   regraExata,
   REGRAS,
+  somaDeclarada,
 } from "./dominio/regras.ts";
 export type { RegraDeAlocacao, ContextoDaRegra } from "./dominio/regras.ts";
 export { alocar } from "./dominio/alocacao.ts";
