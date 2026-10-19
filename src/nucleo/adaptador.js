@@ -32,6 +32,9 @@ export {
   diasContadosNaFatura,
   diasForaNaJanela,
   polaridadeDaCasa,
+  presentesPorDia,
+  temDatasMarcadas,
+  todosComDatas,
 } from "./traducao/morador.js";
 
 export {

@@ -1,8 +1,8 @@
 // A mesma casa, perguntada de dois jeitos.
 //
 // Numa república marcam-se os dias FORA; numa casa de temporada, os dias de
-// ESTADIA. O domínio recebe a mesma coisa nos dois casos — quantos dias a
-// pessoa ficou fora — e o teste existe para garantir que a inversão mora só na
+// ESTADIA. O domínio recebe a mesma coisa nos dois casos   quantos dias a
+// pessoa ficou fora   e o teste existe para garantir que a inversão mora só na
 // tradução, e que o padrão de cada modo é o certo: república vazia quer dizer
 // "todo mundo ficou", temporada vazia quer dizer "ninguém foi".
 

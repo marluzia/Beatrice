@@ -12,16 +12,16 @@
 // existem: tudo o que está aqui vira estado comum antes de chegar ao motor.
 //
 // No dia em que um modo precisar de uma conta própria, é sinal de que o modelo
-// quebrou — não de que falta um campo aqui.
+// quebrou   não de que falta um campo aqui.
 
 export const PADRAO = "moradia";
 
 /**
  * Como a tela pergunta quem estava em casa.
  *
- *  · ausencia — o normal é estar; marca-se quem saiu. (república)
- *  · presenca — o normal é não estar; marca-se quem foi. (temporada)
- *  · nenhuma  — não há dias a contar. (rolê)
+ *  · ausencia   o normal é estar; marca-se quem saiu. (república)
+ *  · presenca   o normal é não estar; marca-se quem foi. (temporada)
+ *  · nenhuma    não há dias a contar. (rolê)
  */
 export const POLARIDADES = ["ausencia", "presenca", "nenhuma"];
 
@@ -34,7 +34,7 @@ export const MODOS = {
     tipo: "Moradia",
     exemplo: "República, coliving, alojamento, flat dividido",
     descricao:
-      "Todo mundo mora aqui o mês inteiro, e quem viaja é a exceção. As contas de luz e água têm ciclo próprio.",
+      "Todo mundo mora aqui o mês inteiro e quem viaja é a exceção. Comporta ciclos de fatura.",
     pago: true,
 
     presenca: "ausencia",
@@ -62,9 +62,9 @@ export const MODOS = {
     chave: "temporada",
     nome: "Multipropriedade",
     tipo: "Cotas",
-    exemplo: "Casa de praia, chalé, lancha, imóvel de temporada",
+    exemplo: "Imóvel de temporada, chalé, embarcações",
     descricao:
-      "Ninguém fica o mês inteiro. Marca-se quem foi e quando, não quem faltou. O que ninguém usou continua sendo de todos.",
+      "Ninguém costuma ficar o mês inteiro. Possui maior catálogo. Comporta ciclos de fatura. ",
     pago: true,
 
     presenca: "presenca",
@@ -86,16 +86,16 @@ export const MODOS = {
     },
 
     nota:
-      "Aqui marca-se a estadia de cada um, não a ausência. Custo fixo que não depende de uso — condomínio, seguro, IPTU — ainda divide igual: não existe rateio por cota.",
+      "Aqui marca-se a estadia de cada um, não a ausência. Custo fixo que não depende de uso   condomínio, seguro, IPTU   ainda divide igual: não existe rateio por cota.",
   },
 
   familia: {
     chave: "familia",
-    nome: "Casa ou família",
+    nome: "Moradia familiar",
     tipo: "Família",
-    exemplo: "Casal, família, duas ou três pessoas dividindo",
+    exemplo: "Casal, família, amig@s",
     descricao:
-      "Pouca gente e pouca cerimônia. O que sobra das contas divide por igual, sem contar dia de ninguém.",
+      "Contexto mais amigável e igualitário para até 5 pessoas. Comporta ciclos de fatura.",
     pago: false,
 
     presenca: "ausencia",
@@ -123,9 +123,9 @@ export const MODOS = {
     chave: "evento",
     nome: "Evento",
     tipo: "Evento",
-    exemplo: "Churrasco, rolê, viagem, carona",
+    exemplo: "Compras, rolê, viagem, carona",
     descricao:
-      "Sem fatura e sem ciclo: um punhado de despesas em reais e um grupo para dividir entre.",
+      "Um punhado de despesas em reais e um grupo para dividir entre. Sem ciclos.",
     pago: false,
 
     presenca: "nenhuma",

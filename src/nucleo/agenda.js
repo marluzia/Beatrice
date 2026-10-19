@@ -42,9 +42,18 @@ export function nomesDe(estado, ids) {
     .filter(Boolean);
 }
 
-/** Uma despesa avulsa é um item em reais que foi lançado num dia. */
+/**
+ * Uma despesa datada é qualquer item com dia marcado   não só as em reais.
+ * Um aparelho que só rodou numa semana do ciclo também tem quando.
+ */
 export const ehDespesaDatada = (item) =>
-  item.especie === "reais" && typeof item.data === "string" && Boolean(partesDoDia(item.data));
+  typeof item.data === "string" && Boolean(partesDoDia(item.data));
+
+/** O fim do período de um item, quando ele é um período e não um dia só. */
+export const fimDoItem = (item) =>
+  typeof item.ate === "string" && partesDoDia(item.ate) && item.ate > item.data
+    ? item.ate
+    : null;
 
 /**
  * Tudo o que tem data, numa lista só, ordenada por dia.
@@ -95,18 +104,26 @@ export function agendaDe(estado) {
       });
     }
 
-    // 3. As despesas avulsas.
+    // 3. As despesas avulsas. Um período entra uma vez só, no dia em que
+    //    começa, dizendo até quando vai   espalhar a mesma despesa por trinta
+    //    dias do calendário encheria o mês de repetição sem acrescentar nada.
     if (ehDespesaDatada(item)) {
       const valor = num(item.valor);
+      const ate = fimDoItem(item);
+      const partes = [];
+
+      if (item.especie === "reais") partes.push(valor ? `R$ ${reais(valor)}` : "sem valor ainda");
+      if (ate) partes.push(`até ${ate.slice(8, 10)}/${ate.slice(5, 7)}`);
+      partes.push(listar(nomesDe(estado, item.participantes)));
+
       eventos.push({
         id: `d-${item.id}`,
         natureza: "despesa",
         dia: item.data,
+        ate,
         itemId: item.id,
         titulo: item.nome,
-        detalhe:
-          (valor ? `R$ ${reais(valor)}` : "sem valor ainda") +
-          ` · ${listar(nomesDe(estado, item.participantes))}`,
+        detalhe: partes.join(" · "),
       });
     }
   }
@@ -151,7 +168,7 @@ const diaLongo = (iso) => {
  * O histórico em texto, para entrar no relatório.
  *
  * É a mesma lista do calendário, escrita em linhas. Serve para a casa conferir
- * o que foi lançado sem precisar abrir o app — e é onde um desencontro
+ * o que foi lançado sem precisar abrir o app   e é onde um desencontro
  * aparece ("ninguém marcou nada no dia 20").
  */
 export function historicoEmTexto(estado) {
@@ -171,7 +188,7 @@ export function historicoEmTexto(estado) {
       linhas.push(`  ${diaLongo(e.dia)}`);
       ultimoDia = e.dia;
     }
-    linhas.push(`    ${rotulo(e).padEnd(10)} ${e.titulo} — ${e.detalhe}`);
+    linhas.push(`    ${rotulo(e).padEnd(10)} ${e.titulo}   ${e.detalhe}`);
   }
 
   return linhas;

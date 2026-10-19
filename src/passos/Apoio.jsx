@@ -20,8 +20,8 @@ export default function Apoio({ resultado }) {
 
   return (
     <Ficha>
-      <Titulo nota="A Calculadora de Despesas Republicanas é desenvolvida por uma equipe de forma independente e continua em evolução. Se ela facilitou o fechamento das contas da sua casa, uma contribuição ajuda a manter o projeto de pé.">
-        Gostou da CDR? 💖
+      <Titulo nota="A CEDER é desenvolvida por uma equipe de forma independente e continua em evolução. Se ela facilitou o fechamento das contas da sua casa, uma contribuição ajuda a manter o projeto de pé.">
+        Gostou da CEDER? 💖
       </Titulo>
 
       <p className="apoio-chave">{CHAVE_PIX}</p>

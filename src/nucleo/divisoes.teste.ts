@@ -1,7 +1,7 @@
 // As três divisões novas: porcentagem, valor em reais e horas.
 //
 // Duas delas são proporções como todas as outras. A terceira, valor, é a
-// única regra do motor em que o número digitado é o valor final — e por isso
+// única regra do motor em que o número digitado é o valor final   e por isso
 // é a única que pode "não fechar". O teste existe principalmente para provar
 // que quando ela não fecha o motor reclama, em vez de ajustar em silêncio.
 

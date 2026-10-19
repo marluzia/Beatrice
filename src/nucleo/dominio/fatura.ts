@@ -1,7 +1,7 @@
 // CRC: Fatura
 //
 // Responsabilidade: transformar uma conta de luz ou de água no que o resto do
-// domínio precisa dela — quanto custa cada unidade consumida, quanto é taxa
+// domínio precisa dela   quanto custa cada unidade consumida, quanto é taxa
 // fixa e quanto é consumo.
 // Colabora com: Custo (que usa a tarifa), Fechamento (que precisa do valor
 // total e das taxas para publicar).

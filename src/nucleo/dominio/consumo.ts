@@ -1,7 +1,7 @@
 // CRC: Consumo
 //
-// Responsabilidade: dizer quanto um item consumiu em grandeza física — kWh,
-// m³ — antes de qualquer conversa sobre dinheiro.
+// Responsabilidade: dizer quanto um item consumiu em grandeza física   kWh,
+// m³   antes de qualquer conversa sobre dinheiro.
 // Colabora com: Uso (quantos usos houve), Custo (que multiplica pela tarifa).
 //
 // Uma lavagem é 0,8 kWh e 0,05 m³ qualquer que seja a tarifa do mês. Separar

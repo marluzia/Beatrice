@@ -32,7 +32,7 @@ const CORES = {
 /**
  * O calendário do conjunto: um mês, e o que aconteceu em cada dia.
  *
- * É o passo onde tudo que tem data é lançado — quem esteve (ou não esteve),
+ * É o passo onde tudo que tem data é lançado   quem esteve (ou não esteve),
  * que aparelho rodou, que despesa caiu e que tarefa foi feita. O que o
  * calendário escreve são os mesmos campos que o motor já lia antes; ele é uma
  * porta de entrada, não um cálculo novo.
@@ -369,7 +369,7 @@ function LancamentosDoDia({ eventos, estado, acoes, polaridade, tarefaPorId }) {
                 </button>
               </div>
               <p className="lancamento__texto">
-                <strong>{e.titulo}</strong> — {e.detalhe}
+                <strong>{e.titulo}</strong>   {e.detalhe}
               </p>
               <p className="nota">
                 Quem participou e quantas vezes se ajusta no cartão deste item,
@@ -435,7 +435,7 @@ function Historico({ porDia, polaridade, aoAbrir }) {
                         ? ROTULO_DA_NATUREZA.presenca[polaridade]
                         : ROTULO_DA_NATUREZA[e.natureza]}
                     </span>
-                    <strong>{e.titulo}</strong> — {e.detalhe}
+                    <strong>{e.titulo}</strong>   {e.detalhe}
                   </li>
                 ))}
               </ul>

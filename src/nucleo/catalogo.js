@@ -2,7 +2,7 @@ import { novoId } from "./formato.js";
 
 export const CATALOGO = [
   {
-    grupo: "Sai da fatura de luz ou água",
+    grupo: "Sai do ciclo de faturas",
     itens: [
       {
         chave: "geladeira", nome: "Geladeira", especie: "consumo",
@@ -55,13 +55,12 @@ export const CATALOGO = [
     ],
   },
   {
-    grupo: "Pago em reais, por fora das faturas",
+    grupo: "Independente do ciclo de faturas",
     itens: [
       {
         chave: "faxina", nome: "Faxina", especie: "porUso",
         origemUso: "reais", valorPorUso: "", usos: "4",
-        rateio: "igual", rateios: ["igual", "uso"],
-        dica: "Paga por diária. Marque quem contratou: ou divide igual entre eles, ou por quantas diárias cada um puxou.",
+        rateio: "igual", rateios: ["igual", "uso"]
       },
       {
         chave: "gas", nome: "Gás", especie: "reais", valor: "",
@@ -82,6 +81,17 @@ export const CATALOGO = [
         dica: "Galão é consumo de quem está em casa. Por dias costuma cair melhor que igual.",
       },
       {
+        chave: "embarcacao", nome: "Embarcação", especie: "porUso",
+        origemUso: "reais", valorPorUso: "", usos: "",
+        rateio: "horas", rateios: ["horas", "igual", "porcentagem", "uso"],
+        dica: "Combustível, motor, manutenção por tempo de uso. Lance quanto custa a hora e quantas horas cada um navegou. Quem usou pouco não paga pela temporada inteira de quem usou muito.",
+      },
+      {
+        chave: "propriedade", nome: "Propriedade", especie: "reais", valor: "",
+        rateio: "igual", rateios: ["igual", "porcentagem", "dias"],
+        dica: "Custo fixo que não depende de uso: condomínio, IPTU, seguro, marina, taxa de administração. Numa multipropriedade, divida por porcentagem e escreva a fração de cada cotista   é assim que se divide por cota enquanto a regra de cota não existe sozinha.",
+      },
+      {
         chave: "outra", nome: "Outra despesa", especie: "reais", valor: "",
         rateio: "igual", rateios: ["igual", "dias", "uso"],
       },
@@ -90,6 +100,43 @@ export const CATALOGO = [
 ];
 
 export const TODOS_OS_ITENS = CATALOGO.flatMap((g) => g.itens);
+
+/**
+ * O catálogo que este conjunto pode usar.
+ *
+ * Sem fatura de luz nem de água   um evento, por exemplo   o grupo que sai da
+ * fatura não tem de onde tirar dinheiro: aqueles itens custariam zero e
+ * ficariam na tela sem fazer nada. Num evento, toda despesa é em reais.
+ */
+export function catalogoDe(modo) {
+  if (modo?.faturas !== false) return CATALOGO;
+  return CATALOGO.filter((g) => g.itens.every((i) => ehEmReais(i)));
+}
+
+/** Este modelo sai do bolso, em vez de sair de dentro de uma fatura? */
+export const ehEmReais = (modelo) =>
+  modelo.especie === "reais" || (modelo.especie === "porUso" && modelo.origemUso === "reais");
+
+export const GRUPO_DA_FATURA = "Sai do ciclo de faturas";
+export const GRUPO_INDEPENDENTE = "Independente do ciclo de faturas";
+
+/**
+ * Em que categoria este item cai.
+ *
+ * Vem da natureza do item, não de uma chave guardada: trocar "cada uso sai da
+ * fatura" para "sai do bolso" no cartão muda o item de grupo na hora, que é o
+ * que a pessoa acabou de dizer que ele é.
+ */
+export const grupoDoItem = (item) => (ehEmReais(item) ? GRUPO_INDEPENDENTE : GRUPO_DA_FATURA);
+
+/** Os itens da casa, agrupados pelas mesmas categorias do catálogo. */
+export function itensPorGrupo(itens, modo) {
+  const grupos = catalogoDe(modo).map((g) => g.grupo);
+
+  return grupos
+    .map((grupo) => ({ grupo, itens: (itens ?? []).filter((i) => grupoDoItem(i) === grupo) }))
+    .filter((g) => g.itens.length > 0);
+}
 
 export const modeloPorChave = (chave) => TODOS_OS_ITENS.find((i) => i.chave === chave);
 
@@ -113,8 +160,13 @@ export const criarItem = (modelo, participantes = []) => ({
   // Tabelas das regras em que cada um declara o próprio número.
   porcentagens: {},
   valores: {},
-  // O dia em que a despesa foi lançada, quando ela tem dia.
+  // Quando a despesa aconteceu, quando ela tem quando. `data` sozinha é um dia
+  // só; com `ate`, é um período que começa em `data` e termina em `ate`.
+  // As duas são opcionais: sem data, o item vale para o fechamento inteiro.
   data: modelo.data ?? null,
+  ate: modelo.ate ?? null,
+  // Quem desembolsou. Só faz sentido no que sai do bolso, não no que sai da fatura.
+  pagoPor: null,
   eventos: [],
   dica: modelo.dica,
   participantes: [...participantes],

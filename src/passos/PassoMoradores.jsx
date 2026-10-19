@@ -67,7 +67,9 @@ export default function PassoMoradores({ estado, acoes, modo }) {
     <div className="coluna">
       <Ficha>
         <Titulo>
-          <AjudaMoradores polaridade={polaridade} />
+          {/* A ajuda fala de dias fora e dias de estadia. Num evento não há
+              nem uma coisa nem outra, então ela só atrapalha. */}
+          {polaridade !== "nenhuma" && <AjudaMoradores polaridade={polaridade} />}
           {palavras.quemMora}
         </Titulo>
 

@@ -44,7 +44,7 @@ export default function App() {
           <PainelDeCasas casas={casas} acoes={acoes} />
         </main>
         <footer className="rodape">
-          <p>CEDER | Divisão de Despesas</p>
+          <p>CEDER | Finanças Coletivas</p>
         </footer>
       </div>
     );
@@ -66,11 +66,11 @@ export default function App() {
     aoTopo();
   };
 
+  const nomeDoConjunto = casas.find((c) => c.id === idDaCasa)?.nome;
+
   const atual = passos[Math.min(passo, passos.length - 1)];
   const Tela = TELAS[atual.chave];
-  const comuns = { estado, resultado, indicePorId, modo, acoes };
-
-  const nomeDoConjunto = casas.find((c) => c.id === idDaCasa)?.nome;
+  const comuns = { estado, resultado, indicePorId, modo, acoes, nomeDoConjunto };
 
   return (
     <div className="folha">
@@ -143,7 +143,7 @@ export default function App() {
       </div>
 
       <footer className="rodape">
-        <p>CEDER | Divisão de Despesas</p>
+        <p>CEDER | Finanças Coletivas</p>
       </footer>
     </div>
   );

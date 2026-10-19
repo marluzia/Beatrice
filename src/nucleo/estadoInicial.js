@@ -12,7 +12,7 @@ export function faturaVazia(unidade, ativa = true) {
       ? [novaLinha("Energia elétrica", "consumo"), novaLinha("Iluminação pública", "igual")]
       : [novaLinha("Tarifa água", "consumo")];
 
-  return { unidade, ativa, janela: null, linhas };
+  return { unidade, ativa, janela: null, pagoPor: null, linhas };
 }
 
 export function novaPessoa() {
@@ -22,7 +22,7 @@ export function novaPessoa() {
 /**
  * Uma tarefa é trabalho feito por quem mora: lavar louça, passar pano, tirar o
  * lixo. Fica registrada com data e com quem fez, e NÃO entra em nenhum
- * cálculo — nenhum valor muda por causa dela.
+ * cálculo   nenhum valor muda por causa dela.
  *
  * Faxina paga é outra coisa, apesar do nome parecido: ali existe dinheiro
  * saindo, então é um item do catálogo (`faxina`, por uso, em reais), não uma
@@ -39,7 +39,7 @@ export function novaTarefa(data = null) {
  */
 export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
   // A assinatura já foi `estadoInicial(quantosMoradores)`. Quem chamar do jeito
-  // antigo recebe o padrão com o número errado de pessoas e não descobre —
+  // antigo recebe o padrão com o número errado de pessoas e não descobre  
   // então aqui é erro, não tolerância.
   if (typeof chaveDoModo !== "string") {
     throw new TypeError(
@@ -62,6 +62,9 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
   return {
     modo: modo.chave,
     calibragem: modo.calibragem,
+    // Quem fica com o centavo que a divisão não fecha. Null = ninguém decidiu
+    // ainda, e o acerto usa um padrão declarado em vez de escolher calado.
+    quemCede: null,
     periodo: { mes: hoje.getMonth() + 1, ano: hoje.getFullYear() },
     faturas: {
       luz: faturaVazia("kwh", modo.faturas),
@@ -78,7 +81,7 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
 
 /**
  * A mesma casa, um mês adiante: mantém quem mora e o que a casa tem, e limpa o
- * que é do mês que passou — valores das faturas, ciclos, dias fora e usos.
+ * que é do mês que passou   valores das faturas, ciclos, dias fora e usos.
  * É o que a maioria dos clientes quer quando diz "quero refazer no mês que vem".
  */
 export function proximoMes(estado) {
@@ -88,6 +91,7 @@ export function proximoMes(estado) {
   const limparFatura = (fatura) => ({
     ...fatura,
     janela: null,
+    pagoPor: null,
     linhas: (fatura.linhas ?? []).map((l) => ({ ...l, quantidade: "", valor: "" })),
   });
 
@@ -104,7 +108,8 @@ export function proximoMes(estado) {
       ausencias: [],
       presencas: [],
     })),
-    // As tarefas são do mês que passou; o mês novo começa sem nenhuma.
+    // Quem cede e as tarefas são do mês que passou.
+    quemCede: null,
     tarefas: [],
     itens: estado.itens.map((i) => ({
       ...i,
@@ -113,6 +118,12 @@ export function proximoMes(estado) {
       usos: "",
       valor: "",
       usosPorPessoa: {},
+      porcentagens: {},
+      valores: {},
+      // Quem pagou e quando são do mês que passou.
+      pagoPor: null,
+      data: null,
+      ate: null,
       eventos: [],
     })),
   };

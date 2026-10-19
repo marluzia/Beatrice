@@ -144,13 +144,16 @@ describe("seção do que falta", () => {
     expect(falta(montarMensagemDeColeta(casa()))).not.toContain("Luz:");
   });
 
-  it("pergunta os dias fora com o tamanho certo do mês", () => {
-    expect(falta(montarMensagemDeColeta(casa()))).toContain("o mês tem 31");
+  // O número é o tamanho do CICLO de faturamento, que só coincide com o mês
+  // quando as leituras caem no dia 1. Chamar isso de "mês" era o que fazia a
+  // casa estranhar um fechamento de 29 dias em dezembro.
+  it("pergunta os dias com o tamanho certo do ciclo", () => {
+    expect(falta(montarMensagemDeColeta(casa()))).toContain("o ciclo tem 31");
   });
 
   it("fevereiro bissexto tem 29", () => {
     const m = montarMensagemDeColeta({ ...casa(), periodo: { mes: 2, ano: 2024 } });
-    expect(falta(m)).toContain("o mês tem 29");
+    expect(falta(m)).toContain("o ciclo tem 29");
   });
 
   it("nomeia só quem ainda não respondeu os dias", () => {

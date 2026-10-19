@@ -10,7 +10,7 @@
 // salvas: listar não custa carregar.
 //
 // Tudo isto vive no localStorage deste navegador. Limpar os dados do site
-// apaga as casas, e nenhum outro aparelho as vê — por isso `exportarCasa` e
+// apaga as casas, e nenhum outro aparelho as vê   por isso `exportarCasa` e
 // `importarCasa` existem, e por isso o painel oferece o download.
 
 import { PADRAO } from "./modos.js";
@@ -19,7 +19,7 @@ const INDICE = "cdr:casas";
 const PREFIXO = "cdr:casa:";
 const CHAVE_ANTIGA = "cdr:casa";
 
-const VERSAO = 6;
+const VERSAO = 9;
 
 function deposito() {
   try {
@@ -284,7 +284,26 @@ export function importarCasa(texto) {
   const estado = migrar(pacote.estado, pacote.versao);
   if (!estado || !pareceUmaCasa(estado)) return null;
 
-  return criarCasa(pacote.nome ?? "Casa importada", sanear(estado));
+  return criarCasa(nomeLivre(pacote.nome ?? "Casa importada"), sanear(estado));
+}
+
+/**
+ * Um nome que ainda não está em uso no painel.
+ *
+ * Importar o mesmo arquivo duas vezes é fácil de fazer sem querer, e antes
+ * deixava três linhas chamadas "República da Serra" sem jeito de saber qual
+ * era qual. A cópia ganha um número; o original fica como está.
+ */
+function nomeLivre(nome) {
+  const usados = new Set(listarCasas().map((c) => c.nome));
+  if (!usados.has(nome)) return nome;
+
+  for (let n = 2; n < 100; n++) {
+    const tentativa = `${nome} (${n})`;
+    if (!usados.has(tentativa)) return tentativa;
+  }
+
+  return `${nome} (${Date.now()})`;
 }
 
 // ── migração do estado de uma casa ─────────────────────────────────────────
@@ -424,7 +443,39 @@ function migrar(estado, versao) {
   // v5 → v6: entram as tarefas (trabalho de quem mora, sem dinheiro). Conjunto
   // antigo não tinha nenhuma, e lista vazia é exatamente a verdade sobre ele.
   if (versao === 5) {
-    return { ...estado, tarefas: Array.isArray(estado.tarefas) ? estado.tarefas : [] };
+    return migrar({ ...estado, tarefas: Array.isArray(estado.tarefas) ? estado.tarefas : [] }, 6);
+  }
+
+  // v6 → v7: faturas e itens passam a saber quem pagou. Conjunto antigo não
+  // declarou ninguém, e `null` é exatamente isso: ninguém declarado ainda.
+  // O acerto mostra o buraco em vez de inventar um pagador.
+  if (versao === 6) {
+    const comPagador = (o) => ({ ...o, pagoPor: o?.pagoPor ?? null });
+
+    return migrar({
+      ...estado,
+      faturas: {
+        luz: comPagador(estado.faturas?.luz),
+        agua: comPagador(estado.faturas?.agua),
+      },
+      itens: (estado.itens ?? []).map(comPagador),
+    }, 7);
+  }
+
+  // v7 → v8: a casa passa a poder escolher quem fica com o centavo que sobra.
+  // Conjunto antigo não escolheu, e null é exatamente isso.
+  if (versao === 7) {
+    return migrar({ ...estado, quemCede: estado.quemCede ?? null }, 8);
+  }
+
+  // v8 → v9: a data do item deixa de ser só um dia e passa a poder ser um
+  // período. Item antigo tem no máximo um dia marcado, e `ate: null` quer
+  // dizer exatamente isso   dia único, não período de um dia só.
+  if (versao === 8) {
+    return {
+      ...estado,
+      itens: (estado.itens ?? []).map((i) => ({ ...i, ate: i?.ate ?? null })),
+    };
   }
 
   return null;
@@ -453,6 +504,7 @@ export function sanear(estado) {
   return {
     ...estado,
     modo: typeof estado.modo === "string" ? estado.modo : PADRAO,
+    quemCede: typeof estado.quemCede === "string" ? estado.quemCede : null,
     moradores: estado.moradores.filter(Boolean).map((m) => ({
       ...m,
       nome: typeof m.nome === "string" ? m.nome : "",
@@ -472,6 +524,11 @@ export function sanear(estado) {
     itens: estado.itens.filter(Boolean).map((i) => ({
       ...i,
       participantes: Array.isArray(i.participantes) ? i.participantes : [],
+      pagoPor: typeof i.pagoPor === "string" ? i.pagoPor : null,
+      data: typeof i.data === "string" ? i.data : null,
+      // Fim do período. Só vale com um começo: `ate` sem `data` seria um
+      // período que não começa, e isso não é uma data nem é nada.
+      ate: typeof i.data === "string" && typeof i.ate === "string" ? i.ate : null,
       usosPorPessoa:
         i.usosPorPessoa && typeof i.usosPorPessoa === "object" ? i.usosPorPessoa : {},
       eventos: Array.isArray(i.eventos) ? i.eventos : eventosDeDiasAntigos(i),

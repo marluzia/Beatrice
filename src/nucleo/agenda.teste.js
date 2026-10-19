@@ -1,6 +1,6 @@
 // A agenda junta quatro origens de evento datado numa lista só. O teste existe
 // porque cada origem mora numa entidade diferente do estado, e esquecer uma
-// delas não quebra nada — só faz o dia sumir do calendário em silêncio.
+// delas não quebra nada   só faz o dia sumir do calendário em silêncio.
 
 import { describe, expect, it } from "vitest";
 import { estadoInicial, novaTarefa } from "./estadoInicial.js";

@@ -24,7 +24,7 @@ const irPara = (nome) => {
 describe("a aplicação abre", () => {
   it("monta e mostra a marca", () => {
     render(<App />);
-    expect(screen.getByText("CDR")).toBeTruthy();
+    expect(screen.getByText("CEDER")).toBeTruthy();
   });
 
   it("abre no passo das contas", () => {

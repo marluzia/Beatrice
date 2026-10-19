@@ -11,7 +11,7 @@ export default class BarreiraDeErro extends Component {
   }
 
   componentDidCatch(erro, info) {
-    console.error("CDR quebrou:", erro, info?.componentStack);
+    console.error("A CEDER quebrou:", erro, info?.componentStack);
   }
 
   render() {
@@ -20,7 +20,7 @@ export default class BarreiraDeErro extends Component {
     return (
       <div className="folha">
         <div className="barreira">
-          <h1 className="barreira__titulo">O CDR travou</h1>
+          <h1 className="barreira__titulo">A CEDER travou</h1>
           <p>
             Alguma coisa quebrou no meio do caminho, e o problema é meu, não
             seu. Nenhuma conta foi enviada para lugar nenhum.

@@ -77,7 +77,7 @@ export type Rateio =
       /**
        * `uso` conta vezes (inteiros: três lavagens); `horas` conta tempo
        * (decimais: 2,5 horas de ar-condicionado). Para o motor são a mesma
-       * coisa — uma quantidade por pessoa — e o que muda é o que a tela pede.
+       * coisa   uma quantidade por pessoa   e o que muda é o que a tela pede.
        */
       tipo: "uso" | "horas";
       usos: Record<MoradorId, number>;
@@ -134,6 +134,27 @@ export interface Periodo {
   diasAgua?: number;
 }
 
+// ── Presença: quem estava em casa, dia a dia ───────────────────────────────
+
+/**
+ * Para cada dia de um ciclo, quem estava em casa naquele dia.
+ *
+ * O domínio recebe isto já resolvido, como listas de ids   nenhuma data entra
+ * aqui, porque o motor não sabe de calendário. É a tradução que converte as
+ * ausências e as estadias marcadas na tela nestas listas.
+ *
+ * Quando existe, a divisão por presença é exata: dá para saber se duas viagens
+ * coincidiram. Quando não existe   porque a casa só informou "ficou 5 dias
+ * fora", sem dizer quais   a regra volta a estimar e o fechamento avisa.
+ */
+export type PresencaPorDia = MoradorId[][];
+
+export interface Presencas {
+  mes: PresencaPorDia;
+  luz: PresencaPorDia;
+  agua: PresencaPorDia;
+}
+
 // ── Casa: o agregado que o fechamento recebe ───────────────────────────────
 
 export interface Estado {
@@ -143,6 +164,8 @@ export interface Estado {
   faturas: Faturas;
   moradores: Morador[];
   itens: Item[];
+  /** Quem estava em casa em cada dia, quando a casa marcou as datas. */
+  presencas?: Presencas;
 }
 
 // ── Alocação: o resultado de aplicar uma regra a um custo ──────────────────

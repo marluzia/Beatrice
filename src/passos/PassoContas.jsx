@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { AjudaContas } from "./ajudas.jsx";
-import { Botao, Campo, CampoData, Ficha, Rotulo, Segmentado, Titulo } from "../componentes/index.js";
-import { MESES, reais, tarifa } from "../nucleo/formato.js";
+import {
+  Botao,
+  Campo,
+  CampoData,
+  Ficha,
+  Rotulo,
+  Segmentado,
+  Seletor,
+  Titulo,
+} from "../componentes/index.js";
+import { MESES, nomeOu, reais, tarifa } from "../nucleo/formato.js";
 import {
   consumoDaFatura,
   consumoMedido,
@@ -105,7 +114,7 @@ function CicloDeLeitura({ qual, titulo, fatura, periodo, acoes }) {
 
   const marcar = (campo, ruim) => setMalEscrita((m) => ({ ...m, [campo]: ruim }));
 
-  const curto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "—");
+  const curto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : " ");
 
   const vazio = !janela?.de && !janela?.ate;
   const completa = janelaPreenchida(janela);
@@ -159,7 +168,7 @@ function CicloDeLeitura({ qual, titulo, fatura, periodo, acoes }) {
   );
 }
 
-function BlocoDeFatura({ qual, titulo, fatura, acoes }) {
+function BlocoDeFatura({ qual, titulo, fatura, moradores, acoes }) {
   const unidade = fatura.unidade === "kwh" ? "kWh" : "m³";
 
   const jaLancadas = new Set(fatura.linhas.map((l) => l.nome.trim().toLowerCase()));
@@ -185,7 +194,7 @@ function BlocoDeFatura({ qual, titulo, fatura, acoes }) {
           </>
         ) : (
           <>
-            <strong className="consumo-somado--vazio">— {unidade}</strong>
+            <strong className="consumo-somado--vazio">  {unidade}</strong>
             <em>
               preencha a quantidade nas linhas de consumo abaixo
             </em>
@@ -255,6 +264,22 @@ function BlocoDeFatura({ qual, titulo, fatura, acoes }) {
           </p>
         </div>
       )}
+
+      {/* Quem desembolsou esta conta. É daqui que sai o acerto no fim. */}
+      {total !== 0 && moradores.length > 0 && (
+        <div className="pagador-fatura">
+          <Seletor
+            rotulo={`Quem pagou a ${titulo.toLowerCase()}`}
+            valor={fatura.pagoPor ?? ""}
+            aoMudar={(v) => acoes.definirPagador("fatura", qual, v || null)}
+            opcoes={[
+              { valor: "", texto: "ainda não sei" },
+              ...moradores.map((m, i) => ({ valor: m.id, texto: nomeOu(m.nome, i) })),
+            ]}
+            texto
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -320,7 +345,7 @@ export default function PassoContas({ estado, acoes }) {
             Cada fatura tem o seu ciclo de leitura, com datas inicial e final impressas.
             Copie as duas do jeito que estão: a segunda é a leitura que fecha este
             ciclo e abre o seguinte, então o dia dela já é cobrado na próxima conta.
-            Por isso 01/12 a 30/12 dá 29 dias, e o último dia cobrado aqui é 29/12 —
+            Por isso 01/12 a 30/12 dá 29 dias, e o último dia cobrado aqui é 29/12  
             o selo ao lado mostra sempre qual é.
           </p>
           <div className="ciclos">
@@ -353,10 +378,22 @@ export default function PassoContas({ estado, acoes }) {
         </Titulo>
         <div className="grade-faturas">
           {faturaAtiva(estado.faturas.luz) && (
-            <BlocoDeFatura qual="luz" titulo="Luz" fatura={estado.faturas.luz} acoes={acoes} />
+            <BlocoDeFatura
+              qual="luz"
+              titulo="Luz"
+              fatura={estado.faturas.luz}
+              moradores={estado.moradores}
+              acoes={acoes}
+            />
           )}
           {faturaAtiva(estado.faturas.agua) && (
-            <BlocoDeFatura qual="agua" titulo="Água" fatura={estado.faturas.agua} acoes={acoes} />
+            <BlocoDeFatura
+              qual="agua"
+              titulo="Água"
+              fatura={estado.faturas.agua}
+              moradores={estado.moradores}
+              acoes={acoes}
+            />
           )}
         </div>
       </Ficha>

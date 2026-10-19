@@ -23,7 +23,7 @@ export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
   return (
     <div className="coluna">
       <Ficha>
-        <Titulo nota="Os quatro são o mesmo motor em escalas diferentes: moradia compartilhada é o caso completo, evento é o mais simples. O que muda é com o que o conjunto abre e como a tela pergunta as coisas.">
+        <Titulo nota="">
           Criar conjunto
         </Titulo>
 

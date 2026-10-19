@@ -1,16 +1,16 @@
 import { dadosDoRelatorio } from "../nucleo/relatorio.js";
 import { reais } from "../nucleo/formato.js";
-import MarcaCeder from "../componentes/MarcaCeder.jsx";
+import MarcaR from "../componentes/MarcaR.jsx";
 
 const porcento = (v) => `${(v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 
 const numero = (v, casas = 2) =>
   Number(v).toLocaleString("pt-BR", { maximumFractionDigits: casas });
 
-const diaCurto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "—");
+const diaCurto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : " ");
 
 const diaLongo = (iso) =>
-  iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—";
+  iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : " ";
 
 export default function RelatorioImpresso({ estado, resultado }) {
   const d = dadosDoRelatorio(estado, resultado);
@@ -18,15 +18,24 @@ export default function RelatorioImpresso({ estado, resultado }) {
   return (
     <div className="impresso" aria-hidden="true">
       <header className="impresso-topo">
-        <MarcaCeder tamanho={40} />
+        {/* O R. assina o documento que sai da casa. */}
+        <MarcaR tamanho={38} cor="#000000" titulo="CEDER" />
         <div>
           <h1>CEDER</h1>
           <p>{d.titulo}</p>
+          {/* Qual conjunto é este: o mesmo relatório serve a uma república e a
+              uma multipropriedade, e elas leem os números de jeitos diferentes. */}
+          <p className="impresso-tipo">
+            {d.tipo.nome}
+            {d.tipo.exemplo && <span> · {d.tipo.exemplo}</span>}
+          </p>
         </div>
         <p className="impresso-carimbo">
           Gerado em {d.geradoEm}
           <br />
           Uso comum: {d.calibragem}% por igual, {100 - d.calibragem}% pelos dias em casa
+          <br />
+          Presença marcada por {d.tipo.presenca}
         </p>
       </header>
 
@@ -82,6 +91,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
           <thead>
             <tr>
               <th>Item</th>
+              <th className="num">Consumo</th>
               <th className="num">Custo</th>
               <th>Divide por</th>
             </tr>
@@ -90,6 +100,9 @@ export default function RelatorioImpresso({ estado, resultado }) {
             {d.itens.map((i, k) => (
               <tr key={k}>
                 <td>{i.nome}</td>
+                {/* Os kWh e m³ de cada aparelho: é com eles que a casa confere
+                    o relatório contra a etiqueta e contra a fatura. */}
+                <td className="num">{i.consumo || " "}</td>
                 <td className="num">R$ {reais(i.custoTotal)}</td>
                 <td>{i.rateio}</td>
               </tr>
@@ -110,7 +123,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
               <ul>
                 {p.pendencias.map((o, i) => (
                   <li key={i}>
-                    {o.item} em {diaLongo(o.dia)} — a{" "}
+                    {o.item} em {diaLongo(o.dia)}   a{" "}
                     {o.faltando === "luz" ? "energia" : "água"}{" "}
                     {o.quando === "futuro"
                       ? "virá na próxima fatura e não está cobrada aqui."
@@ -160,6 +173,94 @@ export default function RelatorioImpresso({ estado, resultado }) {
           </table>
         </section>
       ))}
+
+      {/* Quem desembolsou. Sem isto, o relatório dizia quanto cada um deve e
+          não dizia quem já tinha posto dinheiro   que é metade do fechamento. */}
+      <section className="impresso-bloco">
+        <h2>Quem pagou</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Despesa</th>
+              <th className="num">Valor</th>
+              <th>Quem desembolsou</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.pagamentos.map((p, i) => (
+              <tr key={i}>
+                <td>{p.nome}</td>
+                <td className="num">R$ {reais(p.valor)}</td>
+                <td>{p.quemPagou ?? "cada um pagou a sua parte"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="impresso-bloco">
+        <h2>O acerto</h2>
+
+        {d.acerto.emAberto ? (
+          <p>
+            Falta a casa decidir quem fica com o centavo que não fecha. Enquanto
+            isso, o acerto não pode ser calculado.
+          </p>
+        ) : d.acerto.semCentralizacao ? (
+          <p>
+            Ninguém centralizou despesa: cada um pagou a própria parte direto, e
+            não há transferência a fazer.
+          </p>
+        ) : (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>Pessoa</th>
+                  <th className="num">Adiantou</th>
+                  <th className="num">Parte dela</th>
+                  <th className="num">Situação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.acerto.saldos.map((s, i) => (
+                  <tr key={i}>
+                    <td>{s.nome}</td>
+                    <td className="num">R$ {reais(s.adiantou)}</td>
+                    <td className="num">R$ {reais(s.parte)}</td>
+                    <td className="num">
+                      {s.saldo > 0
+                        ? `recebe R$ ${reais(s.saldo)}`
+                        : s.saldo < 0
+                          ? `paga R$ ${reais(-s.saldo)}`
+                          : "quite"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {d.acerto.transferencias.length === 0 ? (
+              <p>Nenhuma transferência necessária.</p>
+            ) : (
+              <ul className="impresso-transferencias">
+                {d.acerto.transferencias.map((t, i) => (
+                  <li key={i}>
+                    {t.de} → {t.para}: <strong>R$ {reais(t.valor)}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        {d.acerto.diretas.length > 0 && (
+          <p className="impresso-diretas">
+            Fora do acerto, cada um pagou a sua parte direto em:{" "}
+            {d.acerto.diretas.map((x) => x.nome).join(", ")}.
+          </p>
+        )}
+      </section>
 
       <section className="impresso-bloco">
         <h2>Conferência</h2>

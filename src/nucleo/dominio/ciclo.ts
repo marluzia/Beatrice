@@ -4,7 +4,7 @@
 // seu, e cada fatura medida pode ter outro, que não precisa coincidir.
 // Colabora com: Morador (quantos desses dias cada um passou em casa), Fatura.
 //
-// As datas em si — de quando a quando vai cada ciclo — são problema da tela
+// As datas em si   de quando a quando vai cada ciclo   são problema da tela
 // (`calendario.js`). O domínio só recebe os tamanhos já resolvidos.
 
 import type { Periodo } from "./tipos.ts";

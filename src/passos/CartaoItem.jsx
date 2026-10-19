@@ -25,6 +25,12 @@ import {
   janelaTotal,
   ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
+import {
+  aoMudarFim,
+  aoMudarInicio,
+  telaDoQuando,
+  trocaDeFormato,
+} from "../nucleo/quandoFoi.js";
 
 const NOMES_DOS_RATEIOS = {
   igual: "igual",
@@ -43,7 +49,7 @@ const EXPLICACOES_DOS_RATEIOS = {
     "O custo de cada dia é dividido entre quem estava em casa naquele dia. Quem ficou sozinho num dia paga aquele dia inteiro. É uma opção para aparelho que gasta o mesmo com uma ou com várias pessoas.",
   uso: "Cada um paga pelas vezes que usou. Um uso dividido entre duas pessoas conta meio para cada.",
   horas:
-    "Cada um paga pelas horas que usou. Serve para o que é cobrado por tempo de funcionamento — ar-condicionado, hora de motor.",
+    "Cada um paga pelas horas que usou. Serve para o que é cobrado por tempo de funcionamento   ar-condicionado, hora de motor.",
   porcentagem: "Cada um declara a própria fatia. Deveria somar 100%.",
   valor:
     "Cada um declara quanto paga, em reais. Esta é a única divisão em que o número é o valor final: a soma precisa bater com o custo do item.",
@@ -56,6 +62,29 @@ const TABELAS = {
   uso: { campo: "usosPorPessoa", sufixo: "usos", teclado: "numeric", passo: "inteiro" },
   horas: { campo: "usosPorPessoa", sufixo: "h", teclado: "decimal", passo: "qualquer" },
 };
+
+/**
+ * De quais faturas este item puxa dinheiro.
+ *
+ * Serve para dizer quem pagou um item que sai da fatura: quem pagou aquilo foi
+ * quem pagou a conta de onde ele sai, e essa informação já existe em Contas.
+ */
+function contasDoItem(item, temLuz, temAgua) {
+  if (item.especie === "porUso" && item.origemUso === "fatura") {
+    return [
+      temLuz && Number(String(item.kwhPorUso).replace(",", ".")) > 0 && "luz",
+      temAgua && Number(String(item.m3PorUso).replace(",", ".")) > 0 && "agua",
+    ].filter(Boolean);
+  }
+
+  if (item.especie === "consumo" || item.especie === "porHora") {
+    return [item.unidade === "m3" ? "agua" : "luz"];
+  }
+
+  return [];
+}
+
+const NOME_DA_CONTA = { luz: "conta de luz", agua: "conta de água" };
 
 function dicaDoItem(item, temLuz, temAgua) {
   if (item.especie !== "porUso" || item.origemUso !== "fatura") return item.dica;
@@ -77,12 +106,13 @@ export default function CartaoItem({
   periodo,
   faturas,
   acoes,
+  modo,
 }) {
   const [aberto, setAberto] = useState(false);
 
   const calculado = resultado.itens.find((x) => x.id === item.id);
   const set = (campo, valor) => acoes.editarItem(item.id, campo, valor);
-  const rateios = rateiosDoItem(item);
+  const rateios = rateiosDoItem(item, modo);
 
   const porFatura = item.especie === "porUso" && item.origemUso === "fatura";
 
@@ -93,6 +123,14 @@ export default function CartaoItem({
   // Quem é medido em kWh ou m³ pode ser declarado pelo total do mês ou pelo
   // consumo por hora. Quem é por uso ou em reais não tem essa escolha.
   const podeTrocarEspecie = item.especie === "consumo" || item.especie === "porHora";
+
+  // Só tem pagador o que sai do bolso. O que sai de dentro da fatura já foi
+  // pago por quem pagou a conta de luz ou de água; pedir pagador aqui faria a
+  // mesma despesa ser contada duas vezes no acerto.
+  const saiDoBolso =
+    item.especie === "reais" || (item.especie === "porUso" && item.origemUso === "reais");
+
+  const contas = contasDoItem(item, temLuz, temAgua);
 
   const diasSoltos = diasSemSobreposicao(faturas, periodo);
 
@@ -170,7 +208,7 @@ export default function CartaoItem({
           onChange={(e) => set("nome", e.target.value)}
         />
         <span className="item-valor">
-          {calculado ? `R$ ${reais(calculado.custoTotal)}` : "—"}
+          {calculado ? `R$ ${reais(calculado.custoTotal)}` : " "}
         </span>
         <button
           type="button"
@@ -199,6 +237,49 @@ export default function CartaoItem({
 
       {aberto && !bloqueado && (
         <div className="item-corpo">
+          {/* Quem pagou vem primeiro, logo abaixo do cabeçalho da despesa:
+              é a pergunta que decide se existe acerto ou não, e deixá-la no
+              fim fazia a pessoa configurar o item inteiro sem nunca ver que
+              ela existia. */}
+          <div className="grupo">
+            <Rotulo>Quem pagou</Rotulo>
+
+            {saiDoBolso ? (
+              <>
+                <Seletor
+                  valor={item.pagoPor ?? ""}
+                  aoMudar={(v) => acoes.definirPagador("item", item.id, v || null)}
+                  opcoes={[
+                    { valor: "", texto: "cada um pagou a sua parte" },
+                    ...moradores.map((m, i) => ({ valor: m.id, texto: nomeOu(m.nome, i) })),
+                  ]}
+                  texto
+                />
+                <p className="dica">
+                  {item.pagoPor
+                    ? "Essa pessoa adiantou pelo grupo: os outros devem a ela no acerto."
+                    : "Sem ninguém marcado, vale que cada um pagou a própria parte direto. Não gera dívida entre vocês."}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="item-pagador-herdado">
+                  {contas.length === 0
+                    ? "Sai da fatura."
+                    : contas
+                        .map((qual) => {
+                          const quem = faturas?.[qual]?.pagoPor;
+                          const i = moradores.findIndex((m) => m.id === quem);
+                          return `${NOME_DA_CONTA[qual]}: ${
+                            i < 0 ? "ninguém marcado ainda" : nomeOu(moradores[i].nome, i)
+                          }`;
+                        })
+                        .join(" · ")}
+                </p>
+              </>
+            )}
+          </div>
+
           {dica && <p className="dica">{dica}</p>}
 
           {/* Aparelho pode ser medido de dois jeitos: o total do mês, ou o que
@@ -373,29 +454,7 @@ export default function CartaoItem({
             )}
           </div>
 
-          <div className="grupo">
-            <Rotulo>Quando foi</Rotulo>
-            <div className="linha-campos">
-              <CampoData
-                valor={item.data ?? null}
-                aoMudar={(v) => set("data", v || null)}
-                etiqueta={`Data de ${item.nome || "este item"}`}
-              />
-              {item.data && (
-                <Botao
-                  tipo="fantasma"
-                  aoClicar={() => set("data", null)}
-                  rotuloAcessivel="Tirar a data deste item"
-                >
-                  sem data
-                </Botao>
-              )}
-            </div>
-            <p className="dica">
-              Opcional. Com data, o item aparece no calendário e no histórico do
-              mês. Sem data, ele vale para o fechamento inteiro.
-            </p>
-          </div>
+          <QuandoFoi item={item} set={set} />
 
           <div className="grupo">
             <Rotulo>Quem paga</Rotulo>
@@ -568,7 +627,7 @@ export default function CartaoItem({
 
                   {porFatura && diasSoltos > 0 && (
                     <Alerta nivel="aviso">
-                      Sem as datas, o CDR não sabe em que ciclo cada uso caiu. Os ciclos de
+                      Sem as datas, a CEDER não sabe em que ciclo cada uso caiu. Os ciclos de
                       luz e água têm {diasSoltos} {diasSoltos === 1 ? "dia" : "dias"} que uma
                       cobre e a outra não. Um uso nesses dias vai ser cobrado nas duas, e a
                       conta fica imprecisa. Lançar por data resolve.
@@ -586,11 +645,86 @@ export default function CartaoItem({
 }
 
 /**
+ * Quando a despesa aconteceu   opcional, e de dois formatos.
+ *
+ * Um dia só (o mercado do dia 12) ou um período (a diária da casa de praia, de
+ * 2 a 9). Sem nada marcado, o item vale para o fechamento inteiro, que é o
+ * caso mais comum e por isso é o estado inicial.
+ *
+ * O período guarda o começo em `data` e o fim em `ate`. Trocar para "dia único"
+ * apaga só o fim: a pessoa que marcou o começo não perde o que já digitou.
+ */
+function QuandoFoi({ item, set }) {
+  // A escolha da pessoa vive aqui, e não é deduzida dos campos do item.
+  // Deduzir era o bug: num item ainda sem data, escolher "dia" não mudava
+  // campo nenhum, a dedução continuava dizendo "sem data", e os campos para
+  // digitar a data nunca apareciam   justamente os que ela foi pedir.
+  const [escolha, setEscolha] = useState(null);
+  const { formato, mostraInicio, mostraFim } = telaDoQuando(item, escolha);
+
+  const aplicar = (mudancas) => {
+    for (const [campo, valor] of Object.entries(mudancas)) set(campo, valor);
+  };
+
+  const trocar = (novo) => {
+    setEscolha(novo);
+    aplicar(trocaDeFormato(item, novo));
+  };
+
+  return (
+    <div className="grupo">
+      <Rotulo>Quando foi</Rotulo>
+
+      <Segmentado
+        rotuloDoGrupo="Quando a despesa aconteceu"
+        opcoes={[
+          { valor: "sem", texto: "sem data" },
+          { valor: "dia", texto: "dia" },
+          { valor: "periodo", texto: "período" },
+        ]}
+        valor={formato}
+        aoMudar={trocar}
+      />
+
+      {mostraInicio && (
+        <div className="linha-campos">
+          <CampoData
+            rotulo={mostraFim ? "Início" : "Dia"}
+            valor={item.data ?? null}
+            aoMudar={(v) => aplicar(aoMudarInicio(item, v))}
+            etiqueta={`Data de ${item.nome || "este item"}`}
+          />
+
+          {mostraFim && (
+            <CampoData
+              rotulo="Fim"
+              valor={item.ate ?? null}
+              aoMudar={(v) => aplicar(aoMudarFim(item, v))}
+              etiqueta={`Fim do período de ${item.nome || "este item"}`}
+            />
+          )}
+        </div>
+      )}
+
+      <p className="dica">
+        {formato === "sem"
+          ? "O item vale para o fechamento inteiro e não aparece no calendário."
+          : formato === "dia"
+            ? "O item aparece nesse dia do calendário e do histórico."
+            : "O item aparece no calendário no dia em que começa, dizendo até quando vai."}{" "}
+        A data não muda a divisão   ela é o registro de quando a despesa
+        aconteceu.
+      </p>
+    </div>
+  );
+}
+
+/**
  * As divisões em que cada participante escreve o próprio número: porcentagem e
  * reais.
  *
  * As duas mostram a soma enquanto a pessoa digita, porque as duas podem não
- * fechar — e descobrir isso só no fim, lendo um alerta, é pior do que ver o
+ * fechar   e descobrir isso só no fim, lendo um alerta, é pior do que ver o
  * número andando. Em reais o aviso é duro de propósito: ali o número digitado
  * é o valor final, não uma proporção, e um item que não soma o próprio custo
  * é dinheiro sem dono.
@@ -634,7 +768,7 @@ function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
 
       {fecha ? (
         <p className="dica">
-          Soma: {escrito(soma)} — fecha com {item.rateio === "porcentagem" ? "100%" : "o custo do item"}.
+          Soma: {escrito(soma)}   fecha com {item.rateio === "porcentagem" ? "100%" : "o custo do item"}.
         </p>
       ) : item.rateio === "valor" ? (
         <Alerta nivel="erro">
@@ -647,7 +781,7 @@ function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
       ) : (
         <Alerta nivel="aviso">
           As porcentagens somam {escrito(soma)}, não 100%. A divisão sai na proporção
-          do que está escrito — confira se é isso mesmo.
+          do que está escrito   confira se é isso mesmo.
         </Alerta>
       )}
     </div>

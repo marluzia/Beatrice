@@ -2,7 +2,7 @@
   "name": "ceder",
   "private": true,
   "version": "1.0.0",
-  "description": "CEDER — Calculadora de Despesas, Divisão por ciclos, eventos e uso",
+  "description": "CEDER   Calculadora de Despesas, Divisão por ciclos, eventos e uso",
   "type": "module",
 
   "engines": {
@@ -12,10 +12,6 @@
   "scripts": {
     "dev": "vite",
     "checar": "tsc --noEmit",
-
-    "checar:node": "node -e \"const major=Number(process.versions.node.split('.')[0]);if(major<24){console.error('\\\\nNode '+process.versions.node+' nao e suportado. Use Node 24 ou superior.\\\\n');process.exit(1)}\"",
-
-    "pretestar": "npm run checar:node",
     "testar": "vitest run",
     "testar:vigiar": "vitest",
     "test": "vitest run",

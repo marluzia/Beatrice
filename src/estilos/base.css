@@ -93,9 +93,14 @@ button {
   margin-bottom: 18px;
 }
 
-.marca-ceder {
+.marca-r {
   flex-shrink: 0;
   display: block;
+  color: var(--tinta);
+}
+
+.marca-bloco {
+  min-width: 0;
 }
 
 .marca-nome {
@@ -104,6 +109,9 @@ button {
   font-size: 30px;
   letter-spacing: 0.2em;
   line-height: 1;
+  /* A régua sob o nome: a linha que a casa assina. */
+  border-bottom: 3px solid var(--tinta);
+  padding-bottom: 5px;
 }
 
 @media (min-width: 640px) {
@@ -113,9 +121,15 @@ button {
 }
 
 .subtitulo {
-  margin: 4px 0 0;
+  margin: 5px 0 0;
   font-size: 12.5px;
   color: var(--tinta-fraca);
+}
+
+/* "dividimos" com as sílabas abertas: a palavra faz na tela o que o produto
+   faz com a conta. */
+.subtitulo__silabas {
+  letter-spacing: 0.3em;
 }
 
 .lema {
@@ -349,31 +363,63 @@ button {
 
 /* --------------------------------------------------------- segmentado --- */
 
+/* Barra segmentada.
+ *
+ * Era `inline-flex` com `overflow: hidden`, e a barra de "como divide" tem
+ * sete opções: num celular cabiam três e meia, e as outras   por horas, % e
+ * R$   ficavam cortadas, sem scroll, sem jeito nenhum de alcançar. Três
+ * regras de divisão simplesmente não existiam no telefone.
+ *
+ * Agora é uma grade que quebra linha: cabe quantas couber por linha e o resto
+ * desce. Nenhuma opção some, e a largura mínima da coluna é a da legenda mais
+ * longa, para nada ser cortado.
+ *
+ * Os traços entre os botões são o `gap` deixando o fundo aparecer, e não
+ * bordas   com quebra de linha, borda lateral deixa sobra solta no fim de cada
+ * linha. */
 .segmentado {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  gap: 1px;
+  width: 100%;
+  /* Mesmo fundo dos botões: assim a sobra da última linha, quando as opções
+     não fecham a grade, fica invisível em vez de virar uma célula cinza. */
+  background: var(--papel);
   border: 1px solid var(--regua);
   border-radius: 2px;
   overflow: hidden;
-  max-width: 100%;
 }
 
 .segmentado button {
-  flex: 1 1 auto;
-  min-height: 38px;
-  padding: 0 14px;
-  background: transparent;
+  /* `min-width: 0` é o que deixa a coluna encolher: sem ele o botão não desce
+     da largura do texto, estoura a grade e volta a cortar opção. */
+  min-width: 0;
+  min-height: var(--toque);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 8px;
+  background: var(--papel);
   color: var(--tinta-fraca);
   border: none;
-  border-left: 1px solid var(--regua);
+  /* O traço entre os botões: cada um desenha o próprio anel, que preenche o
+     `gap` de 1px ao lado. Borda não serviria   com quebra de linha ela deixa
+     sobra solta no fim de cada linha. */
+  box-shadow: 0 0 0 1px var(--regua);
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.04em;
-  white-space: nowrap;
+  line-height: 1.25;
+  text-align: center;
+  /* A legenda quebra em duas linhas em vez de ser cortada. "por presença" não
+     cabe numa coluna de celular em uma linha só, e sumir é pior que dobrar. */
+  overflow-wrap: anywhere;
+  cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
 
-.segmentado button:first-child {
-  border-left: none;
+.segmentado button:hover {
+  color: var(--tinta);
 }
 
 .segmentado button[aria-pressed="true"] {
@@ -381,9 +427,9 @@ button {
   color: var(--papel);
 }
 
-@media (max-width: 400px) {
+@media (max-width: 420px) {
   .segmentado button {
-    padding: 0 10px;
+    padding: 7px 5px;
     letter-spacing: 0;
   }
 }
@@ -1581,6 +1627,12 @@ button {
     font-size: 10pt;
   }
 
+  /* Que tipo de conjunto gerou este relatório. */
+  .impresso-tipo {
+    font-size: 9pt;
+    color: #444;
+  }
+
   .impresso-carimbo {
     margin-left: auto;
     text-align: right;
@@ -1667,6 +1719,17 @@ button {
   .impresso-avisos {
     margin: 4px 0 0;
     padding-left: 16px;
+  }
+
+  .impresso-transferencias {
+    margin: 6px 0 0;
+    padding-left: 16px;
+  }
+
+  .impresso-diretas {
+    margin-top: 6px;
+    font-size: 9pt;
+    color: #444;
   }
 
   .impresso-centavo {
@@ -1980,4 +2043,174 @@ button {
   text-transform: lowercase;
   color: var(--tinta-fraca);
   flex-shrink: 0;
+}
+
+/* ------------------------------------------------------- acerto --- */
+
+.pagador-fatura {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--regua);
+}
+
+.saldos,
+.transferencias {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.saldo {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--branco);
+  border: 1px solid var(--regua);
+  border-radius: var(--canto);
+}
+
+.saldo__nome {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.saldo__conta {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  font-size: 12.5px;
+  color: var(--tinta-fraca);
+}
+
+.saldo__valor {
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.saldo__valor--receber {
+  color: var(--ok);
+}
+
+.saldo__valor--pagar {
+  color: var(--alerta);
+}
+
+.transferencia {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--branco);
+  border: 1px solid var(--tinta);
+  border-radius: var(--canto);
+}
+
+.transferencia__quem {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.transferencia__seta {
+  color: var(--tinta-fraca);
+}
+
+.transferencia__valor {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.diretas {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.diretas li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13.5px;
+  padding: 6px 10px;
+  background: var(--branco);
+  border: 1px solid var(--regua);
+  border-radius: var(--canto);
+}
+
+/* ------------------------------------------------- quem cede o centavo --- */
+
+.cessao-recado {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  background: var(--aviso-fundo);
+  border-left: 3px solid var(--aviso);
+  border-radius: var(--canto);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.cessao-vitoria {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--ok);
+}
+
+/* A fileira de R: um por morador, na mesma ordem dos nomes acima. É o estado
+   da moeda em desenho   o ponto acende na posição de quem assumiu. */
+.cessao-fileira {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 18px;
+  margin: 16px 0 12px;
+  padding: 14px 10px;
+  border-top: 1px solid var(--regua);
+  border-bottom: 1px solid var(--regua);
+  color: var(--tinta);
+}
+
+.cessao-fileira__marca {
+  display: block;
+}
+
+.pessoa-cedeu {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--aviso);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--aviso);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------ acerto ainda travado --- */
+
+.acerto-travado {
+  padding: 14px;
+  background: var(--papel-fundo);
+  border: 1px dashed var(--regua);
+  border-radius: var(--canto);
+}
+
+.acerto-travado__texto {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+/* ------------------------------------------- pagador herdado da fatura --- */
+
+.item-pagador-herdado {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
 }

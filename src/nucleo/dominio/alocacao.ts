@@ -1,7 +1,7 @@
 // CRC: Alocação
 //
 // Responsabilidade: aplicar uma regra a um custo e produzir a parcela de cada
-// participante — o resultado, que é outra coisa que a regra.
+// participante   o resultado, que é outra coisa que a regra.
 // Colabora com: RegraDeAlocação (os pesos), Custo (o que dividir), Explicação
 // (que junta as parcelas por pessoa).
 //
@@ -10,7 +10,15 @@
 // dias do ciclo da luz, a da água com os da água, a parte em reais com os do
 // fechamento.
 
-import type { CustoBruto, Fatia, Item, ItemCalculado, MoradorId, Morador } from "./tipos.ts";
+import type {
+  CustoBruto,
+  Fatia,
+  Item,
+  ItemCalculado,
+  MoradorId,
+  Morador,
+  PresencaPorDia,
+} from "./tipos.ts";
 import type { DiasContados } from "./morador.ts";
 import { dividir } from "./numeros.ts";
 import { pesosDe } from "./regras.ts";
@@ -21,6 +29,8 @@ import { mesmaContagem } from "./morador.ts";
 export interface Janela {
   dias: number;
   contados: DiasContados;
+  /** Quem estava em casa em cada dia, quando a casa marcou as datas. */
+  presentes?: PresencaPorDia;
 }
 
 /** Os três ciclos que um fechamento mede: o dele, o da luz e o da água. */
@@ -67,22 +77,40 @@ export function alocar(
   // própria divisão, mesmo que os ciclos coincidam.
   const porCiclo = usosSeparadosPorCiclo(item);
 
+  // Por presença, dois ciclos com a mesma contagem de dias ainda podem ter
+  // dias diferentes   e aí a divisão exata dá outro resultado em cada um.
+  // Reaproveitar a do mês nesse caso cobraria a luz pelos dias da água.
+  const porPresenca = item.rateio.tipo === "presenca";
+
   const noMes = pesosDe({
     item,
     diasContados: janelas.mes.contados,
     diasNoCiclo: janelas.mes.dias,
     mundo: null,
+    presentes: janelas.mes.presentes,
   });
 
   const naLuz =
-    janelas.luzSegueOMes && !porCiclo
+    janelas.luzSegueOMes && !porCiclo && !porPresenca
       ? noMes
-      : pesosDe({ item, diasContados: janelas.luz.contados, diasNoCiclo: janelas.luz.dias, mundo: "luz" });
+      : pesosDe({
+          item,
+          diasContados: janelas.luz.contados,
+          diasNoCiclo: janelas.luz.dias,
+          mundo: "luz",
+          presentes: janelas.luz.presentes,
+        });
 
   const naAgua =
-    janelas.aguaSegueOMes && !porCiclo
+    janelas.aguaSegueOMes && !porCiclo && !porPresenca
       ? noMes
-      : pesosDe({ item, diasContados: janelas.agua.contados, diasNoCiclo: janelas.agua.dias, mundo: "agua" });
+      : pesosDe({
+          item,
+          diasContados: janelas.agua.contados,
+          diasNoCiclo: janelas.agua.dias,
+          mundo: "agua",
+          presentes: janelas.agua.presentes,
+        });
 
   const custoTotal = bruto.luz + bruto.agua + bruto.reais;
   const fatias: Fatia[] = [];

@@ -54,9 +54,9 @@ export function calcular(estado: Estado): Resultado {
 
   const janelas = medirJanelas(
     moradores,
-    { dias: diasNoPeriodo, contados: diasContados },
-    { dias: diasNoPeriodoLuz, contados: diasContadosLuz },
-    { dias: diasNoPeriodoAgua, contados: diasContadosAgua },
+    { dias: diasNoPeriodo, contados: diasContados, presentes: estado.presencas?.mes },
+    { dias: diasNoPeriodoLuz, contados: diasContadosLuz, presentes: estado.presencas?.luz },
+    { dias: diasNoPeriodoAgua, contados: diasContadosAgua, presentes: estado.presencas?.agua },
   );
 
   const somaDiasContados = somaDosDias(moradores, diasContados);
@@ -93,7 +93,13 @@ export function calcular(estado: Estado): Resultado {
   // Cada regra tem o seu jeito de não fechar, e cada um merece a sua mensagem.
   validos.forEach((item, i) => {
     if (item.rateio.tipo === "presenca") {
-      const exata = regraExata({ item, diasContados, diasNoCiclo: diasNoPeriodo, mundo: null });
+      const exata = regraExata({
+        item,
+        diasContados,
+        diasNoCiclo: diasNoPeriodo,
+        mundo: null,
+        presentes: janelas.mes.presentes,
+      });
       if (!exata) alertas.push(presencaSuposta(item));
       return;
     }

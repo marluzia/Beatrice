@@ -76,14 +76,21 @@ export const ninguemEmCasa = (): Alerta => ({
   texto: "Ninguém passou nenhum dia em casa no período. O uso comum foi dividido em partes iguais.",
 });
 
+/**
+ * Só aparece quando as datas NÃO foram marcadas no calendário.
+ *
+ * Com as datas, a divisão por presença é uma conta direta, dia a dia, e nada é
+ * suposto   por isso a mensagem diz o que fazer para ela sumir, em vez de
+ * pedir que a casa confira uma estimativa que ela não tem como conferir.
+ */
 export const presencaSuposta = (item: Item): Alerta => ({
   nivel: "aviso",
-  texto: `"${item.nome}" divide por presença e mais de uma pessoa do grupo viajou. Sem saber quais dias cada um ficou fora, o CDR supôs que as viagens não coincidiram. Se elas coincidiram, quem ficou em casa sozinho pagou menos do que devia.`,
+  texto: `"${item.nome}" divide por presença, mais de uma pessoa ficou fora e o calendário não diz quais dias foram. Sem isso a CEDER não sabe se as ausências coincidiram, e supôs que não. Marque os dias de cada um no calendário e esta divisão passa a ser exata.`,
 });
 
 /**
  * Porcentagem que não soma 100. Os pesos são normalizados, então a divisão
- * acontece mesmo assim — 30 e 30 viram metade para cada um. O aviso existe
+ * acontece mesmo assim   30 e 30 viram metade para cada um. O aviso existe
  * porque isso quase nunca é o que a pessoa quis dizer ao escrever 30 e 30.
  */
 export const porcentagemNaoFecha = (item: Item, soma: number): Alerta => ({

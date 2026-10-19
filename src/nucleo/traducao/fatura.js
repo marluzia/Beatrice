@@ -1,6 +1,6 @@
 // Tradução: Fatura
 //
-// A tela guarda a fatura como ela vem no papel — linhas com nome, quantidade,
+// A tela guarda a fatura como ela vem no papel   linhas com nome, quantidade,
 // valor e comportamento ("consumo", "igual", "abatimento"), tudo em texto. O
 // domínio quer números: quanto foi consumido, quanto custou, quais taxas.
 

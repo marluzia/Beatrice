@@ -4,23 +4,28 @@ import {
   diasContadosNaFatura,
   polaridadeDaCasa,
   janelaDaFatura,
+  itemParaMotor,
   lavagensForaDoCiclo,
   tarifaDaFatura,
   totalDaFatura,
   valorDoConsumo,
 } from "./adaptador.js";
+import { consumoDe } from "./motor.ts";
+import { modoDe } from "./modos.js";
 import { diasDaJanela, faturaAtiva, janelaValida } from "./calendario.js";
 import { historicoEmTexto } from "./agenda.js";
+import { acertoDe } from "./acerto.js";
+import { cessaoDe } from "./cessao.js";
 import { MESES, nomeOu, reais } from "./formato.js";
 
-const diaCurto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "—");
+const diaCurto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : " ");
 
 /** Numa república marcam-se os dias fora; numa temporada, os dias de estadia. */
 const rotuloDasDatas = (estado) =>
   polaridadeDaCasa(estado) === "presenca" ? "dias de estadia marcados" : "dias fora marcados";
 
 const diaLongo = (iso) =>
-  iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—";
+  iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : " ";
 
 const numero = (v, casas = 2) =>
   Number(v).toLocaleString("pt-BR", { maximumFractionDigits: casas });
@@ -48,7 +53,7 @@ function blocoDasFaturas(estado) {
 
     linhas.push(
       `${nome}`,
-      `  ciclo: ${ciclo} — ${diasDaJanela(janela, estado.periodo)} dias`,
+      `  ciclo: ${ciclo}   ${diasDaJanela(janela, estado.periodo)} dias`,
       `  consumo: ${numero(consumoDaFatura(fatura))} ${unidade}`,
       `  total da fatura: R$ ${reais(totalDaFatura(fatura))}`,
       `  do total, acompanha o consumo: R$ ${reais(valorDoConsumo(fatura))}`,
@@ -57,7 +62,7 @@ function blocoDasFaturas(estado) {
     );
 
     for (const linha of fatura.linhas ?? []) {
-      const quanto = linha.quantidade ? `${numero(linha.quantidade)} ${unidade}` : "—";
+      const quanto = linha.quantidade ? `${numero(linha.quantidade)} ${unidade}` : " ";
       linhas.push(
         `    ${(linha.nome || "sem nome").padEnd(34)} ${quanto.padStart(12)}  ` +
           `R$ ${reais(Number(String(linha.valor).replace(",", ".")) || 0).padStart(10)}  ${linha.comportamento}`,
@@ -76,7 +81,7 @@ function blocoDaPessoa(estado, resultado, calculado, indice) {
   const ausencias = datasMarcadas(morador, polaridadeDaCasa(estado));
 
   const linhas = [
-    regua(`${nome} — R$ ${reais(calculado.total)}`),
+    regua(`${nome}   R$ ${reais(calculado.total)}`),
     "",
     "  presença",
   ];
@@ -153,7 +158,7 @@ function blocoDaPessoa(estado, resultado, calculado, indice) {
     linhas.push("", "  !! LANÇAR NO PRÓXIMO FECHAMENTO");
     for (const o of minhas) {
       linhas.push(
-        `    ${o.item} em ${diaLongo(o.dia)} — a ${o.faltando === "luz" ? "energia" : "água"} ` +
+        `    ${o.item} em ${diaLongo(o.dia)}   a ${o.faltando === "luz" ? "energia" : "água"} ` +
           (o.quando === "futuro"
             ? "virá na próxima fatura e NÃO está cobrada aqui."
             : "entrou na fatura anterior, já fechada, e não é cobrada de novo."),
@@ -191,18 +196,37 @@ export function dadosDoRelatorio(estado, resultado) {
       tarifa: tarifaDaFatura(fatura),
       linhas: (fatura.linhas ?? []).map((l) => ({
         nome: l.nome || "sem nome",
-        quantidade: l.quantidade ? `${numero(l.quantidade)} ${unidade}` : "—",
+        quantidade: l.quantidade ? `${numero(l.quantidade)} ${unidade}` : " ",
         valor: Number(String(l.valor).replace(",", ".")) || 0,
         comportamento: l.comportamento,
       })),
     };
   });
 
+  // O consumo físico de cada item, antes de virar dinheiro. É o que permite
+  // conferir o relatório contra a etiqueta do aparelho e contra a fatura: sem
+  // os kWh, "Ar-condicionado R$ 180" é um número que a casa só pode aceitar.
+  const janelas = {
+    luz: janelaDaFatura(estado.faturas.luz, estado.periodo),
+    agua: janelaDaFatura(estado.faturas.agua, estado.periodo),
+  };
+
   const itens = resultado.itens
     .map((item) => {
       const doEstado = estado.itens.find((i) => i.id === item.id);
       if (!doEstado) return null;
-      return { nome: item.nome, custoTotal: item.custoTotal, rateio: doEstado.rateio };
+
+      const fisico = consumoDe(itemParaMotor(doEstado, janelas));
+      const medidas = [];
+      if (fisico.kwh) medidas.push(`${numero(fisico.kwh, 2)} kWh`);
+      if (fisico.m3) medidas.push(`${numero(fisico.m3, 3)} m³`);
+
+      return {
+        nome: item.nome,
+        custoTotal: item.custoTotal,
+        rateio: doEstado.rateio,
+        consumo: medidas.join(" · "),
+      };
     })
     .filter(Boolean);
 
@@ -278,23 +302,92 @@ export function dadosDoRelatorio(estado, resultado) {
   const residuo = resultado.residuoDeCentavos;
   const quantos = Math.abs(residuo);
 
+  // ── o registro do dinheiro ───────────────────────────────────────────────
+  //
+  // Quanto cada um deve é só metade do fechamento. A outra metade é quem
+  // desembolsou e quem transfere para quem   e era justamente a parte que não
+  // ficava registrada em lugar nenhum do relatório.
+  const acerto = acertoDe(estado, resultado);
+
+  const nomeDoMorador = (id) => {
+    const i = estado.moradores.findIndex((m) => m.id === id);
+    return i < 0 ? null : nomeOu(estado.moradores[i].nome, i);
+  };
+
+  const pagamentos = acerto.despesas.map((d) => ({
+    nome: d.nome,
+    valor: d.centavos / 100,
+    quemPagou: nomeDoMorador(d.pagoPor),
+  }));
+
+  const quemCedeu = nomeDoMorador(estado.quemCede);
+
+  // O acerto fica em aberto se falta ceder em qualquer um dos dois resíduos: o
+  // do fechamento inteiro (que a tela usa para travar) ou o do próprio acerto,
+  // que olha só o que alguém centralizou. Os dois números são diferentes, e
+  // basta um deles pendurado para as transferências não fecharem.
+  const emAberto = acerto.precisaCeder || cessaoDe(estado, resultado).precisaEscolher;
+
+  // Qual conjunto é este. O mesmo relatório sai para uma república e para uma
+  // multipropriedade, e as duas leem os mesmos números de maneiras diferentes:
+  // "30 dias contados" é o normal numa e é quase o mês inteiro de estadia na
+  // outra. Quem recebe o PDF precisa saber de qual se trata.
+  const modo = modoDe(estado.modo);
+
   return {
     titulo: `Fechamento de ${MESES[mes - 1]} de ${ano}`,
     geradoEm: new Date().toLocaleString("pt-BR"),
+    tipo: {
+      nome: modo.nome,
+      exemplo: modo.exemplo,
+      // Numa república marcam-se os dias fora; numa temporada, os de estadia.
+      presenca: polaridadeDaCasa(estado) === "presenca" ? "estadia" : "ausência",
+    },
     calibragem,
     faturas,
     itens,
     pessoas,
+    /** Quem desembolsou cada despesa. `quemPagou` nulo = cada um pagou a sua parte. */
+    pagamentos,
+
+    /** De quem para quem, e quanto. É o que vira Pix. */
+    acerto: {
+      saldos: acerto.saldos.map((s) => ({
+        nome: s.nome,
+        adiantou: s.pagou / 100,
+        parte: s.deve / 100,
+        saldo: s.saldo / 100,
+      })),
+      transferencias: acerto.transferencias.map((t) => ({
+        de: t.deNome,
+        para: t.paraNome,
+        valor: t.centavos / 100,
+      })),
+      // Ninguém centralizou nada: não há dívida entre o grupo, e isso é um
+      // resultado, não uma falta de dado.
+      semCentralizacao: acerto.totalCentralizado === 0,
+      emAberto,
+      diretas: acerto.diretas.map((d) => ({ nome: d.nome, valor: d.centavos / 100 })),
+    },
+
     conferencia: {
       somaDevida: resultado.somaDevida,
       somaCobrada: resultado.somaCobrada,
       diferenca: resultado.diferenca,
+      // A linha dos valores arredondados saiu daqui. Ela existia quando não
+      // havia quem cede: mostrava a soma torta e deixava a casa com ela. Hoje
+      // ou alguém assumiu o centavo, e a soma fecha exata, ou ninguém assumiu,
+      // e o que falta dizer é isso   não repetir o número torto.
       centavos:
         residuo === 0
           ? null
-          : `Arredondado, ${residuo > 0 ? "falta" : "sobra"} ${quantos} ` +
-            `${quantos === 1 ? "centavo" : "centavos"}. Fiz meu melhor, mas o sistema ` +
-            "monetário não cedeu. Alguém vai ter que ceder.",
+          : quemCedeu
+            ? `A divisão não fecha em dinheiro por ${quantos} ` +
+              `${quantos === 1 ? "centavo" : "centavos"}. ${quemCedeu} cedeu, e com isso ` +
+              "a soma bate exatamente com o valor devido."
+            : `A divisão não fecha em dinheiro por ${quantos} ` +
+              `${quantos === 1 ? "centavo" : "centavos"} e ninguém assumiu a moeda ainda. ` +
+              "O fechamento está em aberto até a casa escolher quem cede.",
     },
     alertas: resultado.alertas,
   };
@@ -303,8 +396,10 @@ export function dadosDoRelatorio(estado, resultado) {
 export function montarRelatorio(estado, resultado) {
   const d = dadosDoRelatorio(estado, resultado);
   const linhas = [
-    regua(`CEDER — ${d.titulo}`),
+    regua(`CEDER   ${d.titulo}`),
     "",
+    `Conjunto: ${d.tipo.nome}${d.tipo.exemplo ? ` (${d.tipo.exemplo})` : ""}`,
+    `Presença marcada por ${d.tipo.presenca}`,
     `Gerado em ${d.geradoEm}`,
     `Uso comum calibrado em ${d.calibragem}% por igual, ${100 - d.calibragem}% pelos dias em casa.`,
     "",
@@ -319,7 +414,7 @@ export function montarRelatorio(estado, resultado) {
     }
     linhas.push(
       f.nome.toUpperCase(),
-      `  ciclo: ${f.ciclo} — ${f.dias} dias`,
+      `  ciclo: ${f.ciclo}   ${f.dias} dias`,
       `  consumo: ${numero(f.consumo)} ${f.unidade}`,
       `  total da fatura: R$ ${reais(f.total)}`,
       `  do total, acompanha o consumo: R$ ${reais(f.consumoEmReais)}`,
@@ -336,7 +431,10 @@ export function montarRelatorio(estado, resultado) {
 
   linhas.push(regua("O QUE A CASA TEM"), "");
   for (const i of d.itens) {
-    linhas.push(`  ${i.nome.padEnd(30)} R$ ${reais(i.custoTotal).padStart(10)}  divide por ${i.rateio}`);
+    linhas.push(
+      `  ${i.nome.padEnd(30)} ${(i.consumo || " ").padStart(18)}  ` +
+        `R$ ${reais(i.custoTotal).padStart(10)}  divide por ${i.rateio}`,
+    );
   }
 
   // O mês em ordem: serve para a casa conferir o que foi lançado e ver o que
@@ -346,10 +444,74 @@ export function montarRelatorio(estado, resultado) {
     linhas.push("", regua("O QUE ACONTECEU, EM ORDEM"), "", ...historico);
   }
 
+  // Quem desembolsou cada despesa. Sem isto o relatório dizia quanto cada um
+  // deve e nunca dizia quem já tinha posto dinheiro   e é a diferença entre as
+  // duas coisas que gera o acerto.
+  if (d.pagamentos.length > 0) {
+    linhas.push("", regua("QUEM PAGOU"), "");
+    for (const p of d.pagamentos) {
+      linhas.push(
+        `  ${p.nome.padEnd(30)} R$ ${reais(p.valor).padStart(10)}  ` +
+          `${p.quemPagou ?? "cada um pagou a sua parte"}`,
+      );
+    }
+  }
+
+  // O acerto fecha o relatório: é a parte que vira dinheiro.
+  const acerto = acertoDe(estado, resultado);
+  linhas.push("", regua("QUANTO CADA UM PAGA"), "");
+
+  if (d.acerto.emAberto) {
+    linhas.push(
+      "  EM ABERTO: falta a casa decidir quem fica com o centavo que não fecha.",
+      "  Enquanto isso o acerto não pode ser calculado.",
+    );
+  } else if (acerto.totalCentralizado === 0) {
+    linhas.push("  Ninguém centralizou despesa: cada um pagou a própria parte direto.");
+  } else {
+    for (const s of acerto.saldos) {
+      const situacao =
+        s.saldo > 0
+          ? `recebe R$ ${reais(s.saldo / 100)}`
+          : s.saldo < 0
+            ? `paga R$ ${reais(-s.saldo / 100)}`
+            : "quite";
+      linhas.push(
+        `  ${s.nome.padEnd(20)} adiantou R$ ${reais(s.pagou / 100).padStart(10)}` +
+          `  parte dele(a) R$ ${reais(s.deve / 100).padStart(10)}  →  ${situacao}`,
+      );
+    }
+
+    linhas.push("");
+    if (acerto.transferencias.length === 0) {
+      linhas.push("  Nenhuma transferência necessária.");
+    } else {
+      for (const t of acerto.transferencias) {
+        linhas.push(`  ${t.deNome} → ${t.paraNome}: R$ ${reais(t.centavos / 100)}`);
+      }
+    }
+  }
+
+  if (acerto.residuo !== 0 && !d.acerto.emAberto) {
+    const quem = acerto.saldos.find((s) => s.moradorId === acerto.quemCede)?.nome;
+    const n = Math.abs(acerto.residuo);
+    linhas.push("", `  ${quem} cedeu ${n} ${n === 1 ? "centavo" : "centavos"} neste acerto.`);
+  }
+
+  if (acerto.diretas.length > 0) {
+    linhas.push(
+      "",
+      "  Pagas direto, fora do acerto (cada um pagou a sua parte):",
+      ...acerto.diretas.map(
+        (d) => `    ${d.nome.padEnd(28)} R$ ${reais(d.centavos / 100).padStart(10)}`,
+      ),
+    );
+  }
+
   linhas.push("", regua("CADA PESSOA"), "");
 
   for (const p of d.pessoas) {
-    linhas.push(regua(`${p.nome} — R$ ${reais(p.total)}`), "", "  presença");
+    linhas.push(regua(`${p.nome}   R$ ${reais(p.total)}`), "", "  presença");
     for (const pr of p.presenca) {
       linhas.push(`    dias contados na ${pr.conta}: ${pr.contados} de ${pr.de}`);
     }
@@ -378,7 +540,7 @@ export function montarRelatorio(estado, resultado) {
       linhas.push("", "  !! LANÇAR NO PRÓXIMO FECHAMENTO");
       for (const o of p.pendencias) {
         linhas.push(
-          `    ${o.item} em ${diaLongo(o.dia)} — a ${o.faltando === "luz" ? "energia" : "água"} ` +
+          `    ${o.item} em ${diaLongo(o.dia)}   a ${o.faltando === "luz" ? "energia" : "água"} ` +
             (o.quando === "futuro"
               ? "virá na próxima fatura e NÃO está cobrada aqui."
               : "entrou na fatura anterior, já fechada, e não é cobrada de novo."),

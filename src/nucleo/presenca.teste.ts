@@ -50,7 +50,7 @@ describe("uma pessoa viajou: o resultado é exato", () => {
 
   it("não avisa nada: com uma ausência só, não há suposição", () => {
     const r = calcular(quarto(fora, { tipo: "presenca" }, dupla));
-    expect(r.alertas.some((a) => a.texto.includes("não coincidiram"))).toBe(false);
+    expect(r.alertas.some((a) => a.texto.includes("não diz quais dias"))).toBe(false);
   });
 
   it("quem não é do quarto não paga o ar", () => {
@@ -74,13 +74,13 @@ describe("ninguém viajou: presença e igual dão o mesmo", () => {
   });
 });
 
-describe("duas ou mais viajaram: vira estimativa, e o motor diz isso", () => {
+describe("duas ou mais viajaram sem datas: vira estimativa, e o motor diz isso", () => {
   const fora = [0, 15, 15];
   const trio = ["m0", "m1", "m2"];
 
-  it("avisa que supôs que as viagens não coincidiram", () => {
+  it("avisa que não sabe se as ausências coincidiram", () => {
     const r = calcular(quarto(fora, { tipo: "presenca" }, trio));
-    const aviso = r.alertas.find((a) => a.texto.includes("não coincidiram"));
+    const aviso = r.alertas.find((a) => a.texto.includes("não diz quais dias"));
     expect(aviso).toBeDefined();
     expect(aviso?.nivel).toBe("aviso");
     expect(aviso?.texto).toContain("Ar-condicionado");
@@ -102,7 +102,7 @@ describe("duas ou mais viajaram: vira estimativa, e o motor diz isso", () => {
 
   it("não avisa quando o item não usa presença", () => {
     const r = calcular(quarto(fora, { tipo: "dias" }, trio));
-    expect(r.alertas.some((a) => a.texto.includes("não coincidiram"))).toBe(false);
+    expect(r.alertas.some((a) => a.texto.includes("não diz quais dias"))).toBe(false);
   });
 });
 
@@ -135,6 +135,88 @@ describe("casos extremos", () => {
       const estado = quarto([0, b, 0], { tipo: "presenca" }, ["m0", "m1"]);
       expect(fatiaDe(estado, "m0")).toBeGreaterThanOrEqual(fatiaDe(estado, "m1") - 1e-9);
     }
+  });
+});
+
+// Com o calendário preenchido, "presença" deixa de ser estimativa e vira uma
+// conta direta: percorre os dias do ciclo e divide cada dia entre quem estava.
+// A diferença não é cosmética   ela muda quanto cada um paga, e é exatamente
+// por isso que o aviso de estimativa não pode mais aparecer aqui.
+describe("com as datas marcadas: presença é exata, não estimada", () => {
+  const trio = ["m0", "m1", "m2"];
+
+  /** 30 dias; `fora` lista, por pessoa, os índices de dia em que ela não estava. */
+  const comDatas = (fora: number[][]): Estado => {
+    const presentes = Array.from({ length: 30 }, (_, dia) =>
+      trio.filter((_id, pessoa) => !fora[pessoa].includes(dia)),
+    );
+
+    const estado = quarto(
+      fora.map((f) => f.length),
+      { tipo: "presenca" },
+      trio,
+    );
+
+    return { ...estado, presencas: { mes: presentes, luz: presentes, agua: presentes } };
+  };
+
+  const diasDe = (de: number, ate: number) =>
+    Array.from({ length: ate - de + 1 }, (_, i) => de + i);
+
+  it("ausências que coincidem cobram os dias sozinha de quem ficou", () => {
+    // m0 e m1 fora nos MESMOS 5 dias: m2 fica sozinha 5 dias e paga por eles.
+    const estado = comDatas([diasDe(0, 4), diasDe(0, 4), []]);
+
+    expect(fatiaDe(estado, "m2")).toBeCloseTo(300 * ((5 + 25 / 3) / 30), 6);
+    expect(fatiaDe(estado, "m0")).toBeCloseTo(300 * (25 / 3 / 30), 6);
+    expect(fatiaDe(estado, "m1")).toBeCloseTo(fatiaDe(estado, "m0"), 6);
+  });
+
+  it("ausências que não coincidem dão outro número, e esse é o ponto", () => {
+    // Mesmos 5 dias fora para cada um, em semanas diferentes.
+    const estado = comDatas([diasDe(0, 4), diasDe(5, 9), []]);
+
+    // 10 dias com duas pessoas (2,5 cada), 20 dias com três (6,667 cada).
+    expect(fatiaDe(estado, "m0")).toBeCloseTo(300 * ((2.5 + 20 / 3) / 30), 6);
+    expect(fatiaDe(estado, "m2")).toBeCloseTo(300 * ((5 + 20 / 3) / 30), 6);
+  });
+
+  it("coincidir ou não muda o valor de quem ficou", () => {
+    const juntas = fatiaDe(comDatas([diasDe(0, 4), diasDe(0, 4), []]), "m2");
+    const separadas = fatiaDe(comDatas([diasDe(0, 4), diasDe(5, 9), []]), "m2");
+    expect(juntas).toBeGreaterThan(separadas);
+  });
+
+  it("não avisa mais que supôs: com o calendário, não supôs nada", () => {
+    const r = calcular(comDatas([diasDe(0, 4), diasDe(0, 4), []]));
+    expect(r.alertas.some((a) => a.texto.includes("não diz quais dias"))).toBe(false);
+  });
+
+  it("continua fechando com o custo do item", () => {
+    const r = calcular(comDatas([diasDe(0, 9), diasDe(3, 14), diasDe(20, 25)]));
+    const item = r.itens.find((i) => i.id === "ar");
+    const soma = item?.fatias.reduce((s, f) => s + f.total, 0) ?? 0;
+    expect(soma).toBeCloseTo(item?.custoTotal ?? -1, 6);
+    expect(conferir(r)).toBe(true);
+  });
+
+  it("dia em que ninguém do grupo estava divide igual, em vez de sumir", () => {
+    const estado = comDatas([[0], [0], [0]]);
+    const r = calcular(estado);
+    const item = r.itens.find((i) => i.id === "ar");
+    const soma = item?.fatias.reduce((s, f) => s + f.total, 0) ?? 0;
+    expect(soma).toBeCloseTo(300, 6);
+    for (const id of trio) expect(fatiaDe(estado, id)).toBeCloseTo(100, 6);
+  });
+
+  it("lista de dias incompleta não passa por exata: volta a estimar e avisa", () => {
+    const estado = quarto([15, 15, 0], { tipo: "presenca" }, trio);
+    // Só 10 dias de um ciclo de 30: aceitar isso cobraria o custo inteiro
+    // dentro desses dez.
+    const parcial = Array.from({ length: 10 }, () => trio);
+
+    const r = calcular({ ...estado, presencas: { mes: parcial, luz: parcial, agua: parcial } });
+    expect(r.alertas.some((a) => a.texto.includes("não diz quais dias"))).toBe(true);
   });
 });
 

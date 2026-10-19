@@ -8,7 +8,7 @@ import { calcular as fecharNoDominio } from "../motor.ts";
 import { num } from "../formato.js";
 import { diasDaJanela, janelaDoFechamento } from "../calendario.js";
 import { faturaParaMotor, janelaDaFatura } from "./fatura.js";
-import { diasForaNaJanela, polaridadeDaCasa } from "./morador.js";
+import { diasForaNaJanela, polaridadeDaCasa, presentesPorDia } from "./morador.js";
 import { itemParaMotor } from "./item.js";
 import { alertaDeLavagens } from "./uso.js";
 
@@ -39,6 +39,13 @@ export function paraMotor(estado) {
       diasForaAgua: diasForaNaJanela(m, daAgua, polaridade),
     })),
     itens: estado.itens.map((i) => itemParaMotor(i, { luz: daLuz, agua: daAgua })),
+    // Quem estava em casa em cada dia de cada ciclo. Só existe quando todo
+    // mundo marcou as datas; sem isso a divisão por presença volta a estimar.
+    presencas: {
+      mes: presentesPorDia(estado.moradores, doFechamento, polaridade),
+      luz: presentesPorDia(estado.moradores, daLuz, polaridade),
+      agua: presentesPorDia(estado.moradores, daAgua, polaridade),
+    },
   };
 }
 

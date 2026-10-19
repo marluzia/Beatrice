@@ -3,12 +3,15 @@ import { Alerta, Botao, Ficha, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
 import { lavagensForaDoCiclo, totalDaFatura } from "../nucleo/adaptador.js";
 import { montarRelatorio, nomeDoArquivo } from "../nucleo/relatorio.js";
+import { cessaoDe } from "../nucleo/cessao.js";
 import RelatorioImpresso from "./RelatorioImpresso.jsx";
 import Regua from "./Regua.jsx";
+import Acerto from "./Acerto.jsx";
+import QuemCede from "./QuemCede.jsx";
 import Apoio from "./Apoio.jsx";
 import { AjudaCentavos } from "./ajudas.jsx";
 
-export default function PassoRateio({ estado, resultado, indicePorId, acoes, modo }) {
+export default function PassoRateio({ estado, resultado, indicePorId, acoes, modo, nomeDoConjunto }) {
   const [abertos, setAbertos] = useState({});
   const fecha = Math.abs(resultado.diferenca) < 0.005;
 
@@ -33,6 +36,17 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
 
   const alternar = (id) => setAbertos((s) => ({ ...s, [id]: !s[id] }));
 
+  // Quanto cada um deve de verdade, em centavos, com o resíduo já no colo de
+  // quem cedeu. É daqui que sai o número da tela: o total solto do motor tem
+  // casas decimais que ninguém consegue pagar.
+  const cessao = cessaoDe(estado, resultado);
+  const deveDe = (id) => (cessao.porMorador[id] ?? 0) / 100;
+
+  // O texto do resíduo é mostrado dentro de "Quem cede". Repeti-lo no topo
+  // faria a mesma frase aparecer duas vezes na mesma tela.
+  const alertasGerais = resultado.alertas.filter((a) => !a.texto.includes("sistema monetário"));
+
+
   const orfas = lavagensForaDoCiclo(estado);
   const orfasDe = (id) =>
     orfas.filter((o) => (o.participantes ?? [o.moradorId]).includes(id));
@@ -56,33 +70,20 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
 
   return (
     <div className="coluna">
-      {resultado.alertas.map((a, i) => (
+      {/* O aviso de arredondamento sai daqui: ele agora mora dentro de "Quem
+          cede", junto da decisão que pede. Os outros alertas continuam no topo
+          porque não há o que decidir sobre eles nesta tela. */}
+      {alertasGerais.map((a, i) => (
         <Alerta key={i} nivel={a.nivel}>
           {a.texto}
         </Alerta>
       ))}
 
-      <Ficha>
-        <Titulo nota="Traz tudo: as faturas linha a linha, os dias contados de cada um em cada conta, os dias fora, os usos por data e os avisos do que fica para o próximo fechamento.">
-          Relatório completo
-        </Titulo>
-        <div className="linha-acoes">
-          <Botao aoClicar={imprimir}>Exportar em PDF</Botao>
-          <Botao tipo="fantasma" aoClicar={exportarTexto}>
-            Baixar em texto
-          </Botao>
-        </div>
-        <p className="dica">
-          O PDF abre a janela de impressão do navegador: escolha "Salvar como PDF" no
-          destino. O texto serve para conferir linha a linha ou colar no grupo da casa.
-        </p>
-      </Ficha>
-
       {/* Sem fatura não existe sobra para calibrar: num evento este cartão não
           teria o que fazer. */}
       {modo?.faturas !== false && (
       <Ficha>
-        <Titulo nota="A parte da luz e da água que nenhum aparelho explica. Arraste para ver o efeito de dividir por dias ou por igual.">
+        <Titulo nota="A parte da luz e da água que nenhum aparelho explica. Arraste para ponderar por dias ou por igual.">
           Calibrar o uso comum
         </Titulo>
         <div className="calibragem">
@@ -114,23 +115,21 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
         {/* Numa república os dias de cada um são parecidos e a régua muda pouco.
             Numa propriedade de temporada ela muda a conta inteira, então o
             argumento aparece na hora em que a decisão está sendo tomada. */}
-        {temporada && (
-          <p className="dica">
-            Aqui a régua pesa mais do que numa república. Parte da luz roda com
-            a casa vazia — geladeira, bomba, o que fica em standby — e isso
-            conserva a propriedade de todo mundo. Em <strong>por dias</strong>,
-            quem foi passar uns dias paga sozinho por esse mês inteiro. Em{" "}
-            <strong>por igual</strong>, a sobra divide entre todos os cotistas,
-            que é o mais perto de dividir por cota que a CEDER faz hoje.
-          </p>
-        )}
       </Ficha>
       )}
 
+      {/* Quem cede vem antes: a escolha muda os valores logo abaixo. */}
+      <QuemCede
+        estado={estado}
+        resultado={resultado}
+        indicePorId={indicePorId}
+        acoes={acoes}
+      />
+
       <Ficha>
       <AjudaCentavos />
-        <Titulo nota="Toque em uma pessoa para ver de onde veio cada centavo.">
-          Quanto cada um paga
+        <Titulo nota="O rateio do fechamento, pessoa a pessoa. Toque em uma para ver de onde veio cada centavo.">
+          Quanto cada um deve
         </Titulo>
         <div>
           {resultado.moradores.map((m, i) => (
@@ -144,7 +143,12 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
                 <span className="ponto" style={{ background: corDe(i) }} />
                 <span className="pessoa-nome">{nomeOu(m.nome, i)}</span>
                 <span className="pessoa-dias">{m.diasContados}d</span>
-                <span className="pessoa-total">R$ {reais(m.total)}</span>
+                <span className="pessoa-total">R$ {reais(deveDe(m.moradorId))}</span>
+                {cessao.quemCede === m.moradorId && cessao.residuo !== 0 && (
+                  <span className="pessoa-cedeu" title="ficou com o centavo que não fecha">
+                    cede {Math.abs(cessao.residuo)}
+                  </span>
+                )}
               </button>
 
               {abertos[m.moradorId] && (
@@ -155,9 +159,11 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
                       <span>{reais(l.valor)}</span>
                     </div>
                   ))}
-                  <div className="detalhe-resumo">
-                    LUZ {reais(m.luz)} · ÁGUA {reais(m.agua)} · REAIS {reais(m.reais)}
-                  </div>
+                  {modo?.faturas !== false && (
+                    <div className="detalhe-resumo">
+                      LUZ {reais(m.luz)} · ÁGUA {reais(m.agua)} · REAIS {reais(m.reais)}
+                    </div>
+                  )}
 
                   {orfasDe(m.moradorId).map((o) => (
                     <p className="detalhe-nota" key={`${o.itemId}-${o.dia}`}>
@@ -172,7 +178,27 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
             </div>
           ))}
         </div>
+
+        {/* Sem dono para o centavo, estes valores somados não dão o devido  
+            e dizer isso é mais honesto do que escolher um dono em silêncio
+            para a linha fechar. */}
+        {cessao.precisaEscolher && (
+          <p className="dica dica--alerta">
+            Somados, estes valores dão R$ {reais(resultado.somaCobradaArredondada)} e o
+            devido é R$ {reais(resultado.somaDevida)}. A diferença é a moeda que ainda
+            não tem dono: escolha em <strong>Quem cede</strong>, acima.
+          </p>
+        )}
       </Ficha>
+
+      <Acerto
+        estado={estado}
+        resultado={resultado}
+        indicePorId={indicePorId}
+        modo={modo}
+        nomeDoConjunto={nomeDoConjunto}
+        travado={cessao.precisaEscolher}
+      />
 
       <Ficha>
         <Titulo nota="Cada barra é um item inteiro. A largura de cada cor é a fatia daquela pessoa.">
@@ -194,8 +220,14 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
         </Titulo>
         <div className="conferencia">
           {[
-            ["Fatura de luz", totalDaFatura(estado.faturas.luz)],
-            ["Fatura de água", totalDaFatura(estado.faturas.agua)],
+            // Num evento não há fatura nenhuma: listar luz e água zeradas é
+            // encher a conferência de linha que não existe.
+            ...(modo?.faturas === false
+              ? []
+              : [
+                  ["Fatura de luz", totalDaFatura(estado.faturas.luz)],
+                  ["Fatura de água", totalDaFatura(estado.faturas.agua)],
+                ]),
             ["Despesas em reais", resultado.totalEmReais],
           ].map(([rotulo, valor]) => (
             <div className="conferencia-linha" key={rotulo}>
@@ -204,18 +236,34 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
             </div>
           ))}
           <div className="conferencia-total">
-            <span>Cobrado dos moradores</span>
+            <span>Cobrado dos envolvidos</span>
             <span>R$ {reais(resultado.somaCobrada)}</span>
           </div>
-          {sobrouCentavo && (
-            <div className="conferencia-linha">
-              <span>Somando os valores arredondados</span>
-              <span>{reais(resultado.somaCobradaArredondada)}</span>
-            </div>
-          )}
+          {/* A linha "somando os valores arredondados" saiu daqui. Ela existia
+              quando não havia quem cede: mostrava a soma torta e deixava a casa
+              com ela. Hoje ou alguém assumiu o centavo e a soma fecha exata, ou
+              ninguém assumiu   e o que falta dizer é isso, não repetir o número
+              torto. O veredito abaixo já diz as duas coisas. */}
           <p className={classeDoVeredito}>{veredito}</p>
         </div>
       </Ficha>
+
+      <Ficha>
+        <Titulo nota="Traz tudo: as faturas linha a linha, os dias contados de cada um em cada conta, os dias fora, os usos por data e os avisos do que fica para o próximo fechamento.">
+          Relatório completo
+        </Titulo>
+        <div className="linha-acoes">
+          <Botao aoClicar={imprimir}>Exportar em PDF</Botao>
+          <Botao tipo="fantasma" aoClicar={exportarTexto}>
+            Baixar em texto
+          </Botao>
+        </div>
+        <p className="dica">
+          O PDF abre a janela de impressão do navegador: escolha "Salvar como PDF" no
+          destino. O texto serve para conferir linha a linha ou colar no grupo da casa.
+        </p>
+      </Ficha>
+
       <Apoio resultado={resultado} />
 
       <RelatorioImpresso estado={estado} resultado={resultado} />

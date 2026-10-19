@@ -8,7 +8,7 @@
 // Cada regra é uma entrada em REGRAS. Para acrescentar uma, acrescente uma
 // entrada; `rateiosPermitidos` e o aviso de estimativa leem daqui.
 
-import type { Item, MoradorId, Mundo, TipoDeRateio } from "./tipos.ts";
+import type { Item, MoradorId, Mundo, PresencaPorDia, TipoDeRateio } from "./tipos.ts";
 import type { DiasContados } from "./morador.ts";
 import { entreZeroEUm, somar } from "./numeros.ts";
 import { usosPorPessoa } from "./uso.ts";
@@ -19,6 +19,11 @@ export interface ContextoDaRegra {
   diasContados: DiasContados;
   diasNoCiclo: number;
   mundo: Mundo;
+  /**
+   * Quem estava em casa em cada dia deste ciclo, quando a casa marcou as
+   * datas. Só a divisão por presença usa isto, e é o que a torna exata.
+   */
+  presentes?: PresencaPorDia;
 }
 
 export type Pesos = Record<MoradorId, number>;
@@ -70,9 +75,48 @@ export const regraDeclarada = (item: Item): boolean =>
 // ── por presença ───────────────────────────────────────────────────────────
 //
 // O custo de cada dia é dividido entre quem estava em casa naquele dia.
-// Sabendo só quantos dias cada um ficou fora, e não quais, não dá para saber se
-// as viagens coincidiram. A regra percorre todas as combinações de quem está em
-// casa, supondo que as ausências são independentes, e avisa que supôs.
+//
+// Com as datas marcadas no calendário, isso é uma conta direta: percorre-se os
+// dias do ciclo, e cada dia é dividido entre quem estava. Nada é suposto.
+//
+// Sem as datas   a casa informou só "ficou 5 dias fora", sem dizer quais   não
+// dá para saber se as viagens coincidiram. Aí a regra percorre todas as
+// combinações de quem está em casa, supondo que as ausências são independentes,
+// e o fechamento avisa que supôs.
+
+/**
+ * A divisão por presença quando se sabe exatamente quem estava em cada dia.
+ *
+ * Dia sem ninguém dos participantes em casa não some da conta: volta para o
+ * grupo em partes iguais, do mesmo jeito que na versão estimada. O aparelho
+ * ficou ligado e alguém paga.
+ */
+export function fatiasPorPresencaExata(
+  participantes: MoradorId[],
+  presentes: PresencaPorDia,
+): Pesos {
+  const fatias: Pesos = {};
+  for (const id of participantes) fatias[id] = 0;
+
+  const quantos = participantes.length;
+  if (quantos === 0 || presentes.length === 0) return fatias;
+
+  const doItem = new Set(participantes);
+
+  for (const noDia of presentes) {
+    const presentesDoItem = noDia.filter((id) => doItem.has(id));
+
+    if (presentesDoItem.length === 0) {
+      for (const id of participantes) fatias[id] += 1 / quantos;
+      continue;
+    }
+
+    const porCabeca = 1 / presentesDoItem.length;
+    for (const id of presentesDoItem) fatias[id] += porCabeca;
+  }
+
+  return fatias;
+}
 
 /** Acima disto, percorrer as combinações custa caro demais (2^n). */
 export const MAXIMO_PARA_PRESENCA = 12;
@@ -145,6 +189,18 @@ export function fatiasPorPresenca(
 const pelosDias = ({ item, diasContados }: ContextoDaRegra): Pesos =>
   cadaUm(item, (id) => diasContados[id] ?? 0);
 
+/**
+ * Este contexto sabe quem estava em casa em cada dia?
+ *
+ * Exige um dia para cada dia do ciclo. Uma lista parcial dividiria o custo
+ * inteiro entre os dias que ela cobre, cobrando a mais de quem aparece neles  
+ * errado em silêncio, que é o pior jeito de errar.
+ */
+export const temPresencaExata = (ctx: ContextoDaRegra): boolean =>
+  Array.isArray(ctx.presentes) &&
+  ctx.presentes.length > 0 &&
+  ctx.presentes.length === ctx.diasNoCiclo;
+
 export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
   igual: {
     chave: "igual",
@@ -165,16 +221,25 @@ export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
     oferecida: true,
     serveParaPorUso: false,
     pesos: (ctx) => {
+      // Com as datas em mãos, a conta é dia a dia e não custa nada: nem o teto
+      // de participantes se aplica, porque não há combinação para percorrer.
+      if (temPresencaExata(ctx)) {
+        const fatias = fatiasPorPresencaExata(ctx.item.participantes, ctx.presentes!);
+        return cadaUm(ctx.item, (id) => fatias[id]);
+      }
+
       // Com gente demais, as combinações não cabem: cai em por dias.
       if (ctx.item.participantes.length > MAXIMO_PARA_PRESENCA) return pelosDias(ctx);
 
       const fatias = fatiasPorPresenca(ctx.item.participantes, ctx.diasContados, ctx.diasNoCiclo);
       return cadaUm(ctx.item, (id) => fatias[id]);
     },
-    // Com uma pessoa só fora, os dias dela caem necessariamente dentro dos
-    // dias de quem ficou. Não há o que supor.
-    exata: ({ item, diasContados, diasNoCiclo }) =>
-      ausentesEntre(item.participantes, diasContados, diasNoCiclo) <= 1,
+    // Sabendo os dias, nada é suposto. Sem eles, com uma pessoa só fora os
+    // dias dela caem necessariamente dentro dos dias de quem ficou, e também
+    // não há o que supor.
+    exata: (ctx) =>
+      temPresencaExata(ctx) ||
+      ausentesEntre(ctx.item.participantes, ctx.diasContados, ctx.diasNoCiclo) <= 1,
   },
 
   uso: {
@@ -189,8 +254,8 @@ export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
 
   // Horas é uso com outra unidade: três lavagens ou duas horas e meia de
   // ar-condicionado produzem peso do mesmo jeito. Elas são regras separadas
-  // porque a tela pede coisas diferentes — inteiro de um lado, decimal do
-  // outro — e porque "R$ por hora de motor" é uma frase que a casa entende.
+  // porque a tela pede coisas diferentes   inteiro de um lado, decimal do
+  // outro   e porque "R$ por hora de motor" é uma frase que a casa entende.
   horas: {
     chave: "horas",
     oferecida: true,
@@ -202,7 +267,7 @@ export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
   },
 
   // Cada um declara a sua fatia. Como os pesos são normalizados pela soma,
-  // 30 e 70 dividem igual a 3 e 7 — a porcentagem é uma proporção escrita de
+  // 30 e 70 dividem igual a 3 e 7   a porcentagem é uma proporção escrita de
   // um jeito que a casa reconhece. Se não somar 100, o fechamento avisa.
   porcentagem: {
     chave: "porcentagem",
@@ -252,7 +317,7 @@ export const regraDe = (tipo: TipoDeRateio): RegraDeAlocacao => REGRAS[tipo] ?? 
  * As regras que a casa pode escolher para este item.
  *
  * São todas as oferecidas, para todo item. Antes o catálogo restringia a lista
- * por item — a geladeira só aceitava igual e dias, por exemplo — e isso ia
+ * por item   a geladeira só aceitava igual e dias, por exemplo   e isso ia
  * contra a tese da CEDER: a base da divisão é escolha da casa, não da
  * calculadora. Dividir a faxina por dias em casa é estranho em quase toda
  * república e é exatamente certo em alguma.
@@ -274,8 +339,8 @@ export function rateiosSugeridos(item: Item): TipoDeRateio[] {
 }
 
 /**
- * Os pesos de um item e a soma deles. Grupo sem peso nenhum — ninguém em casa,
- * nenhum uso lançado — divide por igual, senão o item sumiria da conta.
+ * Os pesos de um item e a soma deles. Grupo sem peso nenhum   ninguém em casa,
+ * nenhum uso lançado   divide por igual, senão o item sumiria da conta.
  */
 export function pesosDe(ctx: ContextoDaRegra): { pesos: Pesos; soma: number } {
   const pesos = regraDe(ctx.item.rateio.tipo).pesos(ctx);

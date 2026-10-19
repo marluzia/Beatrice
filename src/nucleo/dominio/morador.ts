@@ -5,7 +5,7 @@
 // Colabora com: Ciclo (o tamanho do intervalo), RegraDeAlocação (que usa esses
 // dias como peso).
 //
-// A ausência chega ao domínio já contada — "5 dias fora neste ciclo". Se ela
+// A ausência chega ao domínio já contada   "5 dias fora neste ciclo". Se ela
 // veio de datas marcadas ou de um número digitado, a tela resolveu antes.
 
 import type { Morador, MoradorId } from "./tipos.ts";

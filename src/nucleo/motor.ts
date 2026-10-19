@@ -36,6 +36,8 @@ export { custoDe, origemDoCusto } from "./dominio/custo.ts";
 export {
   ausentesEntre,
   fatiasPorPresenca,
+  fatiasPorPresencaExata,
+  temPresencaExata,
   MAXIMO_PARA_PRESENCA,
   pesosDe,
   rateiosPermitidos,

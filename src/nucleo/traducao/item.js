@@ -113,7 +113,28 @@ export function itemParaMotor(item, janelas) {
   };
 }
 
-export const rateiosDoItem = (item) => rateiosPermitidos(itemParaMotor(item));
+/** Divisões que precisam de contagem de tempo para existir. */
+const PELO_TEMPO = ["dias", "presenca"];
+
+/**
+ * As divisões que este item oferece, neste conjunto.
+ *
+ * Num evento ninguém mora em lugar nenhum: não há ciclo, não há dia contado,
+ * e a tela nem pergunta quem esteve quando. "Por dias" e "por presença" não
+ * teriam de onde tirar peso   dividiriam tudo por igual calado, parecendo uma
+ * escolha que não é. Então nesse modo elas não aparecem.
+ */
+export const rateiosDoItem = (item, modo) => {
+  const todas = rateiosPermitidos(itemParaMotor(item));
+  if (modo?.presenca !== "nenhuma") return todas;
+
+  const oferecidas = todas.filter((r) => !PELO_TEMPO.includes(r));
+
+  // Conjunto antigo pode ter um item já dividido por dias. Esconder a regra em
+  // vigor deixaria a barra sem nada marcado, e a pessoa sem saber como aquilo
+  // está sendo dividido   pior do que mostrar a opção.
+  return oferecidas.includes(item.rateio) ? oferecidas : [item.rateio, ...oferecidas];
+};
 
 export const totalDeclaradoPorHora = (item) =>
   consumoDeclaradoPorHora({ porHora: num(item.porHora), horas: num(item.horas) });

@@ -6,9 +6,9 @@
 // divide o que sai daqui).
 //
 // As três origens de custo:
-//  · consumo — sai de dentro da fatura de luz ou de água, e por isso tem teto;
-//  · por uso — também pode sair da fatura, mas depende de quantos usos houve;
-//  · em reais — não passa por fatura nenhuma e soma por cima.
+//  · consumo   sai de dentro da fatura de luz ou de água, e por isso tem teto;
+//  · por uso   também pode sair da fatura, mas depende de quantos usos houve;
+//  · em reais   não passa por fatura nenhuma e soma por cima.
 
 import type { CustoBruto, Item, ItemCalculado } from "./tipos.ts";
 import { consumoDe } from "./consumo.ts";

@@ -196,8 +196,19 @@ export function useCDR() {
     }));
   }, []);
 
+  /** Quem fica com o centavo que a divisão não fecha. */
+  const definirQuemCede = useCallback((id) => {
+    definir((e) => ({ ...e, quemCede: id || null }));
+  }, []);
+
+  /**
+   * A régua do uso comum muda quanto cada um deve, e com isso muda o resíduo:
+   * o centavo que faltava pode passar a sobrar, ou sumir. Uma escolha de quem
+   * cede feita sobre o valor anterior deixa de valer   ela foi tomada sobre
+   * outra conta. Então mexer na régua desfaz a escolha, e a casa decide de novo.
+   */
   const definirCalibragem = useCallback((valor) => {
-    definir((e) => ({ ...e, calibragem: valor }));
+    definir((e) => (e.calibragem === valor ? e : { ...e, calibragem: valor, quemCede: null }));
   }, []);
 
   const definirPeriodo = useCallback((campo, valor) => {
@@ -230,11 +241,21 @@ export function useCDR() {
       while (lista.length > n) lista.pop();
       const vivos = new Set(lista.map((m) => m.id));
 
+      const moraAqui = (quem) => (quem && vivos.has(quem) ? quem : null);
+
       return {
         ...e,
         moradores: lista,
+        quemCede: moraAqui(e.quemCede),
+        // Pagador que saiu da casa deixa de ser pagador: o acerto é entre quem
+        // está, e um id morto viraria dinheiro sem dono em silêncio.
+        faturas: {
+          luz: { ...e.faturas.luz, pagoPor: moraAqui(e.faturas.luz.pagoPor) },
+          agua: { ...e.faturas.agua, pagoPor: moraAqui(e.faturas.agua.pagoPor) },
+        },
         itens: e.itens.map((i) => ({
           ...i,
+          pagoPor: moraAqui(i.pagoPor),
           participantes: [...i.participantes.filter((id) => vivos.has(id)), ...novos],
         })),
       };
@@ -351,6 +372,22 @@ export function useCDR() {
     }));
   }, []);
 
+  /**
+   * Quem desembolsou uma despesa. Vale para as faturas e para os itens que
+   * saem do bolso; o que sai de dentro da fatura não tem pagador próprio,
+   * porque o dinheiro dele já está no valor da conta.
+   */
+  const definirPagador = useCallback((alvo, id, quemPagou) => {
+    definir((e) =>
+      alvo === "fatura"
+        ? { ...e, faturas: { ...e.faturas, [id]: { ...e.faturas[id], pagoPor: quemPagou } } }
+        : {
+            ...e,
+            itens: e.itens.map((i) => (i.id === id ? { ...i, pagoPor: quemPagou } : i)),
+          },
+    );
+  }, []);
+
   /** Trabalho feito por quem mora. Fica registrado e não mexe em valor nenhum. */
   const lancarTarefaNoDia = useCallback((dia) => {
     definir((e) => ({ ...e, tarefas: [...(e.tarefas ?? []), novaTarefa(dia)] }));
@@ -411,6 +448,7 @@ export function useCDR() {
       editarLinha,
       removerLinha,
       definirCalibragem,
+      definirQuemCede,
       definirPeriodo,
       ajustarQuantidadeDeMoradores,
       editarMorador,
@@ -418,6 +456,7 @@ export function useCDR() {
       removerItem,
       editarItem,
       alternarParticipante,
+      definirPagador,
       // calendário
       alternarDiaDaPessoa,
       lancarDespesaNoDia,

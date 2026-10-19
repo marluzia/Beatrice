@@ -124,7 +124,7 @@ export function AjudaCentavos() {
         centavos inteiros.
       </p>
       <p>
-        A CDR, quando falta ou sobra, avisa exatamente a quantidade que "foge" da conta.
+        A CEDER, quando falta ou sobra, avisa exatamente a quantidade que "foge" da conta.
       </p>
       <p>
         Quem cobre a diferença é decisão da casa, não da calculadora.

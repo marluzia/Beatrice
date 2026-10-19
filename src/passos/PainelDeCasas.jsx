@@ -17,12 +17,32 @@ function quando(iso) {
   return `salva em ${new Date(iso).toLocaleDateString("pt-BR")}`;
 }
 
+/**
+ * O nome do conjunto virando nome de arquivo.
+ *
+ * Tira só o que sistema de arquivos recusa   `\ / : * ? " < > |` e caracteres
+ * de controle   e preserva o resto. A primeira versão usava `[^\w\- ]`, e `\w`
+ * em JavaScript é ASCII puro: "República da Serra" virava "Repblica da Serra"
+ * e "Edifício Açaí" virava "Edifcio Aa". Num produto brasileiro, onde o
+ * arquivo vai anexado num e-mail para o cliente, isso é o nome da casa dele
+ * chegando quebrado.
+ */
+export function nomeDeArquivo(nome) {
+  return (
+    String(nome ?? "")
+      .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 80) || "conjunto"
+  );
+}
+
 function baixar(nome, texto) {
   try {
     const url = URL.createObjectURL(new Blob([texto], { type: "application/json" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${nome.replace(/[^\w\- ]+/g, "").trim() || "casa"}.ceder.json`;
+    link.download = `${nomeDeArquivo(nome)}.ceder.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -68,10 +88,28 @@ export default function PainelDeCasas({ casas, acoes }) {
     if (!escolhido) return;
 
     const leitor = new FileReader();
+
     leitor.onload = () => {
       const id = acoes.importar(String(leitor.result));
-      if (!id) window.alert("Não consegui ler esse arquivo como um conjunto da CEDER.");
+
+      if (!id) {
+        window.alert(
+          "Não consegui ler esse arquivo como um conjunto da CEDER. " +
+            "O arquivo certo termina em .ceder.json e sai do botão Baixar.",
+        );
+        return;
+      }
+
+      // Abre o que acabou de chegar. Sem isso o painel só ganhava mais uma
+      // linha em silêncio, e quem importou não sabia se tinha dado certo nem
+      // qual das linhas era a nova   ainda mais com dois arquivos de nome
+      // parecido.
+      acoes.abrirCasa(id);
     };
+
+    leitor.onerror = () =>
+      window.alert("Não consegui abrir esse arquivo. Tente baixá-lo de novo.");
+
     leitor.readAsText(escolhido);
     evento.target.value = "";
   };
@@ -79,7 +117,7 @@ export default function PainelDeCasas({ casas, acoes }) {
   return (
     <div className="coluna">
       <Ficha>
-        <Titulo nota="Cada conjunto guarda o próprio fechamento. Abra um para continuar de onde parou.">
+        <Titulo nota="Cada conjunto envolve elementos a serem divididos. Crie um novo ou abra um antigo para continuar de onde parou.">
           Meus conjuntos
         </Titulo>
 
@@ -132,7 +170,7 @@ export default function PainelDeCasas({ casas, acoes }) {
                 <Botao
                   tipo="fantasma"
                   aoClicar={() => {
-                    const sugestao = `${casa.nome} — mês seguinte`;
+                    const sugestao = `${casa.nome}   mês seguinte`;
                     const nome = window.prompt(
                       "Uma cópia com as mesmas pessoas e os mesmos itens, já no mês seguinte e com os valores em branco. Nome:",
                       sugestao,
