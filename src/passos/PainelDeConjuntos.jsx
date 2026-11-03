@@ -4,8 +4,8 @@ import { MESES } from "../nucleo/formato.js";
 import { modoDe } from "../nucleo/modos.js";
 import EscolhaDeModo, { RotuloDoModo } from "./EscolhaDeModo.jsx";
 
-const mesEAno = (casa) =>
-  casa.mes && casa.ano ? `${MESES[casa.mes - 1]} de ${casa.ano}` : "sem mês";
+const mesEAno = (conjunto) =>
+  conjunto.mes && conjunto.ano ? `${MESES[conjunto.mes - 1]} de ${conjunto.ano}` : "sem mês";
 
 function quando(iso) {
   if (!iso) return "";
@@ -24,7 +24,7 @@ function quando(iso) {
  * de controle   e preserva o resto. A primeira versão usava `[^\w\- ]`, e `\w`
  * em JavaScript é ASCII puro: "República da Serra" virava "Repblica da Serra"
  * e "Edifício Açaí" virava "Edifcio Aa". Num produto brasileiro, onde o
- * arquivo vai anexado num e-mail para o cliente, isso é o nome da casa dele
+ * arquivo vai anexado num e-mail para o cliente, isso é o nome da conjunto dele
  * chegando quebrado.
  */
 export function nomeDeArquivo(nome) {
@@ -53,17 +53,18 @@ function baixar(nome, texto) {
   }
 }
 
-export default function PainelDeCasas({ casas, acoes }) {
-  const [criando, setCriando] = useState(casas.length === 0);
+export default function PainelDeConjuntos({ conjuntos, acoes }) {
+  // O painel abre sempre na lista, mesmo vazia: criar é um botão dele.
+  const [criando, setCriando] = useState(false);
   const arquivo = useRef(null);
 
   if (criando) {
     return (
       <EscolhaDeModo
-        podeCancelar={casas.length > 0}
+        podeCancelar={conjuntos.length > 0}
         aoCancelar={() => setCriando(false)}
-        aoCriar={(nome, modo, pessoas) => {
-          acoes.novaCasa(nome, modo, pessoas);
+        aoCriar={(nome, modo, pessoas, preset) => {
+          acoes.novoConjunto(nome, modo, pessoas, preset);
           setCriando(false);
         }}
       />
@@ -72,15 +73,15 @@ export default function PainelDeCasas({ casas, acoes }) {
 
   // Os tipos já criados, do mais numeroso para o menos.
   const porTipo = Object.entries(
-    casas.reduce((conta, c) => {
+    conjuntos.reduce((conta, c) => {
       const tipo = modoDe(c.modo).tipo;
       return { ...conta, [tipo]: (conta[tipo] ?? 0) + 1 };
     }, {}),
   ).sort((a, b) => b[1] - a[1]);
 
-  const exportar = (casa) => {
-    const texto = acoes.exportar(casa.id);
-    if (texto) baixar(casa.nome, texto);
+  const exportar = (conjunto) => {
+    const texto = acoes.exportar(conjunto.id);
+    if (texto) baixar(conjunto.nome, texto);
   };
 
   const escolherArquivo = (evento) => {
@@ -104,7 +105,7 @@ export default function PainelDeCasas({ casas, acoes }) {
       // linha em silêncio, e quem importou não sabia se tinha dado certo nem
       // qual das linhas era a nova   ainda mais com dois arquivos de nome
       // parecido.
-      acoes.abrirCasa(id);
+      acoes.abrirConjunto(id);
     };
 
     leitor.onerror = () =>
@@ -147,49 +148,49 @@ export default function PainelDeCasas({ casas, acoes }) {
         )}
       </Ficha>
 
-      <div className="lista-casas">
-        {casas.map((casa) => {
-          const modo = modoDe(casa.modo);
+      <div className="lista-conjuntos">
+        {conjuntos.map((conjunto) => {
+          const modo = modoDe(conjunto.modo);
 
           return (
-            <article className="casa-cartao" key={casa.id}>
-              <header className="casa-cartao__topo">
-                <h3 className="casa-cartao__nome">{casa.nome}</h3>
-                <RotuloDoModo chave={casa.modo} />
+            <article className="conjunto-cartao" key={conjunto.id}>
+              <header className="conjunto-cartao__topo">
+                <h3 className="conjunto-cartao__nome">{conjunto.nome}</h3>
+                <RotuloDoModo chave={conjunto.modo} />
               </header>
 
-              <p className="casa-cartao__linha">
-                {mesEAno(casa)} · {casa.pessoas}{" "}
-                {casa.pessoas === 1 ? modo.palavras.pessoa : modo.palavras.pessoas}
+              <p className="conjunto-cartao__linha">
+                {mesEAno(conjunto)} · {conjunto.pessoas}{" "}
+                {conjunto.pessoas === 1 ? modo.palavras.pessoa : modo.palavras.pessoas}
               </p>
-              <p className="casa-cartao__quando">{quando(casa.salvaEm)}</p>
+              <p className="conjunto-cartao__quando">{quando(conjunto.salvaEm)}</p>
 
-              <div className="casa-cartao__acoes">
-                <Botao aoClicar={() => acoes.abrirCasa(casa.id)}>Abrir</Botao>
+              <div className="conjunto-cartao__acoes">
+                <Botao aoClicar={() => acoes.abrirConjunto(conjunto.id)}>Abrir</Botao>
 
                 <Botao
                   tipo="fantasma"
                   aoClicar={() => {
-                    const sugestao = `${casa.nome}   mês seguinte`;
+                    const sugestao = `${conjunto.nome}   mês seguinte`;
                     const nome = window.prompt(
                       "Uma cópia com as mesmas pessoas e os mesmos itens, já no mês seguinte e com os valores em branco. Nome:",
                       sugestao,
                     );
-                    if (nome !== null) acoes.duplicarParaOProximoMes(casa.id, nome.trim() || sugestao);
+                    if (nome !== null) acoes.duplicarParaOProximoMes(conjunto.id, nome.trim() || sugestao);
                   }}
                 >
                   Próximo mês
                 </Botao>
 
-                <Botao tipo="fantasma" aoClicar={() => exportar(casa)}>
+                <Botao tipo="fantasma" aoClicar={() => exportar(conjunto)}>
                   Baixar
                 </Botao>
 
                 <Botao
                   tipo="fantasma"
                   aoClicar={() => {
-                    const nome = window.prompt("Novo nome para este conjunto:", casa.nome);
-                    if (nome !== null) acoes.renomear(casa.id, nome);
+                    const nome = window.prompt("Novo nome para este conjunto:", conjunto.nome);
+                    if (nome !== null) acoes.renomear(conjunto.id, nome);
                   }}
                 >
                   Renomear
@@ -199,9 +200,9 @@ export default function PainelDeCasas({ casas, acoes }) {
                   tipo="fantasma"
                   aoClicar={() => {
                     const certeza = window.confirm(
-                      `Apagar "${casa.nome}" deste navegador? Isso não tem volta. Se quiser guardar, use Baixar antes.`,
+                      `Apagar "${conjunto.nome}" deste navegador? Isso não tem volta. Se quiser guardar, use Baixar antes.`,
                     );
-                    if (certeza) acoes.apagarCasa(casa.id);
+                    if (certeza) acoes.apagarConjunto(conjunto.id);
                   }}
                 >
                   Apagar

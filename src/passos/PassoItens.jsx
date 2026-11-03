@@ -1,75 +1,108 @@
-import { Ficha, Rotulo, Titulo } from "../componentes/index.js";
-import { catalogoDe, itensPorGrupo } from "../nucleo/catalogo.js";
+import { Botao, Ficha, Rotulo, Titulo } from "../componentes/index.js";
+import { itensPorGrupo } from "../nucleo/catalogo.js";
 import CartaoItem from "./CartaoItem.jsx";
 import MensagemDeColeta from "./MensagemDeColeta.jsx";
+import { GRUPO_DA_SECAO, mostra } from "./secoes.js";
 
 /**
- * O que a casa gasta, e o que ela pode acrescentar.
+ * O que o conjunto gasta.
  *
- * As duas listas usam as mesmas categorias   o que sai do ciclo de faturas e o
- * que corre por fora dele. Antes a de cima era uma lista corrida e a de baixo
- * era agrupada, e a mesma despesa aparecia em lugares de formato diferente nas
- * duas. A categoria não é decoração: ela diz se o dinheiro daquele item tem
- * teto (a fatura) ou não.
+ * Cada grupo vem com o título que diz se o dinheiro sai do ciclo de faturas
+ * (tem teto) ou corre por fora dele (soma por cima); logo abaixo do título, os
+ * botões de adicionar daquele grupo; e depois os itens, em pilha: o último
+ * adicionado fica mais perto dos botões.
+ *
+ * Os dois grupos aparecem um de cada vez ("Continuar" passa do que sai da
+ * fatura para o que não sai), e a mensagem de coleta vem depois deles.
+ * Num evento é um grupo só, com as categorias de despesa.
  */
-export default function PassoItens({ estado, resultado, indicePorId, acoes, modo }) {
-  const grupos = itensPorGrupo(estado.itens, modo);
+export default function PassoItens({ estado, resultado, indicePorId, acoes, modo, secao }) {
+  const evento = modo?.chave === "evento";
+  const grupoDaSecao = GRUPO_DA_SECAO[secao];
+  const grupos = itensPorGrupo(estado.itens, modo, true).filter(
+    (g) => evento || !secao || g.grupo === grupoDaSecao,
+  );
+  const mostraItens = mostra(secao, "despesas", "fatura", "independente");
+  const vazio = grupos.every((g) => g.itens.length === 0);
 
   return (
     <div className="coluna">
-      <Ficha>
-        <Titulo>O que a casa gasta</Titulo>
+      {/* No evento, antes de tudo: o interruptor do evento longo, que liga a
+          divisão por dias e o passo do calendário. */}
+      {evento && mostraItens && (
+        <Ficha>
+          <Titulo nota="Numa viagem ou num acampamento, quem ficou mais dias pode pagar mais. Ligar marca os dias de cada pessoa no calendário e passa as despesas divididas por igual para por dias.">
+            Duração
+          </Titulo>
+          <Botao
+            tipo={modo.eventoLongo ? "primario" : "fantasma"}
+            aoClicar={() => acoes.definirEventoLongo(!modo.eventoLongo)}
+          >
+            {modo.eventoLongo ? "✓ " : ""}Evento longo (se quiser ponderar dias na divisão)
+          </Botao>
+        </Ficha>
+      )}
 
-        {estado.itens.length === 0 ? (
-          <p className="vazio">
-            Nenhum item. As faturas inteiras vão dividir por dias contados.
-          </p>
-        ) : (
-          grupos.map((g) => (
+      {mostraItens && (
+        <Ficha>
+          <Titulo nota="Todo item pode ser renomeado e duplicado depois de adicionado.">
+            O que o conjunto gasta
+          </Titulo>
+
+          {grupos.map((g) => (
             <div className="grupo-catalogo" key={g.grupo}>
               <Rotulo>{g.grupo}</Rotulo>
-              <div className="lista-itens">
-                {g.itens.map((i) => (
-                  <CartaoItem
-                    key={i.id}
-                    item={i}
-                    moradores={estado.moradores}
-                    indicePorId={indicePorId}
-                    resultado={resultado}
-                    periodo={estado.periodo}
-                    faturas={estado.faturas}
-                    acoes={acoes}
-                    modo={modo}
-                  />
+
+              <div className="grade-catalogo">
+                {g.modelos.map((modelo) => (
+                  <button
+                    key={modelo.chave}
+                    type="button"
+                    className="botao--catalogo"
+                    onClick={() => acoes.adicionarItem(modelo)}
+                  >
+                    + {modelo.nome}
+                  </button>
                 ))}
               </div>
-            </div>
-          ))
-        )}
-      </Ficha>
 
-      <Ficha>
-        <Titulo nota="Todo item pode ser renomeado depois de adicionado.">Adicionar</Titulo>
-        {catalogoDe(modo).map((g) => (
-          <div className="grupo-catalogo" key={g.grupo}>
-            <Rotulo>{g.grupo}</Rotulo>
-            <div className="grade-catalogo">
-              {g.itens.map((modelo) => (
-                <button
-                  key={modelo.chave}
-                  type="button"
-                  className="botao--catalogo"
-                  onClick={() => acoes.adicionarItem(modelo)}
-                >
-                  + {modelo.nome}
-                </button>
-              ))}
+              {/* Em pilha: o último adicionado fica logo embaixo dos botões. */}
+              {g.itens.length > 0 && (
+                <div className="lista-itens">
+                  {[...g.itens].reverse().map((i) => (
+                    <CartaoItem
+                      key={i.id}
+                      item={i}
+                      moradores={estado.moradores}
+                      indicePorId={indicePorId}
+                      resultado={resultado}
+                      periodo={estado.periodo}
+                      ciclos={estado.ciclos}
+                      corte={estado.corte}
+                      acoes={acoes}
+                      modo={modo}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
-      </Ficha>
+          ))}
 
-      <MensagemDeColeta estado={estado} />
+          {vazio && (
+            <p className="vazio">
+              {evento
+                ? "Nenhuma despesa ainda. Adicione pelas categorias acima."
+                : secao === "fatura"
+                  ? "Nenhum item que sai da fatura. Sem eles, as faturas inteiras dividem por dias contados."
+                  : secao === "independente"
+                    ? "Nenhuma despesa por fora das faturas. Toque em Continuar se não houver."
+                    : "Nenhum item. As faturas inteiras vão dividir por dias contados."}
+            </p>
+          )}
+        </Ficha>
+      )}
+
+      {mostra(secao, "coleta") && <MensagemDeColeta estado={estado} />}
     </div>
   );
 }

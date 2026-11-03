@@ -6,52 +6,59 @@ import {
   novaTarefa,
   proximoMes,
 } from "../nucleo/estadoInicial.js";
-import { periodoDasFaturas } from "../nucleo/calendario.js";
-import { calcular } from "../nucleo/adaptador.js";
-import { criarItem, modeloPorChave } from "../nucleo/catalogo.js";
-import { modoDe, PADRAO, polaridadeDe } from "../nucleo/modos.js";
-import { novoId } from "../nucleo/formato.js";
 import {
-  carregarCasa,
-  casaAtual,
-  criarCasa,
-  definirCasaAtual,
-  exportarCasa,
-  importarCasa,
-  listarCasas,
-  removerCasa,
-  renomearCasa,
-  salvarCasa,
+  corteNosLimites,
+  corteValido,
+  janelaDoFechamento,
+  limitesDoCorte,
+  mesDaMaiorParte,
+  periodoDasFaturas,
+} from "../nucleo/calendario.js";
+import { calcular } from "../nucleo/adaptador.js";
+import { criarItem, duplicarItem, modeloPorChave } from "../nucleo/catalogo.js";
+import { calibragemFixa, modoDoConjunto, PADRAO, presetValido } from "../nucleo/modos.js";
+import { novoId } from "../nucleo/formato.js";
+import { ehDeFabrica, MAXIMO_DE_CICLOS, novoCiclo } from "../nucleo/ciclos.js";
+import {
+  carregarConjunto,
+  criarConjunto,
+  definirConjuntoAtual,
+  exportarConjunto,
+  importarConjunto,
+  listarConjuntos,
+  removerConjunto,
+  renomearConjunto,
+  salvarConjunto,
 } from "../nucleo/persistencia.js";
 
 export function useCDR() {
-  // Qual casa está aberta. `null` é o painel de casas.
-  const [idDaCasa, setIdDaCasa] = useState(() => casaAtual());
-  const [estado, definir] = useState(() => {
-    const id = casaAtual();
-    return id ? carregarCasa(id) : null;
-  });
+  // Qual conjunto está aberto. `null` é o painel de conjuntos. O programa
+  // sempre abre no painel: quem administra escolhe o conjunto a cada entrada,
+  // em vez de cair no último que ficou aberto.
+  const [idDoConjunto, setIdDoConjunto] = useState(null);
+  const [estado, definir] = useState(null);
 
-  // O índice do painel. Um número que muda obriga a reler a lista de casas
+  // O índice do painel. Um número que muda obriga a reler a lista de conjuntos
   // depois de criar, renomear ou apagar.
   const [revisao, revisar] = useState(0);
-  const casas = useMemo(() => listarCasas(), [revisao]);
+  const conjuntos = useMemo(() => listarConjuntos(), [revisao]);
 
-  const modo = modoDe(estado?.modo ?? PADRAO);
+  // O modo como este conjunto o usa: um evento longo conta dias.
+  const modo = modoDoConjunto(estado ?? { modo: PADRAO });
 
   // Salva sozinho meio segundo depois da última tecla.
   const agendado = useRef(null);
   useEffect(() => {
-    if (!idDaCasa || !estado) return undefined;
+    if (!idDoConjunto || !estado) return undefined;
 
     clearTimeout(agendado.current);
     agendado.current = setTimeout(() => {
-      salvarCasa(idDaCasa, estado);
+      salvarConjunto(idDoConjunto, estado);
       revisar((n) => n + 1);
     }, 500);
 
     return () => clearTimeout(agendado.current);
-  }, [estado, idDaCasa]);
+  }, [estado, idDoConjunto]);
 
   const resultado = useMemo(() => (estado ? calcular(estado) : null), [estado]);
 
@@ -61,67 +68,67 @@ export function useCDR() {
     return mapa;
   }, [estado?.moradores]);
 
-  // ── casas ────────────────────────────────────────────────────────────────
+  // ── conjuntos ────────────────────────────────────────────────────────────────
 
-  const abrirCasa = useCallback((id) => {
-    const carregada = carregarCasa(id);
+  const abrirConjunto = useCallback((id) => {
+    const carregada = carregarConjunto(id);
     if (!carregada) return false;
 
-    definirCasaAtual(id);
-    setIdDaCasa(id);
+    definirConjuntoAtual(id);
+    setIdDoConjunto(id);
     definir(carregada);
     revisar((n) => n + 1);
     return true;
   }, []);
 
-  const novaCasa = useCallback((nome, chaveDoModo, quantasPessoas) => {
-    const inicial = estadoInicial(chaveDoModo, quantasPessoas);
-    const id = criarCasa(nome, inicial);
+  const novoConjunto = useCallback((nome, chaveDoModo, quantasPessoas, chaveDoPreset) => {
+    const inicial = estadoInicial(chaveDoModo, quantasPessoas, chaveDoPreset);
+    const id = criarConjunto(nome, inicial);
 
-    setIdDaCasa(id);
+    setIdDoConjunto(id);
     definir(inicial);
     revisar((n) => n + 1);
     return id;
   }, []);
 
-  const fecharCasa = useCallback(() => {
+  const fecharConjunto = useCallback(() => {
     // Grava o que ainda estiver pendente antes de sair para o painel.
     clearTimeout(agendado.current);
-    if (idDaCasa && estado) salvarCasa(idDaCasa, estado);
+    if (idDoConjunto && estado) salvarConjunto(idDoConjunto, estado);
 
-    definirCasaAtual(null);
-    setIdDaCasa(null);
+    definirConjuntoAtual(null);
+    setIdDoConjunto(null);
     definir(null);
     revisar((n) => n + 1);
-  }, [idDaCasa, estado]);
+  }, [idDoConjunto, estado]);
 
-  const apagarCasa = useCallback(
+  const apagarConjunto = useCallback(
     (id) => {
-      removerCasa(id);
-      if (id === idDaCasa) {
+      removerConjunto(id);
+      if (id === idDoConjunto) {
         clearTimeout(agendado.current);
-        setIdDaCasa(null);
+        setIdDoConjunto(null);
         definir(null);
       }
       revisar((n) => n + 1);
     },
-    [idDaCasa],
+    [idDoConjunto],
   );
 
   const renomear = useCallback((id, nome) => {
-    renomearCasa(id, nome);
+    renomearConjunto(id, nome);
     revisar((n) => n + 1);
   }, []);
 
-  /** Uma cópia desta casa já virada para o mês seguinte, pronta para preencher. */
+  /** Uma cópia deste conjunto já virada para o mês seguinte, pronta para preencher. */
   const duplicarParaOProximoMes = useCallback((id, nome) => {
-    const base = carregarCasa(id);
+    const base = carregarConjunto(id);
     if (!base) return null;
 
     const novo = proximoMes(base);
-    const criado = criarCasa(nome, novo);
+    const criado = criarConjunto(nome, novo);
 
-    setIdDaCasa(criado);
+    setIdDoConjunto(criado);
     definir(novo);
     revisar((n) => n + 1);
     return criado;
@@ -130,70 +137,150 @@ export function useCDR() {
   const exportar = useCallback(
     (id) => {
       // Garante que o que está na tela já foi para o depósito antes de exportar.
-      if (id === idDaCasa && estado) salvarCasa(id, estado);
-      return exportarCasa(id);
+      if (id === idDoConjunto && estado) salvarConjunto(id, estado);
+      return exportarConjunto(id);
     },
-    [idDaCasa, estado],
+    [idDoConjunto, estado],
   );
 
   const importar = useCallback((texto) => {
-    const id = importarCasa(texto);
+    const id = importarConjunto(texto);
     if (id) revisar((n) => n + 1);
     return id;
   }, []);
 
-  // ── dentro de uma casa ───────────────────────────────────────────────────
+  // ── dentro de um conjunto ───────────────────────────────────────────────────
 
-  const definirFatura = useCallback((qual, campo, valor) => {
+  // ── ciclos ───────────────────────────────────────────────────────────────
+
+  /** Troca um ciclo pelo id, deixando os outros como estão. */
+  const mexerNoCiclo = (e, id, mudar) => ({
+    ...e,
+    ciclos: (e.ciclos ?? []).map((c) => (c.id === id ? mudar(c) : c)),
+  });
+
+  /**
+   * Muda um campo de um ciclo (nome, ativa, janela, vencimento, recurso). As
+   * datas de leitura também acertam o mês de referência, como sempre fizeram.
+   */
+  const definirCiclo = useCallback((id, campo, valor) => {
     definir((e) => {
-      const faturas = { ...e.faturas, [qual]: { ...e.faturas[qual], [campo]: valor } };
-
+      const novo = mexerNoCiclo(e, id, (c) => ({ ...c, [campo]: valor }));
       const periodo =
-        campo === "janela" ? { ...e.periodo, ...periodoDasFaturas(faturas, e.periodo) } : e.periodo;
-
-      return { ...e, faturas, periodo };
+        campo === "janela" ? { ...e.periodo, ...periodoDasFaturas(novo.ciclos, e.periodo) } : e.periodo;
+      return { ...novo, periodo };
     });
   }, []);
 
-  const adicionarLinha = useCallback((qual, nome = "", comportamento = "consumo") => {
-    definir((e) => ({
-      ...e,
-      faturas: {
-        ...e.faturas,
-        [qual]: {
-          ...e.faturas[qual],
-          linhas: [...e.faturas[qual].linhas, novaLinha(nome, comportamento)],
-        },
-      },
-    }));
+  /** Um ciclo novo, criado pela casa: gás, aluguel, condomínio. Até oito no total. */
+  const adicionarCiclo = useCallback((nome, recurso) => {
+    definir((e) => {
+      if ((e.ciclos ?? []).length >= MAXIMO_DE_CICLOS) return e;
+      return { ...e, ciclos: [...(e.ciclos ?? []), novoCiclo(nome, recurso)] };
+    });
   }, []);
 
-  const editarLinha = useCallback((qual, id, campo, valor) => {
-    definir((e) => ({
-      ...e,
-      faturas: {
-        ...e.faturas,
-        [qual]: {
-          ...e.faturas[qual],
-          linhas: e.faturas[qual].linhas.map((l) =>
-            l.id === id ? { ...l, [campo]: valor } : l,
-          ),
-        },
-      },
-    }));
+  /**
+   * Tira um ciclo criado pela casa. Luz e água não saem: desligam. Item que
+   * saía do ciclo removido fica sem conta, e o cartão dele pede uma.
+   */
+  const removerCiclo = useCallback((id) => {
+    definir((e) => {
+      const alvo = (e.ciclos ?? []).find((c) => c.id === id);
+      if (!alvo || ehDeFabrica(alvo)) return e;
+      return {
+        ...e,
+        ciclos: e.ciclos.filter((c) => c.id !== id),
+        itens: e.itens.map((i) => {
+          const semEle = { ...i };
+          if (i.ciclo === id) semEle.ciclo = null;
+          if (i.porUsoPorCiclo && id in i.porUsoPorCiclo) {
+            const { [id]: _fora, ...resto } = i.porUsoPorCiclo;
+            semEle.porUsoPorCiclo = resto;
+          }
+          return semEle;
+        }),
+      };
+    });
   }, []);
 
-  const removerLinha = useCallback((qual, id) => {
-    definir((e) => ({
-      ...e,
-      faturas: {
-        ...e.faturas,
-        [qual]: {
-          ...e.faturas[qual],
-          linhas: e.faturas[qual].linhas.filter((l) => l.id !== id),
-        },
-      },
-    }));
+  /** O dia do mês em que o período fecha. Vazio desfaz o corte. */
+  const definirCorte = useCallback((valor) => {
+    const n = parseInt(String(valor ?? "").trim(), 10);
+    definir((e) => ({ ...e, corte: Number.isInteger(n) && n >= 1 && n <= 31 ? n : null }));
+  }, []);
+
+  /**
+   * O corte escolhido como uma data: o dia vira o corte, e o mês e o ano dela
+   * viram o mês de referência do fechamento (22/08/2026 fecha agosto no dia 22).
+   */
+  const definirDataDeCorte = useCallback((iso) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ""));
+    if (!m) return;
+    const [ano, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    definir((e) => ({ ...e, corte: dia, periodo: { ...e.periodo, mes, ano } }));
+  }, []);
+
+  /**
+   * O período de corte escolhido pelo grupo: início e fim (o fim é o último
+   * dia contado; guardado como `ate`, o dia seguinte). O mês em que cai a
+   * maior parte dele vira o mês do fechamento. Vale também para as bolinhas
+   * da barra do período, que mandam a janela pronta.
+   */
+  const definirJanelaDeCorte = useCallback((janela) => {
+    if (!janela || !corteValido(janela)) return;
+    definir((e) => {
+      // O corte não passa de 30 dias antes do primeiro ciclo nem de 30 dias
+      // depois do último: o que vier de fora é trazido para a borda.
+      const ajustado = corteNosLimites(janela, limitesDoCorte(e.ciclos, e.periodo));
+      if (!ajustado) return e;
+      return {
+        ...e,
+        corte: ajustado,
+        periodo: { ...e.periodo, ...(mesDaMaiorParte(ajustado) ?? {}) },
+      };
+    });
+  }, []);
+
+  /** Desliga o corte (null) ou liga com o período que já estava valendo. */
+  const alternarCorte = useCallback((ligar) => {
+    definir((e) =>
+      ligar
+        ? { ...e, corte: janelaDoFechamento(e.ciclos, e.periodo, null) }
+        : { ...e, corte: null },
+    );
+  }, []);
+
+  /** O valor de uma conta só de valor: uma linha, que vira o total da conta. */
+  const definirValorDoCiclo = useCallback((id, valor) => {
+    definir((e) =>
+      mexerNoCiclo(e, id, (c) => {
+        const [primeira, ...resto] = c.linhas ?? [];
+        const linha = primeira ?? novaLinha(c.nome, "consumo");
+        return { ...c, linhas: [{ ...linha, valor }, ...resto] };
+      }),
+    );
+  }, []);
+
+  const adicionarLinha = useCallback((idDoCiclo, nome = "", comportamento = "consumo") => {
+    definir((e) =>
+      mexerNoCiclo(e, idDoCiclo, (c) => ({ ...c, linhas: [...c.linhas, novaLinha(nome, comportamento)] })),
+    );
+  }, []);
+
+  const editarLinha = useCallback((idDoCiclo, id, campo, valor) => {
+    definir((e) =>
+      mexerNoCiclo(e, idDoCiclo, (c) => ({
+        ...c,
+        linhas: c.linhas.map((l) => (l.id === id ? { ...l, [campo]: valor } : l)),
+      })),
+    );
+  }, []);
+
+  const removerLinha = useCallback((idDoCiclo, id) => {
+    definir((e) =>
+      mexerNoCiclo(e, idDoCiclo, (c) => ({ ...c, linhas: c.linhas.filter((l) => l.id !== id) })),
+    );
   }, []);
 
   /** Quem fica com o centavo que a divisão não fecha. */
@@ -208,7 +295,30 @@ export function useCDR() {
    * outra conta. Então mexer na régua desfaz a escolha, e a casa decide de novo.
    */
   const definirCalibragem = useCallback((valor) => {
-    definir((e) => (e.calibragem === valor ? e : { ...e, calibragem: valor, quemCede: null }));
+    definir((e) => {
+      // Num preset fechado a régua não aparece; se algo chamar isto mesmo
+      // assim, o preset continua mandando.
+      if (calibragemFixa(e) !== null || e.calibragem === valor) return e;
+      return { ...e, calibragem: valor, quemCede: null };
+    });
+  }, []);
+
+  /**
+   * Troca o preset da República. Preset fechado leva a régua para o ponto dele;
+   * a Livre herda a calibragem que estava valendo, para a troca não mexer em
+   * nenhum número. Se a calibragem mudou, quem cede volta a ficar em aberto  
+   * pelo mesmo motivo de `definirCalibragem`.
+   */
+  const definirPreset = useCallback((chave) => {
+    definir((e) => {
+      const preset = presetValido(e.modo, chave);
+      if (!preset || preset === e.preset) return e;
+
+      const fixa = calibragemFixa({ modo: e.modo, preset });
+      const calibragem = fixa ?? e.calibragem;
+      const mudou = calibragem !== e.calibragem;
+      return { ...e, preset, calibragem, quemCede: mudou ? null : e.quemCede };
+    });
   }, []);
 
   const definirPeriodo = useCallback((campo, valor) => {
@@ -228,7 +338,7 @@ export function useCDR() {
 
   const ajustarQuantidadeDeMoradores = useCallback((alvo) => {
     definir((e) => {
-      const teto = modoDe(e.modo).maximoDeMoradores;
+      const teto = modoDoConjunto(e).maximoDeMoradores;
       const n = Math.max(0, Math.min(teto, alvo));
 
       const lista = [...e.moradores];
@@ -249,10 +359,7 @@ export function useCDR() {
         quemCede: moraAqui(e.quemCede),
         // Pagador que saiu da casa deixa de ser pagador: o acerto é entre quem
         // está, e um id morto viraria dinheiro sem dono em silêncio.
-        faturas: {
-          luz: { ...e.faturas.luz, pagoPor: moraAqui(e.faturas.luz.pagoPor) },
-          agua: { ...e.faturas.agua, pagoPor: moraAqui(e.faturas.agua.pagoPor) },
-        },
+        ciclos: (e.ciclos ?? []).map((c) => ({ ...c, pagoPor: moraAqui(c.pagoPor) })),
         itens: e.itens.map((i) => ({
           ...i,
           pagoPor: moraAqui(i.pagoPor),
@@ -287,6 +394,43 @@ export function useCDR() {
     }));
   }, []);
 
+  /** Marca todo mundo, ou ninguém, num item: a marcação rápida de "quem paga". */
+  const definirParticipantes = useCallback((idDoItem, ids) => {
+    definir((e) => ({
+      ...e,
+      itens: e.itens.map((i) => (i.id === idDoItem ? { ...i, participantes: [...ids] } : i)),
+    }));
+  }, []);
+
+  /** Uma cópia do item logo abaixo dele, com id novo. */
+  const duplicarUmItem = useCallback((idDoItem) => {
+    definir((e) => {
+      const i = e.itens.findIndex((x) => x.id === idDoItem);
+      if (i < 0) return e;
+      const itens = [...e.itens];
+      itens.splice(i + 1, 0, duplicarItem(e.itens[i]));
+      return { ...e, itens };
+    });
+  }, []);
+
+  /**
+   * Liga ou desliga o evento longo. Ligar troca "igual" por "por dias" nos
+   * itens, que é o motivo de ligar; desligar devolve "por dias" para "igual",
+   * porque num evento curto não há dia contado e "por dias" dividiria igual
+   * calado.
+   */
+  const definirEventoLongo = useCallback((ligado) => {
+    definir((e) => ({
+      ...e,
+      eventoLongo: Boolean(ligado),
+      itens: e.itens.map((i) => {
+        if (ligado && i.rateio === "igual") return { ...i, rateio: "dias" };
+        if (!ligado && (i.rateio === "dias" || i.rateio === "presenca")) return { ...i, rateio: "igual" };
+        return i;
+      }),
+    }));
+  }, []);
+
   const alternarParticipante = useCallback((idDoItem, idDoMorador) => {
     definir((e) => ({
       ...e,
@@ -313,7 +457,7 @@ export function useCDR() {
   /** Liga ou desliga um dia na ausência (ou na estadia) de uma pessoa. */
   const alternarDiaDaPessoa = useCallback((idDoMorador, dia) => {
     definir((e) => {
-      const campo = polaridadeDe(e.modo) === "presenca" ? "presencas" : "ausencias";
+      const campo = modoDoConjunto(e).presenca === "presenca" ? "presencas" : "ausencias";
 
       return {
         ...e,
@@ -354,8 +498,8 @@ export function useCDR() {
           : {
               ...i,
               rateio: i.rateios?.includes("uso") ? "uso" : i.rateio,
-              eventos: [
-                ...(i.eventos ?? []),
+              registrosDeUso: [
+                ...(i.registrosDeUso ?? []),
                 { id: novoId("ev"), data: dia, quantidade: "1", participantes: [...i.participantes] },
               ],
             },
@@ -367,7 +511,9 @@ export function useCDR() {
     definir((e) => ({
       ...e,
       itens: e.itens.map((i) =>
-        i.id !== idDoItem ? i : { ...i, eventos: (i.eventos ?? []).filter((u) => u.id !== idDoUso) },
+        i.id !== idDoItem
+          ? i
+          : { ...i, registrosDeUso: (i.registrosDeUso ?? []).filter((u) => u.id !== idDoUso) },
       ),
     }));
   }, []);
@@ -380,7 +526,7 @@ export function useCDR() {
   const definirPagador = useCallback((alvo, id, quemPagou) => {
     definir((e) =>
       alvo === "fatura"
-        ? { ...e, faturas: { ...e.faturas, [id]: { ...e.faturas[id], pagoPor: quemPagou } } }
+        ? mexerNoCiclo(e, id, (c) => ({ ...c, pagoPor: quemPagou }))
         : {
             ...e,
             itens: e.itens.map((i) => (i.id === id ? { ...i, pagoPor: quemPagou } : i)),
@@ -422,7 +568,7 @@ export function useCDR() {
 
   /** Zera este conjunto, mantendo o modo e o nome dele. */
   const recomecar = useCallback(() => {
-    definir((e) => estadoInicial(e?.modo ?? PADRAO));
+    definir((e) => estadoInicial(e?.modo ?? PADRAO, undefined, e?.preset ?? undefined));
   }, []);
 
   return {
@@ -430,24 +576,28 @@ export function useCDR() {
     resultado,
     indicePorId,
     modo,
-    idDaCasa,
-    casas,
+    idDoConjunto,
+    conjuntos,
     acoes: {
-      // casas
-      abrirCasa,
-      novaCasa,
-      fecharCasa,
-      apagarCasa,
+      // conjuntos
+      abrirConjunto,
+      novoConjunto,
+      fecharConjunto,
+      apagarConjunto,
       renomear,
       duplicarParaOProximoMes,
       exportar,
       importar,
-      // dentro de uma casa
-      definirFatura,
+      // dentro de um conjunto
+      definirCiclo,
+      adicionarCiclo,
+      removerCiclo,
+      definirCorte,
       adicionarLinha,
       editarLinha,
       removerLinha,
       definirCalibragem,
+      definirPreset,
       definirQuemCede,
       definirPeriodo,
       ajustarQuantidadeDeMoradores,
@@ -456,6 +606,13 @@ export function useCDR() {
       removerItem,
       editarItem,
       alternarParticipante,
+      definirParticipantes,
+      duplicarItem: duplicarUmItem,
+      definirEventoLongo,
+      definirDataDeCorte,
+      definirJanelaDeCorte,
+      alternarCorte,
+      definirValorDoCiclo,
       definirPagador,
       // calendário
       alternarDiaDaPessoa,

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { deDuasFaturas } from "./teste/conjuntoAntigo.js";
+import { cicloDe } from "./motor.ts";
 import { calcular } from "./adaptador.js";
 import { conferir } from "./motor.ts";
 
@@ -11,7 +13,8 @@ const linha = (id, nome, valor, comportamento, quantidade = "") => ({
 });
 
 describe("fatura CEMIG real", () => {
-  const casa = {
+  // Escrito com faturas luz/água (v9): passa pela migração real.
+  const casa = deDuasFaturas({
     periodo: { mes: 9, ano: 2025 },
     faturas: {
       luz: {
@@ -44,7 +47,7 @@ describe("fatura CEMIG real", () => {
       },
     ],
     itens: [],
-  };
+  });
 
   it("o total das linhas bate com o valor a pagar impresso", () => {
     const r = calcular(casa);
@@ -53,7 +56,7 @@ describe("fatura CEMIG real", () => {
 
   it("a tarifa deduzida bate com o preço impresso", () => {
     const r = calcular(casa);
-    expect(r.tarifaLuz).toBeCloseTo(168.61 / 141, 6);
+    expect(cicloDe(r, "luz").tarifa).toBeCloseTo(168.61 / 141, 6);
   });
 
   it("os 35 dias do ciclo mandam na presença", () => {

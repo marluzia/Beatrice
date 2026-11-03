@@ -29,7 +29,7 @@ export default function Acerto({ estado, resultado, indicePorId, modo, nomeDoCon
         <div className="acerto-travado">
           <p className="acerto-travado__texto">
             Falta decidir quem fica com o centavo que não fecha. Escolha em{" "}
-            <strong>Quem cede</strong>, logo acima, e o acerto aparece aqui.
+            <strong>Quem cede</strong>, na seção "Quanto cada um deve", e o acerto aparece aqui.
           </p>
           <p className="dica">
             Enquanto a moeda não tem dono, a soma do que cada um deve não bate com

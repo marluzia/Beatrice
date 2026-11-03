@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cicloPorId } from "./ciclos.js";
 import {
   calcular,
   diasContadosDe,
@@ -8,7 +9,7 @@ import {
   faltaParaItem,
   lavagensForaDoCiclo,
   orfasDoItem,
-  parteNoEvento,
+  parteNoRegistro,
   tarifaDaFatura,
   totalDaFatura,
   valorDoConsumo,
@@ -18,6 +19,8 @@ import {
 import { sanear } from "./persistencia.js";
 import { CATALOGO, criarItem, modeloPorChave, TODOS_OS_ITENS } from "./catalogo.js";
 import { estadoInicial } from "./estadoInicial.js";
+import { deDuasFaturas } from "./teste/conjuntoAntigo.js";
+import { cicloDe } from "./motor.ts";
 
 const MORADORES = ["m0", "m1", "m2"];
 
@@ -36,12 +39,14 @@ const FATURAS_CHEIAS = {
   },
 };
 
-const casa = (itens) => ({
-  periodo: { mes: 6, ano: 2025 },
-  faturas: FATURAS_CHEIAS,
-  moradores: MORADORES.map((id, i) => ({ id, nome: `Pessoa ${i + 1}`, diasFora: "0" })),
-  itens,
-});
+// Escrito com faturas luz/água (v9): passa pela migração real. Ver teste/conjuntoAntigo.js.
+const casa = (itens) =>
+  deDuasFaturas({
+    periodo: { mes: 6, ano: 2025 },
+    faturas: FATURAS_CHEIAS,
+    moradores: MORADORES.map((id, i) => ({ id, nome: `Pessoa ${i + 1}`, diasFora: "0" })),
+    itens,
+  });
 
 const doCatalogo = (chave, campos = {}) => ({
   ...criarItem(modeloPorChave(chave), MORADORES),
@@ -74,22 +79,38 @@ describe("leitura de números vindos da tela", () => {
 });
 
 describe("cada espécie da tela chega inteira ao motor", () => {
-  it("consumo leva quantidade e unidade", () => {
-    const item = itemParaMotor(doCatalogo("geladeira", { quantidade: "124,5", unidade: "kwh" }));
-    expect(item.custo).toEqual({ tipo: "consumo", quantidade: 124.5, unidade: "kwh" });
+  it("consumo leva a quantidade de cada ciclo", () => {
+    const item = itemParaMotor(doCatalogo("geladeira", { consumoPorCiclo: { luz: "124,5" } }));
+    expect(item.custo).toEqual({ tipo: "consumo", porCiclo: { luz: 124.5 } });
   });
 
-  it("por hora leva potência, horas e unidade", () => {
-    const item = itemParaMotor(doCatalogo("ar", { porHora: "1,2", horas: "100", unidade: "kwh" }));
-    expect(item.custo).toEqual({ tipo: "porHora", porHora: 1.2, horas: 100, unidade: "kwh" });
+  it("consumo pode sair de um ciclo criado pela casa", () => {
+    const item = itemParaMotor(doCatalogo("livre", { consumoPorCiclo: { "c-gas": "3" } }));
+    expect(item.custo).toEqual({ tipo: "consumo", porCiclo: { "c-gas": 3 } });
   });
 
-  it("por uso vindo da fatura leva os dois consumos unitários", () => {
+  it("o chuveiro por hora leva potência e vazão, e as horas", () => {
     const item = itemParaMotor(
-      doCatalogo("maquina", { kwhPorUso: "0,46", m3PorUso: "0,188", origemUso: "fatura" }),
+      doCatalogo("chuveiro", { especie: "porHora", porHoraPorCiclo: { luz: "5,5", agua: "0,36" }, horas: "20" }),
+    );
+    expect(item.custo).toEqual({ tipo: "porHora", horas: 20, porCiclo: { luz: 5.5, agua: 0.36 } });
+  });
+
+  it("os aparelhos fixos nascem presos à conta deles; os livres, com a de partida", () => {
+    expect(doCatalogo("geladeira").ciclosLivres).toBe(false);
+    expect(doCatalogo("geladeira").consumoPorCiclo).toEqual({ luz: "" });
+    expect(doCatalogo("ar").porHoraPorCiclo).toEqual({ luz: "" });
+    expect(doCatalogo("chuveiro").ciclosLivres).toBe(true);
+    expect(doCatalogo("chuveiro").porHoraPorCiclo).toEqual({ luz: "", agua: "" });
+    expect(doCatalogo("livre").especies).toEqual(["consumo", "porHora", "porUso"]);
+  });
+
+  it("por uso vindo da fatura leva o consumo unitário de cada ciclo", () => {
+    const item = itemParaMotor(
+      doCatalogo("maquina", { porUsoPorCiclo: { luz: "0,46", agua: "0,188" }, origemUso: "fatura" }),
     );
     expect(item.custo.tipo).toBe("porUso");
-    expect(item.custo.unitario).toEqual({ origem: "fatura", kwhPorUso: 0.46, m3PorUso: 0.188 });
+    expect(item.custo.unitario).toEqual({ origem: "fatura", porCiclo: { luz: 0.46, agua: 0.188 } });
   });
 
   it("por uso pago em reais leva o valor da diária", () => {
@@ -105,8 +126,8 @@ describe("cada espécie da tela chega inteira ao motor", () => {
 
   it("nenhum item do catálogo custa zero quando preenchido", () => {
     const preenchido = {
-      quantidade: "100", porHora: "1.5", horas: "50",
-      kwhPorUso: "0.5", m3PorUso: "0.2", valorPorUso: "80", usos: "3", valor: "120",
+      consumoPorCiclo: { luz: "100", agua: "2" }, porHoraPorCiclo: { luz: "1.5", agua: "0.1" }, horas: "50",
+      porUsoPorCiclo: { luz: "0.5", agua: "0.2" }, valorPorUso: "80", usos: "3", valor: "120",
       usosPorPessoa: { m0: "2", m1: "1", m2: "1" },
     };
     for (const modelo of TODOS_OS_ITENS) {
@@ -122,7 +143,7 @@ describe("cada espécie da tela chega inteira ao motor", () => {
 
   it("item que divide por uso custa zero quando ninguém registrou uso", () => {
     const item = doCatalogo("maquina", {
-      kwhPorUso: "0.5", m3PorUso: "0.2", rateio: "uso", usosPorPessoa: {},
+      porUsoPorCiclo: { luz: "0.5", agua: "0.2" }, rateio: "uso", usosPorPessoa: {},
     });
     const r = calcular(casa([item]));
     expect(r.itens.find((i) => i.id === item.id)?.custoTotal).toBe(0);
@@ -157,8 +178,8 @@ describe("usos por pessoa", () => {
 
 describe("apoio à tela", () => {
   it("o total por hora mostrado na tela é o mesmo que o motor usa", () => {
-    const item = doCatalogo("ar", { porHora: "1,2", horas: "100" });
-    expect(totalDeclaradoPorHora(item)).toBeCloseTo(120, 10);
+    const item = doCatalogo("ar", { porHoraPorCiclo: { luz: "1,2" }, horas: "100" });
+    expect(totalDeclaradoPorHora(item).luz).toBeCloseTo(120, 10);
 
     const r = calcular(casa([item]));
     expect(r.itens.find((i) => i.id === item.id)?.custoTotal).toBeCloseTo(108, 10);
@@ -167,11 +188,11 @@ describe("apoio à tela", () => {
   it("os dias contados mostrados batem com os do resultado", () => {
     const periodo = { mes: 2, ano: 2024 };
     const morador = { id: "m0", nome: "Ana", diasFora: "10" };
-    expect(diasContadosDe(morador, periodo)).toBe(19);
+    expect(diasContadosDe(morador, periodo, [])).toBe(19);
   });
 
   it("dias fora maiores que o mês não viram número negativo", () => {
-    expect(diasContadosDe({ id: "m0", nome: "", diasFora: "500" }, { mes: 2, ano: 2024 })).toBe(0);
+    expect(diasContadosDe({ id: "m0", nome: "", diasFora: "500" }, { mes: 2, ano: 2024 }, [])).toBe(0);
   });
 });
 
@@ -225,7 +246,8 @@ describe("catálogo", () => {
 });
 
 describe("estado maltratado não derruba a tela", () => {
-  const casaCrua = (itens) => ({
+  // Escrito na forma da v9; passa pela migração real antes de ser maltratado.
+  const casaCrua = (itens) => deDuasFaturas({
     periodo: { mes: 8, ano: 2026 },
     faturas: {
       luz: {
@@ -274,20 +296,24 @@ describe("estado maltratado não derruba a tela", () => {
   });
 
   it("sanear joga fora buraco na lista, não a lista", () => {
-    const casa = casaCrua([{ id: "i0", nome: "Gás", rateio: "igual" }, null]);
+    const casa = { ...casaCrua([{ id: "i0", nome: "Gás", rateio: "igual" }]) };
+    casa.itens = [...casa.itens, null];
+    casa.ciclos = [...casa.ciclos, null];
     expect(sanear(casa).itens).toHaveLength(1);
+    expect(sanear(casa).ciclos).toHaveLength(2);
   });
 });
 
 describe("lavagens que caem fora do ciclo de uma das faturas", () => {
-  const evento = (data, quantidade, participantes) => ({
+  const registro = (data, quantidade, participantes) => ({
     id: `ev-${data}-${participantes.join("-")}`,
     data,
     quantidade: String(quantidade),
     participantes,
   });
 
-  const casa = (eventos) => ({
+  // Forma da v9, pela migração real.
+  const casa = (eventos) => deDuasFaturas({
     periodo: { mes: 8, ano: 2026 },
     faturas: {
       luz: {
@@ -325,9 +351,9 @@ describe("lavagens que caem fora do ciclo de uma das faturas", () => {
   });
 
   it("dia fora das duas faturas rende dois avisos, não um", () => {
-    const disjunta = casa([evento("2026-07-03", 1, ["m0"])]);
-    disjunta.faturas.luz.janela = { de: "2026-06-01", ate: "2026-07-01" };
-    disjunta.faturas.agua.janela = { de: "2026-07-05", ate: "2026-08-05" };
+    const disjunta = casa([registro("2026-07-03", 1, ["m0"])]);
+    cicloPorId(disjunta, "luz").janela = { de: "2026-06-01", ate: "2026-07-01" };
+    cicloPorId(disjunta, "agua").janela = { de: "2026-07-05", ate: "2026-08-05" };
 
     const foras = lavagensForaDoCiclo(disjunta);
     expect(foras).toHaveLength(2);
@@ -335,9 +361,9 @@ describe("lavagens que caem fora do ciclo de uma das faturas", () => {
   });
 
   it("o dia entre os ciclos é passado para uma fatura e futuro para a outra", () => {
-    const disjunta = casa([evento("2026-07-03", 1, ["m0"])]);
-    disjunta.faturas.luz.janela = { de: "2026-06-01", ate: "2026-07-01" };
-    disjunta.faturas.agua.janela = { de: "2026-07-05", ate: "2026-08-05" };
+    const disjunta = casa([registro("2026-07-03", 1, ["m0"])]);
+    cicloPorId(disjunta, "luz").janela = { de: "2026-06-01", ate: "2026-07-01" };
+    cicloPorId(disjunta, "agua").janela = { de: "2026-07-05", ate: "2026-08-05" };
 
     const foras = lavagensForaDoCiclo(disjunta);
     expect(foras.find((f) => f.faltando === "luz").quando).toBe("futuro");
@@ -345,9 +371,9 @@ describe("lavagens que caem fora do ciclo de uma das faturas", () => {
   });
 
   it("lava na véspera do ciclo da água começar", () => {
-    const vespera = casa([evento("2026-08-03", 1, ["m0"])]);
-    vespera.faturas.luz.janela = { de: "2026-08-01", ate: "2026-09-01" };
-    vespera.faturas.agua.janela = { de: "2026-08-04", ate: "2026-09-04" };
+    const vespera = casa([registro("2026-08-03", 1, ["m0"])]);
+    cicloPorId(vespera, "luz").janela = { de: "2026-08-01", ate: "2026-09-01" };
+    cicloPorId(vespera, "agua").janela = { de: "2026-08-04", ate: "2026-09-04" };
 
     const foras = lavagensForaDoCiclo(vespera);
     expect(foras).toHaveLength(1);
@@ -356,31 +382,31 @@ describe("lavagens que caem fora do ciclo de uma das faturas", () => {
   });
 
   it("acha a lavagem anterior ao começo do ciclo da água", () => {
-    const foras = lavagensForaDoCiclo(casa([evento("2026-08-05", 1, ["m0"])]));
+    const foras = lavagensForaDoCiclo(casa([registro("2026-08-05", 1, ["m0"])]));
     expect(foras).toHaveLength(1);
     expect(foras[0].faltando).toBe("agua");
     expect(foras[0].quando).toBe("passado");
   });
 
   it("acha a lavagem posterior ao fim do ciclo da luz", () => {
-    const foras = lavagensForaDoCiclo(casa([evento("2026-09-05", 1, ["m1"])]));
+    const foras = lavagensForaDoCiclo(casa([registro("2026-09-05", 1, ["m1"])]));
     expect(foras[0].faltando).toBe("luz");
     expect(foras[0].quando).toBe("futuro");
   });
 
   it("lavagem dentro dos dois ciclos não vira alerta", () => {
-    expect(lavagensForaDoCiclo(casa([evento("2026-08-20", 1, ["m0"]), evento("2026-08-25", 1, ["m1"])]))).toEqual([]);
+    expect(lavagensForaDoCiclo(casa([registro("2026-08-20", 1, ["m0"]), registro("2026-08-25", 1, ["m1"])]))).toEqual([]);
   });
 
   it("a fatura só conta as lavagens do próprio ciclo", () => {
-    const motor = paraMotor(casa([evento("2026-08-05", 1, ["m0"]), evento("2026-08-20", 1, ["m0"]), evento("2026-08-20", 1, ["m1"])]));
+    const motor = paraMotor(casa([registro("2026-08-05", 1, ["m0"]), registro("2026-08-20", 1, ["m0"]), registro("2026-08-20", 1, ["m1"])]));
     const { rateio } = motor.itens[0];
-    expect(rateio.usosLuz.m0).toBe(2);
-    expect(rateio.usosAgua.m0).toBe(1);
+    expect(rateio.usosPorCiclo.luz.m0).toBe(2);
+    expect(rateio.usosPorCiclo.agua.m0).toBe(1);
   });
 
   it("a conta continua fechando com lavagem órfã", () => {
-    const r = calcular(casa([evento("2026-08-05", 1, ["m0"]), evento("2026-08-08", 1, ["m0"]), evento("2026-09-05", 1, ["m1"])]));
+    const r = calcular(casa([registro("2026-08-05", 1, ["m0"]), registro("2026-08-08", 1, ["m0"]), registro("2026-09-05", 1, ["m1"])]));
     expect(Math.abs(r.diferenca)).toBeCloseTo(0, 6);
   });
 
@@ -389,22 +415,20 @@ describe("lavagens que caem fora do ciclo de uma das faturas", () => {
     semData.itens[0].usosPorPessoa = { m0: "3", m1: "1" };
     const { rateio } = paraMotor(semData).itens[0];
     expect(rateio.usos.m0).toBe(3);
-    expect(rateio.usosLuz).toBe(undefined);
+    expect(rateio.usosPorCiclo).toBe(undefined);
   });
 });
 
-describe("uso como evento, não como dia", () => {
-  const item = (eventos, usosPorPessoa = {}) => ({
+describe("uso como registro com data, não como dia", () => {
+  const item = (registrosDeUso, usosPorPessoa = {}) => ({
     id: "maq",
     nome: "Máquina de lavar",
     especie: "porUso",
-    unidade: "kwh",
     origemUso: "fatura",
-    kwhPorUso: "0.46",
-    m3PorUso: "0.188",
+    porUsoPorCiclo: { luz: "0.46", agua: "0.188" },
     rateio: "uso",
     usosPorPessoa,
-    eventos,
+    registrosDeUso,
     participantes: ["m0", "m1"],
   });
 
@@ -415,43 +439,43 @@ describe("uso como evento, não como dia", () => {
     participantes,
   });
 
-  it("um evento de dois usos conta dois para quem o fez", () => {
-    expect(parteNoEvento(ev("2026-08-20", 2, ["m0"]), "m0")).toBe(2);
+  it("um registro de dois usos conta dois para quem o fez", () => {
+    expect(parteNoRegistro(ev("2026-08-20", 2, ["m0"]), "m0")).toBe(2);
   });
 
   it("uso dividido entre dois conta meio para cada", () => {
     const compartilhado = ev("2026-08-20", 1, ["m0", "m1"]);
-    expect(parteNoEvento(compartilhado, "m0")).toBe(0.5);
-    expect(parteNoEvento(compartilhado, "m1")).toBe(0.5);
+    expect(parteNoRegistro(compartilhado, "m0")).toBe(0.5);
+    expect(parteNoRegistro(compartilhado, "m1")).toBe(0.5);
   });
 
   it("quem não participou não paga nada daquele uso", () => {
-    expect(parteNoEvento(ev("2026-08-20", 4, ["m1"]), "m0")).toBe(0);
+    expect(parteNoRegistro(ev("2026-08-20", 4, ["m1"]), "m0")).toBe(0);
   });
 
   it("quantidade em branco vale um uso", () => {
-    expect(parteNoEvento({ data: "2026-08-20", quantidade: "", participantes: ["m0"] }, "m0")).toBe(1);
+    expect(parteNoRegistro({ data: "2026-08-20", quantidade: "", participantes: ["m0"] }, "m0")).toBe(1);
   });
 
-  it("dois eventos no mesmo dia somam, em vez de um sobrescrever o outro", () => {
-    const eventos = [ev("2026-08-20", 2, ["m0"]), ev("2026-08-20", 1, ["m0", "m1"])];
-    const usos = eventos.reduce((s, e) => s + parteNoEvento(e, "m0"), 0);
+  it("dois registros no mesmo dia somam, em vez de um sobrescrever o outro", () => {
+    const registros = [ev("2026-08-20", 2, ["m0"]), ev("2026-08-20", 1, ["m0", "m1"])];
+    const usos = registros.reduce((s, e) => s + parteNoRegistro(e, "m0"), 0);
     expect(usos).toBe(2.5);
   });
 
-  it("a soma das participações de um evento é a quantidade dele", () => {
+  it("a soma das participações de um registro é a quantidade dele", () => {
     const compartilhado = ev("2026-08-20", 3, ["m0", "m1"]);
-    const soma = ["m0", "m1"].reduce((s, id) => s + parteNoEvento(compartilhado, id), 0);
+    const soma = ["m0", "m1"].reduce((s, id) => s + parteNoRegistro(compartilhado, id), 0);
     expect(soma).toBeCloseTo(3, 10);
   });
 
-  it("sem evento nenhum, o total por pessoa continua valendo", () => {
+  it("sem registro nenhum, o total por pessoa continua valendo", () => {
     const semData = paraMotor({
       periodo: { mes: 8, ano: 2026 },
-      faturas: {
-        luz: { unidade: "kwh", consumo: "400", linhas: [] },
-        agua: { unidade: "m3", consumo: "14", linhas: [] },
-      },
+      ciclos: [
+        { id: "luz", nome: "Luz", recurso: "kwh", linhas: [] },
+        { id: "agua", nome: "Água", recurso: "m3", linhas: [] },
+      ],
       moradores: [
         { id: "m0", nome: "João", diasFora: "" },
         { id: "m1", nome: "Maria", diasFora: "" },
@@ -511,30 +535,54 @@ describe("item que depende de fatura ainda não lançada", () => {
   const linha = (q, v) => ({ id: "l", nome: "Energia", quantidade: q, valor: v, comportamento: "consumo" });
 
   const contas = (luz, agua) => ({
-    luz: { ativa: true, unidade: "kwh", linhas: luz ? [linha("198", "57.41")] : [] },
-    agua: { ativa: true, unidade: "m3", linhas: agua ? [linha("7", "49.89")] : [] },
+    ciclos: [
+      { id: "luz", nome: "Luz", ativa: true, recurso: "kwh", linhas: luz ? [linha("198", "57.41")] : [] },
+      { id: "agua", nome: "Água", ativa: true, recurso: "m3", linhas: agua ? [linha("7", "49.89")] : [] },
+    ],
   });
 
+  const maquina = { especie: "porUso", origemUso: "fatura", porUsoPorCiclo: { luz: "", agua: "" } };
+  const geladeira = { especie: "consumo", ciclosLivres: false, consumoPorCiclo: { luz: "" } };
+
   it("aparelho em kWh reclama do que falta na luz", () => {
-    const falta = faltaParaItem({ especie: "consumo", unidade: "kwh" }, contas(false, true));
+    const falta = faltaParaItem(geladeira, contas(false, true));
     expect(falta).toHaveLength(2);
     expect(falta[0]).toContain("consumo da luz");
   });
 
   it("com a fatura lançada, nada falta", () => {
-    expect(faltaParaItem({ especie: "consumo", unidade: "kwh" }, contas(true, true))).toEqual([]);
+    expect(faltaParaItem(geladeira, contas(true, true))).toEqual([]);
   });
 
   it("a máquina precisa das duas quando as duas estão no fechamento", () => {
-    const falta = faltaParaItem({ especie: "porUso", origemUso: "fatura" }, contas(true, false));
+    const falta = faltaParaItem(maquina, contas(true, false));
     expect(falta.some((f) => f.includes("água"))).toBe(true);
   });
 
   it("conta desligada é dita como ausente, não como vazia", () => {
     const semAgua = contas(true, true);
-    semAgua.agua.ativa = false;
-    const falta = faltaParaItem({ especie: "consumo", unidade: "m3" }, semAgua);
+    cicloPorId(semAgua, "agua").ativa = false;
+    const falta = faltaParaItem({ especie: "consumo", consumoPorCiclo: { agua: "" } }, semAgua);
     expect(falta[0]).toContain("não está neste fechamento");
+  });
+
+  it("aparelho livre não trava por um ciclo desligado: o x tira ele", () => {
+    const semAgua = contas(true, true);
+    cicloPorId(semAgua, "agua").ativa = false;
+    const chuveiro = { especie: "consumo", ciclosLivres: true, consumoPorCiclo: { luz: "", agua: "" } };
+    expect(faltaParaItem(chuveiro, semAgua)).toEqual([]);
+  });
+
+  it("aparelho sem conta escolhida não trava: o cartão pede a escolha", () => {
+    expect(faltaParaItem({ especie: "consumo", ciclosLivres: true, consumoPorCiclo: {} }, contas(true, true))).toEqual([]);
+  });
+
+  it("aparelho de um ciclo criado pela casa reclama com o nome dele", () => {
+    const comGas = contas(true, true);
+    comGas.ciclos.push({ id: "c1", nome: "Gás", ativa: true, recurso: "m3", linhas: [] });
+    const falta = faltaParaItem({ especie: "consumo", consumoPorCiclo: { c1: "" } }, comGas);
+    expect(falta[0]).toContain("Gás");
+    expect(falta[0]).toContain("m³");
   });
 
   it("despesa em reais não depende de fatura nenhuma", () => {

@@ -7,6 +7,8 @@
 // dinheiro que já foi pago   foi o erro da primeira versão deste módulo.
 
 import { describe, expect, it } from "vitest";
+import { comContasLigadas } from "./teste/conjuntoAntigo.js";
+import { cicloPorId } from "./ciclos.js";
 import { estadoInicial } from "./estadoInicial.js";
 import { calcular } from "./adaptador.js";
 import { acertoDe, despesasPagaveis, mensagemDoAcerto, transferenciasDe } from "./acerto.js";
@@ -14,14 +16,14 @@ import { acertoDe, despesasPagaveis, mensagemDoAcerto, transferenciasDe } from "
 const CICLO = { de: "2026-09-01", ate: "2026-10-01" };
 
 function conjunto(quantos = 3) {
-  const e = estadoInicial("moradia", quantos);
+  const e = comContasLigadas(estadoInicial("moradia", quantos));
   e.periodo = { mes: 9, ano: 2026 };
-  e.faturas.luz.janela = { ...CICLO };
-  e.faturas.agua.janela = { ...CICLO };
-  e.faturas.luz.linhas = [
+  cicloPorId(e, "luz").janela = { ...CICLO };
+  cicloPorId(e, "agua").janela = { ...CICLO };
+  cicloPorId(e, "luz").linhas = [
     { id: "l1", nome: "Energia", quantidade: "200", valor: "300", comportamento: "consumo" },
   ];
-  e.faturas.agua.linhas = [
+  cicloPorId(e, "agua").linhas = [
     { id: "a1", nome: "Tarifa água", quantidade: "10", valor: "120", comportamento: "consumo" },
   ];
   e.moradores.forEach((m, i) => (m.nome = ["Ana", "Bruno", "Célia"][i] ?? `P${i}`));
@@ -34,7 +36,7 @@ const acerto = (e) => acertoDe(e, calcular(e));
 const soma = (lista, campo = "centavos") => lista.reduce((s, t) => s + t[campo], 0);
 
 const despesaEmReais = (e, nome, valor, pagoPor = null) => ({
-  ...estadoInicial("moradia").itens[0],
+  ...comContasLigadas(estadoInicial("moradia")).itens[0],
   nome,
   especie: "reais",
   valor: String(valor),
@@ -48,8 +50,8 @@ const despesaEmReais = (e, nome, valor, pagoPor = null) => ({
 describe("despesa centralizada x despesa paga direto", () => {
   it("sem pagador, ninguém deve a ninguém: cada um pagou a própria parte", () => {
     const e = conjunto();
-    e.faturas.luz.ativa = false;
-    e.faturas.agua.ativa = false;
+    cicloPorId(e, "luz").ativa = false;
+    cicloPorId(e, "agua").ativa = false;
     e.itens = [despesaEmReais(e, "Jantar", 300)];
 
     const a = acerto(e);
@@ -62,8 +64,8 @@ describe("despesa centralizada x despesa paga direto", () => {
 
   it("com pagador, os outros devem a quem centralizou", () => {
     const e = conjunto();
-    e.faturas.luz.ativa = false;
-    e.faturas.agua.ativa = false;
+    cicloPorId(e, "luz").ativa = false;
+    cicloPorId(e, "agua").ativa = false;
     e.itens = [despesaEmReais(e, "Jantar", 300, ids(e)[0])];
 
     const a = acerto(e);
@@ -76,8 +78,8 @@ describe("despesa centralizada x despesa paga direto", () => {
 
   it("as duas situações convivem no mesmo fechamento", () => {
     const e = conjunto();
-    e.faturas.luz.ativa = false;
-    e.faturas.agua.ativa = false;
+    cicloPorId(e, "luz").ativa = false;
+    cicloPorId(e, "agua").ativa = false;
     e.itens = [
       despesaEmReais(e, "Jantar", 300), // cada um pagou o seu
       despesaEmReais(e, "Gás", 90, ids(e)[1]), // Bruno centralizou
@@ -96,8 +98,8 @@ describe("despesa centralizada x despesa paga direto", () => {
 
   it("a dívida interna é só a parte centralizada, não o total do fechamento", () => {
     const e = conjunto();
-    e.faturas.luz.ativa = false;
-    e.faturas.agua.ativa = false;
+    cicloPorId(e, "luz").ativa = false;
+    cicloPorId(e, "agua").ativa = false;
     e.itens = [
       despesaEmReais(e, "Jantar", 300), // direto
       despesaEmReais(e, "Gás", 90, ids(e)[0]),
@@ -113,8 +115,8 @@ describe("despesa centralizada x despesa paga direto", () => {
 
   it("pagador que saiu da casa conta como pagamento direto", () => {
     const e = conjunto();
-    e.faturas.luz.ativa = false;
-    e.faturas.agua.ativa = false;
+    cicloPorId(e, "luz").ativa = false;
+    cicloPorId(e, "agua").ativa = false;
     e.itens = [despesaEmReais(e, "Jantar", 300, "m-que-saiu")];
 
     const a = acerto(e);
@@ -141,7 +143,7 @@ describe("o que pode ter pagador", () => {
       { length: 10 },
       (_, i) => `2026-09-${String(i + 5).padStart(2, "0")}`,
     );
-    e.faturas.luz.pagoPor = ids(e)[0];
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
 
     const a = acerto(e);
     const celia = a.saldos[2];
@@ -154,7 +156,7 @@ describe("o que pode ter pagador", () => {
     const e = conjunto();
     e.itens = [
       {
-        ...estadoInicial("moradia").itens[0],
+        ...comContasLigadas(estadoInicial("moradia")).itens[0],
         nome: "Geladeira", especie: "consumo", quantidade: "50", unidade: "kwh",
         participantes: ids(e),
       },
@@ -165,7 +167,7 @@ describe("o que pode ter pagador", () => {
 
   it("fatura desligada não entra", () => {
     const e = conjunto();
-    e.faturas.agua.ativa = false;
+    cicloPorId(e, "agua").ativa = false;
     expect(despesasPagaveis(e, calcular(e)).some((d) => d.nome === "Conta de água")).toBe(false);
   });
 });
@@ -175,8 +177,8 @@ describe("o que pode ter pagador", () => {
 describe("saldos e transferências", () => {
   const resolvida = () => {
     const e = conjunto();
-    e.faturas.luz.pagoPor = ids(e)[0];
-    e.faturas.agua.pagoPor = ids(e)[1];
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
+    cicloPorId(e, "agua").pagoPor = ids(e)[1];
     return e;
   };
 
@@ -196,8 +198,8 @@ describe("saldos e transferências", () => {
 
   it("nunca passa de n−1 transferências", () => {
     const e = conjunto(6);
-    e.faturas.luz.pagoPor = ids(e)[0];
-    e.faturas.agua.pagoPor = ids(e)[3];
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
+    cicloPorId(e, "agua").pagoPor = ids(e)[3];
 
     expect(acerto(e).transferencias.length).toBeLessThanOrEqual(5);
   });
@@ -224,9 +226,9 @@ describe("saldos e transferências", () => {
 describe("quem cede o centavo", () => {
   const naoFecha = () => {
     const e = conjunto(3);
-    e.faturas.agua.ativa = false;
-    e.faturas.luz.linhas[0].valor = "100"; // 100 entre três não fecha
-    e.faturas.luz.pagoPor = ids(e)[0];
+    cicloPorId(e, "agua").ativa = false;
+    cicloPorId(e, "luz").linhas[0].valor = "100"; // 100 entre três não fecha
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
     return e;
   };
 
@@ -284,9 +286,9 @@ describe("quem cede o centavo", () => {
 
   it("divisão que fecha redondo não tem centavo para ceder", () => {
     const e = conjunto(3);
-    e.faturas.agua.ativa = false;
-    e.faturas.luz.linhas[0].valor = "300";
-    e.faturas.luz.pagoPor = ids(e)[0];
+    cicloPorId(e, "agua").ativa = false;
+    cicloPorId(e, "luz").linhas[0].valor = "300";
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
 
     expect(acerto(e).residuo).toBe(0);
   });
@@ -320,10 +322,10 @@ describe("a heurística das transferências", () => {
 
   it("transferência nunca tem fração de centavo", () => {
     const e = conjunto(3);
-    e.faturas.luz.linhas[0].valor = "100";
-    e.faturas.agua.linhas[0].valor = "33.33";
-    e.faturas.luz.pagoPor = ids(e)[0];
-    e.faturas.agua.pagoPor = ids(e)[1];
+    cicloPorId(e, "luz").linhas[0].valor = "100";
+    cicloPorId(e, "agua").linhas[0].valor = "33.33";
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
+    cicloPorId(e, "agua").pagoPor = ids(e)[1];
 
     expect(acerto(e).transferencias.every((t) => Number.isInteger(t.centavos))).toBe(true);
   });
@@ -334,8 +336,8 @@ describe("a heurística das transferências", () => {
 describe("a mensagem do grupo", () => {
   it("lista as transferências com nome e valor", () => {
     const e = conjunto();
-    e.faturas.luz.pagoPor = ids(e)[0];
-    e.faturas.agua.pagoPor = ids(e)[1];
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
+    cicloPorId(e, "agua").pagoPor = ids(e)[1];
 
     const texto = mensagemDoAcerto(acerto(e), e.periodo, "República da Serra");
     expect(texto).toContain("República da Serra");
@@ -344,9 +346,9 @@ describe("a mensagem do grupo", () => {
 
   it("diz quem cedeu quando o centavo não fecha", () => {
     const e = conjunto(3);
-    e.faturas.agua.ativa = false;
-    e.faturas.luz.linhas[0].valor = "100";
-    e.faturas.luz.pagoPor = ids(e)[0];
+    cicloPorId(e, "agua").ativa = false;
+    cicloPorId(e, "luz").linhas[0].valor = "100";
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
     e.quemCede = ids(e)[2];
 
     expect(mensagemDoAcerto(acerto(e), e.periodo, "Casa")).toContain("Célia cedeu");
@@ -354,7 +356,7 @@ describe("a mensagem do grupo", () => {
 
   it("separa o que foi pago direto do que entrou no acerto", () => {
     const e = conjunto();
-    e.faturas.luz.pagoPor = ids(e)[0];
+    cicloPorId(e, "luz").pagoPor = ids(e)[0];
     // a água fica sem pagador: cada um pagou a sua parte
 
     const texto = mensagemDoAcerto(acerto(e), e.periodo, "Casa");

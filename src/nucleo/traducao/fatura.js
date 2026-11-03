@@ -5,7 +5,8 @@
 // domínio quer números: quanto foi consumido, quanto custou, quais taxas.
 
 import { num } from "../formato.js";
-import { cicloValido, faturaAtiva, janelaDoMes } from "../calendario.js";
+import { cicloValido, diasDaJanela, janelaDoMes } from "../calendario.js";
+import { ehMedido } from "../ciclos.js";
 
 export function linhasPorComportamento(fatura, comportamento) {
   return (fatura?.linhas ?? []).filter(
@@ -21,7 +22,7 @@ export function valorDoConsumo(fatura) {
     .reduce((s, l) => s + num(l.valor), 0);
 }
 
-/** Quanto foi consumido, em kWh ou m³, somando as linhas de consumo. */
+/** Quanto foi consumido, na unidade do ciclo, somando as linhas de consumo. */
 export function consumoMedido(fatura) {
   return linhasPorComportamento(fatura, "consumo").reduce((s, l) => s + num(l.quantidade), 0);
 }
@@ -44,27 +45,49 @@ export function tarifaDaFatura(fatura) {
   return quantidade > 0 ? valorDoConsumo(fatura) / quantidade : 0;
 }
 
-/** O ciclo da fatura, quando ele foi informado inteiro; senão, o mês de referência. */
+/** A janela do ciclo, quando ela foi informada inteira; senão, o mês de referência. */
 export const janelaDaFatura = (fatura, periodo) =>
   cicloValido(fatura?.janela) ? fatura.janela : janelaDoMes(periodo);
 
-/** A fatura como o domínio a recebe. Fatura desligada entra zerada. */
-export function faturaParaMotor(fatura, qual) {
-  if (!faturaAtiva(fatura)) {
-    return qual === "luz"
-      ? { luzKwh: 0, luzValor: 0, luzTaxas: [] }
-      : { aguaM3: 0, aguaValor: 0, aguaTaxas: [] };
+/**
+ * A regra própria de uma conta só de valor, como o domínio a entende, ou null
+ * quando ela segue a régua do uso comum (e em todo ciclo medido).
+ */
+export function regraDoCiclo(ciclo) {
+  if (ehMedido(ciclo)) return null;
+  if (ciclo?.rateio === "igual") return { tipo: "igual" };
+  if (ciclo?.rateio === "dias") return { tipo: "dias" };
+  if (ciclo?.rateio === "porcentagem") {
+    return {
+      tipo: "porcentagem",
+      porcentagens: Object.fromEntries(
+        Object.entries(ciclo.porcentagens ?? {}).map(([id, v]) => [id, num(v)]),
+      ),
+    };
   }
+  return null;
+}
 
-  const consumo = consumoDaFatura(fatura);
-  const taxas = linhasPorComportamento(fatura, "igual").map((l) => ({
+/**
+ * A fatura de um ciclo como o domínio a recebe. Só ciclos ligados chegam ao
+ * motor; quem chama filtra antes.
+ */
+export function faturaParaMotor(ciclo, periodo) {
+  const taxas = linhasPorComportamento(ciclo, "igual").map((l) => ({
     nome: l.nome ?? "",
     valor: num(l.valor),
   }));
 
-  const total = totalDaFatura(fatura);
+  const rateio = regraDoCiclo(ciclo);
 
-  return qual === "luz"
-    ? { luzKwh: consumo, luzValor: total, luzTaxas: taxas }
-    : { aguaM3: consumo, aguaValor: total, aguaTaxas: taxas };
+  return {
+    id: ciclo.id,
+    nome: ciclo.nome?.trim() || "Conta",
+    recurso: ehMedido(ciclo) ? ciclo.recurso : null,
+    quantidade: ehMedido(ciclo) ? consumoDaFatura(ciclo) : 0,
+    valor: totalDaFatura(ciclo),
+    taxas,
+    dias: diasDaJanela(janelaDaFatura(ciclo, periodo), periodo),
+    ...(rateio ? { rateio } : {}),
+  };
 }

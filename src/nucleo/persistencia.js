@@ -1,29 +1,48 @@
-// Persistência: as casas salvas neste navegador.
+// Persistência: os conjuntos salvos neste navegador.
 //
 // Duas chaves de natureza diferente:
 //
-//   cdr:casas      → o índice. Uma ficha por casa (nome, modo, mês) e qual
-//                    delas está aberta. É o que o painel lê, sem abrir nenhuma.
-//   cdr:casa:<id>  → o estado de uma casa. Só é lido quando ela abre.
+//   ceder:conjuntos      → o índice. Uma ficha por conjunto (nome, modo, mês) e
+//                          qual deles está aberto. É o que o painel lê, sem
+//                          abrir nenhum.
+//   ceder:conjunto:<id>  → o estado de um conjunto. Só é lido quando ele abre.
 //
-// Guardar o índice separado é o que faz o painel abrir rápido com trinta casas
-// salvas: listar não custa carregar.
+// Guardar o índice separado é o que faz o painel abrir rápido com trinta
+// conjuntos salvos: listar não custa carregar.
+//
+// Até a v10 as chaves eram `cdr:casas` e `cdr:casa:<id>`. Na primeira leitura
+// sem o índice novo, o índice antigo e cada conjunto são COPIADOS para as
+// chaves novas, sem transformação (a migração do estado acontece ao abrir, como
+// sempre). As chaves antigas ficam onde estavam, como cópia de segurança: uma
+// falha aqui não pode custar o conjunto de ninguém.
 //
 // Tudo isto vive no localStorage deste navegador. Limpar os dados do site
-// apaga as casas, e nenhum outro aparelho as vê   por isso `exportarCasa` e
-// `importarCasa` existem, e por isso o painel oferece o download.
+// apaga os conjuntos, e nenhum outro aparelho os vê   por isso
+// `exportarConjunto` e `importarConjunto` existem, e por isso o painel oferece
+// o download.
 
-import { PADRAO } from "./modos.js";
+import { calibragemFixa, PADRAO, presetValido } from "./modos.js";
+import { RECURSOS, REGRAS_DO_CICLO } from "./ciclos.js";
+import { corteValido } from "./calendario.js";
+import { especiesDe } from "./catalogo.js";
 
-const INDICE = "cdr:casas";
-const PREFIXO = "cdr:casa:";
+const tabela = (t) => (t && typeof t === "object" && !Array.isArray(t) ? t : {});
+
+const INDICE = "ceder:conjuntos";
+const PREFIXO = "ceder:conjunto:";
+
+/** As chaves de antes da v10, lidas uma vez para copiar e nunca apagadas. */
+const INDICE_CDR = "cdr:casas";
+const PREFIXO_CDR = "cdr:casa:";
+
+/** A chave única de antes da v5, quando só existia uma casa. */
 const CHAVE_ANTIGA = "cdr:casa";
 
-const VERSAO = 9;
+const VERSAO = 11;
 
 function deposito() {
   try {
-    const teste = "cdr:teste";
+    const teste = "ceder:teste";
     window.localStorage.setItem(teste, "1");
     window.localStorage.removeItem(teste);
     return window.localStorage;
@@ -52,29 +71,31 @@ const escrever = (guarda, chave, valor) => {
 
 const agora = () => new Date().toISOString();
 
-const novoIdDeCasa = () =>
+const novoIdDeConjunto = () =>
   `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
 // ── o índice ───────────────────────────────────────────────────────────────
 
-const indiceVazio = () => ({ versao: VERSAO, atual: null, casas: [] });
+const indiceVazio = () => ({ versao: VERSAO, atual: null, conjuntos: [] });
 
-function lerIndice(guarda) {
-  const cru = ler(guarda, INDICE);
-  if (!cru || !Array.isArray(cru.casas)) return null;
+/** Lê um índice, novo (`conjuntos`) ou antigo (`casas`), na forma nova. */
+function lerIndice(guarda, chave = INDICE) {
+  const cru = ler(guarda, chave);
+  const lista = Array.isArray(cru?.conjuntos) ? cru.conjuntos : Array.isArray(cru?.casas) ? cru.casas : null;
+  if (!lista) return null;
 
   return {
     versao: VERSAO,
     atual: typeof cru.atual === "string" ? cru.atual : null,
-    casas: cru.casas.filter((c) => c && typeof c.id === "string"),
+    conjuntos: lista.filter((c) => c && typeof c.id === "string"),
   };
 }
 
-/** A ficha que o painel mostra, derivada do estado da casa. */
+/** A ficha que o painel mostra, derivada do estado do conjunto. */
 function fichaDe(id, nome, estado, antes) {
   return {
     id,
-    nome: nome || "Casa sem nome",
+    nome: nome || "Conjunto sem nome",
     modo: estado?.modo ?? PADRAO,
     mes: estado?.periodo?.mes ?? null,
     ano: estado?.periodo?.ano ?? null,
@@ -88,17 +109,45 @@ function guardarIndice(guarda, indice) {
   return escrever(guarda, INDICE, { ...indice, versao: VERSAO });
 }
 
-// ── migração da chave única antiga ─────────────────────────────────────────
-//
-// Antes da v5 havia uma casa só, em `cdr:casa`. Ela vira a primeira casa do
-// índice, com o nome que a pessoa reconheça, e a chave antiga sai do caminho.
+// ── as chaves antigas ──────────────────────────────────────────────────────
+
+/**
+ * Copia o índice `cdr:casas` e cada `cdr:casa:<id>` para as chaves novas.
+ * Devolve o índice copiado, ou null se não havia índice antigo. Um conjunto
+ * cuja cópia falhar sai do índice novo, mas continua inteiro na chave antiga.
+ */
+function copiarChavesCdr(guarda) {
+  const antigo = lerIndice(guarda, INDICE_CDR);
+  if (!antigo) return null;
+
+  const copiados = antigo.conjuntos.filter((ficha) => {
+    try {
+      const cru = guarda.getItem(PREFIXO_CDR + ficha.id);
+      if (cru === null) return false;
+      guarda.setItem(PREFIXO + ficha.id, cru);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  return {
+    ...antigo,
+    conjuntos: copiados,
+    atual: copiados.some((c) => c.id === antigo.atual) ? antigo.atual : null,
+  };
+}
+
+// Antes da v5 havia uma casa só, em `cdr:casa`. Ela vira o primeiro conjunto
+// do índice, com um nome que a pessoa reconheça, e a chave antiga sai do
+// caminho (isso já era assim antes das chaves novas).
 
 function adotarCasaAntiga(guarda) {
   const pacote = ler(guarda, CHAVE_ANTIGA);
   if (!pacote) return null;
 
   const estado = migrar(pacote.estado, pacote.versao);
-  if (!estado || !pareceUmaCasa(estado)) {
+  if (!estado || !pareceUmConjunto(estado)) {
     try {
       guarda.removeItem(CHAVE_ANTIGA);
     } catch {}
@@ -106,7 +155,7 @@ function adotarCasaAntiga(guarda) {
   }
 
   const limpo = sanear(estado);
-  const id = novoIdDeCasa();
+  const id = novoIdDeConjunto();
 
   escrever(guarda, PREFIXO + id, { versao: VERSAO, estado: limpo });
 
@@ -114,19 +163,25 @@ function adotarCasaAntiga(guarda) {
     guarda.removeItem(CHAVE_ANTIGA);
   } catch {}
 
-  return fichaDe(id, "Minha casa", limpo, null);
+  return fichaDe(id, "Meu conjunto", limpo, null);
 }
 
-/** O índice, criando-o e adotando a casa antiga se for a primeira vez. */
+/** O índice, criando-o (e trazendo o que houver nas chaves antigas) se for a primeira vez. */
 function indiceVivo(guarda) {
   const existente = lerIndice(guarda);
   if (existente) return existente;
+
+  const copiado = copiarChavesCdr(guarda);
+  if (copiado) {
+    guardarIndice(guarda, copiado);
+    return copiado;
+  }
 
   const indice = indiceVazio();
   const adotada = adotarCasaAntiga(guarda);
 
   if (adotada) {
-    indice.casas = [adotada];
+    indice.conjuntos = [adotada];
     indice.atual = adotada.id;
   }
 
@@ -136,26 +191,26 @@ function indiceVivo(guarda) {
 
 // ── o que a tela usa ───────────────────────────────────────────────────────
 
-/** As fichas de todas as casas salvas, da mais recente para a mais antiga. */
-export function listarCasas() {
+/** As fichas de todos os conjuntos salvos, do mais recente para o mais antigo. */
+export function listarConjuntos() {
   const guarda = deposito();
   if (!guarda) return [];
 
-  return [...indiceVivo(guarda).casas].sort((a, b) =>
+  return [...indiceVivo(guarda).conjuntos].sort((a, b) =>
     String(b.salvaEm ?? "").localeCompare(String(a.salvaEm ?? "")),
   );
 }
 
-/** Qual casa estava aberta da última vez. */
-export function casaAtual() {
+/** Qual conjunto estava aberto da última vez. */
+export function conjuntoAtual() {
   const guarda = deposito();
   if (!guarda) return null;
 
   const indice = indiceVivo(guarda);
-  return indice.casas.some((c) => c.id === indice.atual) ? indice.atual : null;
+  return indice.conjuntos.some((c) => c.id === indice.atual) ? indice.atual : null;
 }
 
-export function definirCasaAtual(id) {
+export function definirConjuntoAtual(id) {
   const guarda = deposito();
   if (!guarda) return;
 
@@ -163,8 +218,8 @@ export function definirCasaAtual(id) {
   guardarIndice(guarda, { ...indice, atual: id ?? null });
 }
 
-/** O estado de uma casa, ou null se ela não existe ou não presta. */
-export function carregarCasa(id) {
+/** O estado de um conjunto, ou null se ele não existe ou não presta. */
+export function carregarConjunto(id) {
   const guarda = deposito();
   if (!guarda || !id) return null;
 
@@ -172,26 +227,26 @@ export function carregarCasa(id) {
   if (!pacote) return null;
 
   const estado = migrar(pacote.estado, pacote.versao);
-  if (!estado || !pareceUmaCasa(estado)) return null;
+  if (!estado || !pareceUmConjunto(estado)) return null;
 
   return sanear(estado);
 }
 
 /** Salva o estado e atualiza a ficha. Devolve se conseguiu. */
-export function salvarCasa(id, estado) {
+export function salvarConjunto(id, estado) {
   const guarda = deposito();
-  if (!guarda || !id || !pareceUmaCasa(estado)) return false;
+  if (!guarda || !id || !pareceUmConjunto(estado)) return false;
 
   const ok = escrever(guarda, PREFIXO + id, { versao: VERSAO, estado });
   if (!ok) return false;
 
   const indice = indiceVivo(guarda);
-  const antes = indice.casas.find((c) => c.id === id);
+  const antes = indice.conjuntos.find((c) => c.id === id);
   if (!antes) return false;
 
   guardarIndice(guarda, {
     ...indice,
-    casas: indice.casas.map((c) =>
+    conjuntos: indice.conjuntos.map((c) =>
       c.id === id ? fichaDe(id, antes.nome, estado, antes) : c,
     ),
   });
@@ -199,10 +254,10 @@ export function salvarCasa(id, estado) {
   return true;
 }
 
-/** Cria uma casa a partir de um estado pronto. Devolve o id. */
-export function criarCasa(nome, estado) {
+/** Cria um conjunto a partir de um estado pronto. Devolve o id. */
+export function criarConjunto(nome, estado) {
   const guarda = deposito();
-  const id = novoIdDeCasa();
+  const id = novoIdDeConjunto();
   if (!guarda) return id;
 
   const indice = indiceVivo(guarda);
@@ -212,31 +267,31 @@ export function criarCasa(nome, estado) {
   guardarIndice(guarda, {
     ...indice,
     atual: id,
-    casas: [...indice.casas, ficha],
+    conjuntos: [...indice.conjuntos, ficha],
   });
 
   return id;
 }
 
-export function renomearCasa(id, nome) {
+export function renomearConjunto(id, nome) {
   const guarda = deposito();
   if (!guarda) return;
 
   const indice = indiceVivo(guarda);
   guardarIndice(guarda, {
     ...indice,
-    casas: indice.casas.map((c) =>
+    conjuntos: indice.conjuntos.map((c) =>
       c.id === id ? { ...c, nome: nome.trim() || c.nome } : c,
     ),
   });
 }
 
-export function removerCasa(id) {
+export function removerConjunto(id) {
   const guarda = deposito();
   if (!guarda) return;
 
   const indice = indiceVivo(guarda);
-  const restantes = indice.casas.filter((c) => c.id !== id);
+  const restantes = indice.conjuntos.filter((c) => c.id !== id);
 
   try {
     guarda.removeItem(PREFIXO + id);
@@ -244,26 +299,27 @@ export function removerCasa(id) {
 
   guardarIndice(guarda, {
     ...indice,
-    casas: restantes,
+    conjuntos: restantes,
     atual: indice.atual === id ? null : indice.atual,
   });
 }
 
 // ── sair e voltar do navegador ─────────────────────────────────────────────
 
-/** A casa num texto que dá para guardar em arquivo e trazer de volta. */
-export function exportarCasa(id) {
-  const estado = carregarCasa(id);
+/** O conjunto num texto que dá para guardar em arquivo e trazer de volta. */
+export function exportarConjunto(id) {
+  const estado = carregarConjunto(id);
   if (!estado) return null;
 
-  const ficha = listarCasas().find((c) => c.id === id);
+  const ficha = listarConjuntos().find((c) => c.id === id);
 
   return JSON.stringify(
     {
-      ceder: "casa",
+      // Arquivos de antes da v10 dizem "casa"; os dois são aceitos na volta.
+      ceder: "conjunto",
       versao: VERSAO,
-      exportadaEm: agora(),
-      nome: ficha?.nome ?? "Casa",
+      exportadoEm: agora(),
+      nome: ficha?.nome ?? "Conjunto",
       estado,
     },
     null,
@@ -271,8 +327,8 @@ export function exportarCasa(id) {
   );
 }
 
-/** Traz de volta uma casa exportada. Devolve o id novo, ou null. */
-export function importarCasa(texto) {
+/** Traz de volta um conjunto exportado. Devolve o id novo, ou null. */
+export function importarConjunto(texto) {
   let pacote;
   try {
     pacote = JSON.parse(texto);
@@ -282,9 +338,9 @@ export function importarCasa(texto) {
   if (!pacote || typeof pacote !== "object") return null;
 
   const estado = migrar(pacote.estado, pacote.versao);
-  if (!estado || !pareceUmaCasa(estado)) return null;
+  if (!estado || !pareceUmConjunto(estado)) return null;
 
-  return criarCasa(nomeLivre(pacote.nome ?? "Casa importada"), sanear(estado));
+  return criarConjunto(nomeLivre(pacote.nome ?? "Conjunto importado"), sanear(estado));
 }
 
 /**
@@ -295,7 +351,7 @@ export function importarCasa(texto) {
  * era qual. A cópia ganha um número; o original fica como está.
  */
 function nomeLivre(nome) {
-  const usados = new Set(listarCasas().map((c) => c.nome));
+  const usados = new Set(listarConjuntos().map((c) => c.nome));
   if (!usados.has(nome)) return nome;
 
   for (let n = 2; n < 100; n++) {
@@ -306,7 +362,7 @@ function nomeLivre(nome) {
   return `${nome} (${Date.now()})`;
 }
 
-// ── migração do estado de uma casa ─────────────────────────────────────────
+// ── migração do estado de um conjunto ──────────────────────────────────────
 
 function migrar(estado, versao) {
   if (!estado || typeof estado !== "object") return null;
@@ -472,39 +528,150 @@ function migrar(estado, versao) {
   // período. Item antigo tem no máximo um dia marcado, e `ate: null` quer
   // dizer exatamente isso   dia único, não período de um dia só.
   if (versao === 8) {
-    return {
+    return migrar({
       ...estado,
       itens: (estado.itens ?? []).map((i) => ({ ...i, ate: i?.ate ?? null })),
-    };
+    }, 9);
+  }
+
+  // v9 → v10: luz e água deixam de ser duas faturas fixas e viram os dois
+  // primeiros ciclos de uma lista, com os ids "luz" e "agua". Nada no valor
+  // muda: o mesmo conjunto fecha com os mesmos números. Junto vêm o corte
+  // (null: ninguém escolheu ainda) e os nomes novos dos itens   o ciclo de
+  // onde sai o consumo, o consumo por uso de cada ciclo e os registros de uso,
+  // que antes se chamavam `eventos`.
+  if (versao === 9) {
+    const f = estado.faturas ?? {};
+    const ciclo = (id, nome, recurso, fatura) => ({
+      id,
+      nome,
+      recurso,
+      ativa: fatura?.ativa !== false,
+      janela: fatura?.janela ?? null,
+      vencimento: null,
+      pagoPor: fatura?.pagoPor ?? null,
+      linhas: Array.isArray(fatura?.linhas) ? fatura.linhas : [],
+    });
+
+    const { faturas: _faturas, ...resto } = estado;
+
+    return migrar({
+      ...resto,
+      ciclos: [ciclo("luz", "Luz", "kwh", f.luz), ciclo("agua", "Água", "m3", f.agua)],
+      corte: null,
+      itens: (estado.itens ?? []).map((i) => {
+        if (!i || typeof i !== "object") return i;
+        const { unidade, kwhPorUso, m3PorUso, eventos, ...item } = i;
+        // Um item da v9 tem `unidade` e `kwhPorUso`; se ele já vier com os
+        // campos novos (um arquivo meio editado à mão), os novos ficam.
+        const temUnidade = unidade !== undefined;
+        const temPorUso = kwhPorUso !== undefined || m3PorUso !== undefined;
+        return {
+          ...item,
+          ciclo: temUnidade ? (unidade === "m3" ? "agua" : "luz") : (item.ciclo ?? "luz"),
+          porUsoPorCiclo: temPorUso
+            ? { luz: kwhPorUso ?? "", agua: m3PorUso ?? "" }
+            : (item.porUsoPorCiclo ?? { luz: "", agua: "" }),
+          ...(Array.isArray(eventos) ? { registrosDeUso: eventos } : {}),
+        };
+      }),
+    }, 10);
+  }
+
+  // v10 → v11: um aparelho pode puxar de mais de um ciclo (o chuveiro gasta
+  // luz e água). O consumo deixa de ser um número com um ciclo e vira uma
+  // tabela por ciclo, uma por jeito de medir. Item migrado ganha a escolha de
+  // ciclos livre: nada do que ele fazia some da tela. Conta só de valor criada
+  // na v10 dividia pela régua do uso comum, e continua assim ("comum"). O
+  // evento ganha o interruptor de evento longo, desligado.
+  if (versao === 10) {
+    return migrar({
+      ...estado,
+      eventoLongo: Boolean(estado.eventoLongo),
+      ciclos: (estado.ciclos ?? []).map((c) =>
+        c && c.recurso == null && !c.rateio ? { ...c, rateio: "comum" } : c,
+      ),
+      itens: (estado.itens ?? []).map((i) => {
+        if (!i || typeof i !== "object") return i;
+        const { ciclo, quantidade, porHora, ...item } = i;
+        const medido = i.especie === "consumo" || i.especie === "porHora";
+        const naTabela = (valor) => (medido && ciclo ? { [ciclo]: valor ?? "" } : {});
+        return {
+          ...item,
+          especies: medido ? ["consumo", "porHora"] : [i.especie],
+          ciclosLivres: medido || (i.especie === "porUso" && i.origemUso !== "reais"),
+          consumoPorCiclo: item.consumoPorCiclo ?? naTabela(quantidade),
+          porHoraPorCiclo: item.porHoraPorCiclo ?? naTabela(porHora),
+          porUsoPorCiclo: item.porUsoPorCiclo ?? {},
+        };
+      }),
+    }, 11);
   }
 
   return null;
 }
 
-function eventosDeDiasAntigos(item) {
+function registrosDeDiasAntigos(item) {
   const porPessoa = item.diasPorPessoa;
   if (!porPessoa || typeof porPessoa !== "object") return [];
 
-  const eventos = [];
+  const registros = [];
   for (const [id, dias] of Object.entries(porPessoa)) {
     if (!Array.isArray(dias)) continue;
     for (const data of dias) {
       if (typeof data === "string") {
-        eventos.push({ id: `ev-${id}-${data}`, data, quantidade: "1", participantes: [id] });
+        registros.push({ id: `ev-${id}-${data}`, data, quantidade: "1", participantes: [id] });
       }
     }
   }
 
-  return eventos.sort((a, b) => a.data.localeCompare(b.data));
+  return registros.sort((a, b) => a.data.localeCompare(b.data));
 }
 
 const soDatas = (v) => (Array.isArray(v) ? v.filter((d) => typeof d === "string") : undefined);
 
 export function sanear(estado) {
+  const modo = typeof estado.modo === "string" ? estado.modo : PADRAO;
+
+  // Preset ausente ou desconhecido vira Livre (`presetValido` com null), que
+  // mantém a régua visível e a calibragem gravada: um conjunto antigo abre
+  // exatamente como estava. Preset fechado manda na calibragem, para um
+  // arquivo editado à mão não esconder uma régua torta.
+  const preset = presetValido(modo, typeof estado.preset === "string" ? estado.preset : null);
+  const fixa = calibragemFixa({ modo, preset });
+
   return {
     ...estado,
-    modo: typeof estado.modo === "string" ? estado.modo : PADRAO,
+    modo,
+    preset,
+    ...(fixa === null ? {} : { calibragem: fixa }),
     quemCede: typeof estado.quemCede === "string" ? estado.quemCede : null,
+    // O corte é um período { de, ate } escolhido pelo grupo; da v11 pode vir
+    // ainda como um dia do mês, que continua valendo.
+    corte: corteValido(estado.corte)
+      ? typeof estado.corte === "object"
+        ? { de: estado.corte.de, ate: estado.corte.ate }
+        : estado.corte
+      : null,
+    eventoLongo: Boolean(estado.eventoLongo),
+    ciclos: estado.ciclos.filter(Boolean).map((c, i) => ({
+      ...c,
+      id: typeof c.id === "string" && c.id ? c.id : `c-sem-id-${i}`,
+      nome: typeof c.nome === "string" ? c.nome : "",
+      recurso: RECURSOS[c.recurso] ? c.recurso : null,
+      ativa: c.ativa !== false,
+      janela: c.janela && typeof c.janela === "object" ? c.janela : null,
+      vencimento: typeof c.vencimento === "string" ? c.vencimento : null,
+      pagoPor: typeof c.pagoPor === "string" ? c.pagoPor : null,
+      linhas: Array.isArray(c.linhas) ? c.linhas.filter(Boolean) : [],
+      // Só conta só de valor tem regra própria; sem regra válida, segue a régua.
+      ...(RECURSOS[c.recurso]
+        ? {}
+        : {
+            rateio: REGRAS_DO_CICLO.includes(c.rateio) ? c.rateio : "comum",
+            porcentagens: c.porcentagens && typeof c.porcentagens === "object" ? c.porcentagens : {},
+          }),
+    })),
     moradores: estado.moradores.filter(Boolean).map((m) => ({
       ...m,
       nome: typeof m.nome === "string" ? m.nome : "",
@@ -531,28 +698,35 @@ export function sanear(estado) {
       ate: typeof i.data === "string" && typeof i.ate === "string" ? i.ate : null,
       usosPorPessoa:
         i.usosPorPessoa && typeof i.usosPorPessoa === "object" ? i.usosPorPessoa : {},
-      eventos: Array.isArray(i.eventos) ? i.eventos : eventosDeDiasAntigos(i),
+      especies: Array.isArray(i.especies) && i.especies.length > 0 ? i.especies : especiesDe(i),
+      ciclosLivres: Boolean(i.ciclosLivres),
+      consumoPorCiclo: tabela(i.consumoPorCiclo),
+      porHoraPorCiclo: tabela(i.porHoraPorCiclo),
+      porUsoPorCiclo: tabela(i.porUsoPorCiclo),
+      registrosDeUso: Array.isArray(i.registrosDeUso) ? i.registrosDeUso : registrosDeDiasAntigos(i),
       rateios: Array.isArray(i.rateios) ? i.rateios : ["igual", "dias", "uso"],
     })),
   };
 }
 
-function pareceUmaCasa(estado) {
+function pareceUmConjunto(estado) {
   return Boolean(
     estado &&
       typeof estado === "object" &&
       estado.periodo &&
       typeof estado.periodo.mes === "number" &&
       typeof estado.periodo.ano === "number" &&
-      estado.faturas &&
-      typeof estado.faturas === "object" &&
-      estado.faturas.luz &&
-      Array.isArray(estado.faturas.luz.linhas) &&
-      estado.faturas.agua &&
-      Array.isArray(estado.faturas.agua.linhas) &&
+      Array.isArray(estado.ciclos) &&
+      estado.ciclos.every((c) => !c || Array.isArray(c.linhas)) &&
       Array.isArray(estado.moradores) &&
       Array.isArray(estado.itens),
   );
 }
 
-export { pareceUmaCasa };
+export { pareceUmConjunto };
+
+/**
+ * A migração do estado, exposta para os testes: um conjunto escrito numa
+ * versão antiga sobe para a atual exatamente como subiria ao ser aberto.
+ */
+export const migrarEstado = (estado, versao) => migrar(estado, versao);

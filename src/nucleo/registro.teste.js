@@ -1,25 +1,27 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { comContasLigadas } from "./teste/conjuntoAntigo.js";
+import { cicloPorId } from "./ciclos.js";
 import { calcular } from "./adaptador.js";
 import { dadosDoRelatorio, montarRelatorio } from "./relatorio.js";
 import { estadoInicial } from "./estadoInicial.js";
 
 const casa = ({ quemCede = null } = {}) => {
-  const e = estadoInicial("moradia", 3);
+  const e = comContasLigadas(estadoInicial("moradia", 3));
   e.periodo = { mes: 6, ano: 2026 };
   e.moradores.forEach((m, i) => { m.nome = ["Ana", "Bruno", "Carla"][i]; });
   const ids = e.moradores.map((m) => m.id);
 
-  e.faturas.luz.janela = { de: "2026-06-01", ate: "2026-07-01" };
-  e.faturas.luz.pagoPor = ids[0];
-  e.faturas.luz.linhas = [
+  cicloPorId(e, "luz").janela = { de: "2026-06-01", ate: "2026-07-01" };
+  cicloPorId(e, "luz").pagoPor = ids[0];
+  cicloPorId(e, "luz").linhas = [
     { id: "l1", nome: "Energia", quantidade: "300", valor: "268,40", comportamento: "consumo" },
   ];
-  e.faturas.agua.ativa = false;
+  cicloPorId(e, "agua").ativa = false;
 
   const item = (id, nome, valor, pagoPor) => ({
     id, nome, especie: "reais", valor, rateio: "igual", rateios: ["igual"],
     usosPorPessoa: {}, porcentagens: {}, valores: {},
-    data: null, ate: null, pagoPor, eventos: [], participantes: ids,
+    data: null, ate: null, pagoPor, registrosDeUso: [], participantes: ids,
   });
 
   e.itens = [item("net", "Internet", "119,90", ids[2]), item("gas", "Gás", "110,00", null)];

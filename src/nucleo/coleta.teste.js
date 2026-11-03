@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { deDuasFaturas } from "./teste/conjuntoAntigo.js";
 import { montarMensagemDeColeta } from "./coleta.js";
 import { criarItem, modeloPorChave } from "./catalogo.js";
 
@@ -10,21 +11,26 @@ const MORADORES = [
 
 const IDS = MORADORES.map((m) => m.id);
 
+// O consumo mora na quantidade da linha, como no app desde a v4. (Este
+// fixture guardava num campo `consumo` da fatura que o app não grava mais, e a
+// mensagem lia de lá: numa conta real, ela sempre pedia o consumo de novo.)
 const fatura = (unidade, consumo, valor) => ({
   unidade,
-  consumo,
-  linhas: [{ id: `l${unidade}`, nome: "Tarifa", valor, comportamento: "consumo" }],
+  linhas: [{ id: `l${unidade}`, nome: "Tarifa", quantidade: consumo, valor, comportamento: "consumo" }],
 });
 
 const FATURAS_CHEIAS = { luz: fatura("kwh", "400", "360"), agua: fatura("m3", "20", "180") };
 const FATURAS_VAZIAS = { luz: fatura("kwh", "", ""), agua: fatura("m3", "", "") };
 
-const casa = ({ itens = [], moradores = MORADORES, faturas = FATURAS_CHEIAS } = {}) => ({
+const casaAntiga = ({ itens = [], moradores = MORADORES, faturas = FATURAS_CHEIAS } = {}) => ({
   periodo: { mes: 8, ano: 2026 },
   faturas,
   moradores,
   itens,
 });
+
+// Escrito com faturas luz/água (v9): passa pela migração real. Ver teste/conjuntoAntigo.js.
+const casa = (...a) => deDuasFaturas(casaAntiga(...a));
 
 const item = (chave, campos = {}) => ({
   ...criarItem(modeloPorChave(chave), IDS),
@@ -57,7 +63,7 @@ describe("cabeçalho", () => {
   });
 
   it("avisa quando não há morador para perguntar", () => {
-    expect(montarMensagemDeColeta(casa({ moradores: [] }))).toContain("Nenhum morador cadastrado");
+    expect(montarMensagemDeColeta(casa({ moradores: [] }))).toContain("Nenhuma pessoa cadastrada");
   });
 });
 
@@ -104,7 +110,7 @@ describe("seção do que já está lançado", () => {
   });
 
   it("escreve consumo com vírgula decimal", () => {
-    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { quantidade: "124.5" })] }));
+    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { consumoPorCiclo: { luz: "124.5" } })] }));
     expect(lancado(m)).toContain("Geladeira: 124,5 kWh");
   });
 
@@ -176,17 +182,17 @@ describe("seção do que falta", () => {
   });
 
   it("sem item por uso, não pergunta sobre usos individuais", () => {
-    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { quantidade: "124.5" })] }));
+    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { consumoPorCiclo: { luz: "124.5" } })] }));
     expect(m).not.toContain("quantos usos foram seus");
   });
 
   it("com ar-condicionado sem horas, pergunta as horas à casa", () => {
-    const m = montarMensagemDeColeta(casa({ itens: [item("ar", { porHora: "1.2", horas: "" })] }));
+    const m = montarMensagemDeColeta(casa({ itens: [item("ar", { porHoraPorCiclo: { luz: "1.2" }, horas: "" })] }));
     expect(falta(m)).toContain("Ar-condicionado: quantas horas ficou ligado no mês");
   });
 
   it("não pergunta o que já está preenchido", () => {
-    const m = montarMensagemDeColeta(casa({ itens: [item("ar", { porHora: "1.2", horas: "90" })] }));
+    const m = montarMensagemDeColeta(casa({ itens: [item("ar", { porHoraPorCiclo: { luz: "1.2" }, horas: "90" })] }));
     expect(m).not.toContain("quantas horas ficou ligado");
   });
 
@@ -204,7 +210,7 @@ describe("seção do que falta", () => {
 
   it("ignora item sem ninguém marcado", () => {
     const m = montarMensagemDeColeta(
-      casa({ itens: [item("ar", { porHora: "1.2", horas: "", participantes: [] })] }),
+      casa({ itens: [item("ar", { porHoraPorCiclo: { luz: "1.2" }, horas: "", participantes: [] })] }),
     );
     expect(m).not.toContain("Ar-condicionado");
   });
@@ -213,13 +219,13 @@ describe("seção do que falta", () => {
 describe("itens que não são de todo mundo", () => {
   it("diz de quem é o item quando o grupo é parcial", () => {
     const m = montarMensagemDeColeta(
-      casa({ itens: [item("ar", { porHora: "1.2", horas: "90", participantes: ["m0", "m1"] })] }),
+      casa({ itens: [item("ar", { porHoraPorCiclo: { luz: "1.2" }, horas: "90", participantes: ["m0", "m1"] })] }),
     );
     expect(m).toContain("Ar-condicionado é só de Ana e Bia.");
   });
 
   it("não diz nada quando o item é da casa inteira", () => {
-    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { quantidade: "124.5" })] }));
+    const m = montarMensagemDeColeta(casa({ itens: [item("geladeira", { consumoPorCiclo: { luz: "124.5" } })] }));
     expect(m).not.toContain("é só de");
   });
 });
@@ -229,7 +235,7 @@ describe("forma da mensagem", () => {
     const m = montarMensagemDeColeta(
       casa({
         itens: [
-          item("geladeira", { quantidade: "124.5" }),
+          item("geladeira", { consumoPorCiclo: { luz: "124.5" } }),
           item("maquina", { kwhPorUso: "0.46", m3PorUso: "0.188", rateio: "uso" }),
           item("faxina", { valorPorUso: "90", usos: "4" }),
           item("gas", { valor: "130" }),

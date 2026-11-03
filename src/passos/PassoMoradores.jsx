@@ -7,11 +7,15 @@ import {
   ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
 import { corDe } from "../nucleo/formato.js";
+import { presetDe } from "../nucleo/modos.js";
+import { ciclosLigados, nomeNaFrase } from "../nucleo/ciclos.js";
+import EscolhaDePreset from "./EscolhaDePreset.jsx";
 import {
   datasMarcadas,
   diasContadosNaFatura,
   janelaDaFatura,
 } from "../nucleo/adaptador.js";
+import { mostra } from "./secoes.js";
 
 const diaCurto = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
@@ -32,26 +36,26 @@ const VOCABULARIO = {
     janela: (de, ate) => (
       <>
         Os dias fora valem de <strong>{de}</strong> a <strong>{ate}</strong>, que é o
-        que as duas faturas cobrem juntas.
+        que as contas e o período cobrem juntos.
       </>
     ),
   },
   presenca: {
     acao: "Marcar estadia",
     contado: (n) => `Marcar estadia (${n} ${n === 1 ? "dia" : "dias"})`,
-    etiqueta: (quem) => `Dias de ${quem} na propriedade`,
+    etiqueta: (quem, lugar = "no espaço") => `Dias de ${quem} ${lugar}`,
     tirar: (trecho, quem) => `Tirar ${trecho} da estadia de ${quem}`,
     janela: (de, ate) => (
       <>
         As estadias valem de <strong>{de}</strong> a <strong>{ate}</strong>, que é o
-        que as duas faturas cobrem juntas. Quem não tem dia marcado conta zero, e
+        que as contas e o período cobrem juntos. Quem não tem dia marcado conta zero, e
         o que ninguém usou continua sendo de todos.
       </>
     ),
   },
 };
 
-export default function PassoMoradores({ estado, acoes, modo }) {
+export default function PassoMoradores({ estado, acoes, modo, secao }) {
   const { moradores } = estado;
 
   const polaridade = modo.presenca;
@@ -59,12 +63,15 @@ export default function PassoMoradores({ estado, acoes, modo }) {
   const palavras = modo.palavras;
   const fala = VOCABULARIO[polaridade] ?? VOCABULARIO.ausencia;
 
-  const limite = janelaTotal(estado.faturas, estado.periodo);
+  const limite = janelaTotal(estado.ciclos, estado.periodo, estado.corte);
+  // Uma coluna de dias por conta ligada.
+  const ligados = ciclosLigados(estado);
 
   const nomeDe = (m, i) => m.nome || `${palavras.Pessoas.slice(0, -2)} ${i + 1}`;
 
   return (
     <div className="coluna">
+      {mostra(secao, "pessoas") && (
       <Ficha>
         <Titulo>
           {/* A ajuda fala de dias fora e dias de estadia. Num evento não há
@@ -124,12 +131,14 @@ export default function PassoMoradores({ estado, acoes, modo }) {
         {moradores.length === 0 ? (
           <p className="vazio">{palavras.semPessoas}</p>
         ) : (
-          <div className="lista-moradores">
+          <div
+            className="lista-moradores"
+            style={{ "--colunas-de-dias": contaDias ? Math.max(1, ligados.length) : 0 }}
+          >
             <div className="cabeca-tabela">
               <span />
               <Rotulo>Nome</Rotulo>
-              {contaDias && <Rotulo>Dias luz</Rotulo>}
-              {contaDias && <Rotulo>Dias água</Rotulo>}
+              {contaDias && ligados.map((c) => <Rotulo key={c.id}>Dias {nomeNaFrase(c)}</Rotulo>)}
             </div>
 
             {moradores.map((m, i) => {
@@ -148,20 +157,13 @@ export default function PassoMoradores({ estado, acoes, modo }) {
 
                   {contaDias && (
                     <div className="morador-numeros">
-                      <span className="dias-contados">
-                        <span className="rotulo rotulo-solto">Dias luz</span>
-                        {diasContadosNaFatura(m, estado.faturas.luz, estado.periodo, polaridade)}
-                        <em>
-                          de {diasDaJanela(janelaDaFatura(estado.faturas.luz, estado.periodo))}
-                        </em>
-                      </span>
-                      <span className="dias-contados">
-                        <span className="rotulo rotulo-solto">Dias água</span>
-                        {diasContadosNaFatura(m, estado.faturas.agua, estado.periodo, polaridade)}
-                        <em>
-                          de {diasDaJanela(janelaDaFatura(estado.faturas.agua, estado.periodo))}
-                        </em>
-                      </span>
+                      {ligados.map((c) => (
+                        <span className="dias-contados" key={c.id}>
+                          <span className="rotulo rotulo-solto">Dias {nomeNaFrase(c)}</span>
+                          {diasContadosNaFatura(m, c, estado.periodo, polaridade)}
+                          <em>de {diasDaJanela(janelaDaFatura(c, estado.periodo))}</em>
+                        </span>
+                      ))}
                     </div>
                   )}
 
@@ -181,6 +183,22 @@ export default function PassoMoradores({ estado, acoes, modo }) {
           </div>
         )}
       </Ficha>
+      )}
+
+      {/* A configuração da casa mora aqui, junto de quem mora. Só a República
+          tem presets; nos outros modos este cartão não existe. */}
+      {presetDe(estado) && mostra(secao, "preset") && (
+        <Ficha>
+          <Titulo nota="Vale para todos os fechamentos deste conjunto. Trocar de preset pode desfazer a escolha de quem cede.">
+            Como a república divide o uso comum
+          </Titulo>
+          <EscolhaDePreset
+            modo={estado.modo}
+            valor={presetDe(estado).chave}
+            aoMudar={acoes.definirPreset}
+          />
+        </Ficha>
+      )}
     </div>
   );
 }

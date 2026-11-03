@@ -6,23 +6,21 @@
 // (a regra "por uso" usa os usos de cada um como peso).
 //
 // Uso é genérico: a máquina de lavar é só o caso mais comum. Quando os usos
-// têm data, a tela já os separou por ciclo (`usosLuz`, `usosAgua`); um uso que
-// caiu fora do ciclo da luz não entra na conta de luz, e é isso que impede
-// contar a mesma lavagem em duas faturas.
+// têm data, a tela já os separou por ciclo (`usosPorCiclo`); um uso que caiu
+// fora do ciclo da luz não entra na conta de luz, e é isso que impede contar
+// a mesma lavagem em duas faturas.
 
 import type { Item, MoradorId, Mundo } from "./tipos.ts";
 
-/** Os usos de cada participante que valem para este recurso. */
+/** Os usos de cada participante que valem para este ciclo (`null` = o período). */
 export function usosPorPessoa(item: Item, mundo: Mundo = null): Record<MoradorId, number> {
   if (item.rateio.tipo !== "uso" && item.rateio.tipo !== "horas") return {};
 
-  const datados =
-    mundo === "luz" ? item.rateio.usosLuz : mundo === "agua" ? item.rateio.usosAgua : undefined;
-
+  const datados = mundo === null ? undefined : item.rateio.usosPorCiclo?.[mundo];
   return datados ?? item.rateio.usos;
 }
 
-/** Quantos usos o item teve, no ciclo deste recurso. */
+/** Quantos usos o item teve, no ciclo pedido (`null` = o período). */
 export function usosTotaisDe(item: Item, mundo: Mundo = null): number {
   if (item.custo.tipo !== "porUso") return 0;
 
@@ -33,16 +31,11 @@ export function usosTotaisDe(item: Item, mundo: Mundo = null): number {
   }
 
   // Quem divide de outro jeito informou só o total.
-  const datado =
-    mundo === "luz"
-      ? item.custo.usosTotaisLuz
-      : mundo === "agua"
-        ? item.custo.usosTotaisAgua
-        : undefined;
+  const datado = mundo === null ? undefined : item.custo.usosTotaisPorCiclo?.[mundo];
   return datado ?? item.custo.usosTotais ?? 0;
 }
 
 /** Os usos deste item vieram com data, separados por ciclo? */
 export const usosSeparadosPorCiclo = (item: Item): boolean =>
   (item.rateio.tipo === "uso" || item.rateio.tipo === "horas") &&
-  Boolean(item.rateio.usosLuz || item.rateio.usosAgua);
+  Object.keys(item.rateio.usosPorCiclo ?? {}).length > 0;

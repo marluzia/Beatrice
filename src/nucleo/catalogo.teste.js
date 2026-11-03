@@ -32,9 +32,9 @@ describe("o catálogo que cada modo vê", () => {
     }
   });
 
-  it("evento continua com o que precisa para um rolê", () => {
+  it("as categorias do evento são comida, bebida, transporte e outra despesa", () => {
     const chaves = catalogoDe(MODOS.evento).flatMap((g) => g.itens.map((i) => i.chave));
-    expect(chaves).toContain("outra");
+    expect(chaves).toEqual(["comida", "bebida", "transporte", "outra"]);
   });
 
   it("modo desconhecido não quebra: devolve o catálogo inteiro", () => {

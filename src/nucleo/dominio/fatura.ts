@@ -1,22 +1,23 @@
 // CRC: Fatura
 //
-// Responsabilidade: transformar uma conta de luz ou de água no que o resto do
-// domínio precisa dela   quanto custa cada unidade consumida, quanto é taxa
-// fixa e quanto é consumo.
+// Responsabilidade: transformar a conta de um ciclo no que o resto do domínio
+// precisa dela   quanto custa cada unidade consumida, quanto é taxa fixa e
+// quanto é consumo.
 // Colabora com: Custo (que usa a tarifa), Fechamento (que precisa do valor
 // total e das taxas para publicar).
 //
-// É o único lugar do domínio que conhece os nomes dos campos de cada fatura
-// (`luzKwh`, `aguaM3`...). Quem quer saber de uma fatura pergunta por ela aqui.
+// Serve para qualquer ciclo: luz em kWh, água ou gás em m³, e também um ciclo
+// só monetário (aluguel, condomínio), que não tem quantidade nem tarifa e cujo
+// valor fora das taxas vira uso comum inteiro.
 
-import type { Faturas, TaxaFixa } from "./tipos.ts";
+import type { CicloId, Fatura, Recurso, TaxaFixa } from "./tipos.ts";
 import { dividir, somar } from "./numeros.ts";
-
-export type QualFatura = "luz" | "agua";
 
 /** O que o domínio sabe de uma fatura depois de lê-la. */
 export interface FaturaMedida {
-  qual: QualFatura;
+  id: CicloId;
+  nome: string;
+  recurso: Recurso;
   /** O total da conta. */
   valor: number;
   /** Quanto foi consumido, em kWh ou m³. */
@@ -31,10 +32,12 @@ export interface FaturaMedida {
   tarifa: number;
 }
 
-const NOME_GENERICO: Record<QualFatura, string> = {
-  luz: "Taxas fixas da luz",
-  agua: "Taxas fixas da água",
-};
+/** O nome que uma taxa sem nome recebe: "Taxas fixas da luz", "Taxas fixas de Gás". */
+export function nomeGenericoDasTaxas(fatura: Pick<Fatura, "id" | "nome">): string {
+  if (fatura.id === "luz") return "Taxas fixas da luz";
+  if (fatura.id === "agua") return "Taxas fixas da água";
+  return `Taxas fixas de ${fatura.nome}`;
+}
 
 /**
  * As taxas numa forma só. Elas podem vir linha a linha, que é a forma atual,
@@ -66,32 +69,20 @@ export function recortarTaxas(lista: TaxaFixa[], valorDaFatura: number, veioDeLi
   return veioDeLista ? soma : Math.max(0, Math.min(valorDaFatura, soma));
 }
 
-function camposDe(faturas: Faturas, qual: QualFatura) {
-  return qual === "luz"
-    ? {
-        valor: faturas.luzValor,
-        quantidade: faturas.luzKwh,
-        lista: faturas.luzTaxas,
-        total: faturas.luzTaxasFixas,
-      }
-    : {
-        valor: faturas.aguaValor,
-        quantidade: faturas.aguaM3,
-        lista: faturas.aguaTaxas,
-        total: faturas.aguaTaxasFixas,
-      };
-}
-
 /** Lê uma fatura: separa taxa de consumo e acha a tarifa. */
-export function medirFatura(faturas: Faturas, qual: QualFatura): FaturaMedida {
-  const { valor, quantidade, lista, total } = camposDe(faturas, qual);
+export function medirFatura(fatura: Fatura): FaturaMedida {
+  const valor = fatura.valor;
+  // Ciclo sem recurso não tem o que medir, mesmo que alguém tenha escrito um número.
+  const quantidade = fatura.recurso === null ? 0 : fatura.quantidade;
 
-  const taxas = normalizarTaxas(lista, total, NOME_GENERICO[qual]);
-  const taxasCobradas = recortarTaxas(taxas, valor, Boolean(lista?.length));
+  const taxas = normalizarTaxas(fatura.taxas, fatura.taxasFixas, nomeGenericoDasTaxas(fatura));
+  const taxasCobradas = recortarTaxas(taxas, valor, Boolean(fatura.taxas?.length));
   const consumoEmReais = valor - taxasCobradas;
 
   return {
-    qual,
+    id: fatura.id,
+    nome: fatura.nome,
+    recurso: fatura.recurso,
     valor,
     quantidade,
     taxas,

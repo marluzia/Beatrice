@@ -1,19 +1,11 @@
 import { novoId } from "./formato.js";
+import { ciclosDeFabrica, novaLinha } from "./ciclos.js";
 import { criarItem, modeloPorChave } from "./catalogo.js";
-import { modoDe, PADRAO } from "./modos.js";
+import { modoDe, PADRAO, PRESETS_DA_REPUBLICA, presetValido } from "./modos.js";
 
-export function novaLinha(nome = "", comportamento = "consumo") {
-  return { id: novoId("l"), nome, quantidade: "", valor: "", comportamento };
-}
-
-export function faturaVazia(unidade, ativa = true) {
-  const linhas =
-    unidade === "kwh"
-      ? [novaLinha("Energia elétrica", "consumo"), novaLinha("Iluminação pública", "igual")]
-      : [novaLinha("Tarifa água", "consumo")];
-
-  return { unidade, ativa, janela: null, pagoPor: null, linhas };
-}
+// A linha de fatura mora em `ciclos.js`, com os ciclos; continua saindo daqui
+// para quem já importava deste arquivo.
+export { novaLinha };
 
 export function novaPessoa() {
   return { id: novoId("m"), nome: "", diasFora: "", ausencias: [], presencas: [] };
@@ -37,7 +29,7 @@ export function novaTarefa(data = null) {
  * faturas entram e como o uso comum divide; daqui para a frente é estado
  * comum, e o domínio não sabe de que modo ele veio.
  */
-export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
+export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas, chaveDoPreset) {
   // A assinatura já foi `estadoInicial(quantosMoradores)`. Quem chamar do jeito
   // antigo recebe o padrão com o número errado de pessoas e não descobre  
   // então aqui é erro, não tolerância.
@@ -59,17 +51,26 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
   const ids = moradores.map((m) => m.id);
   const hoje = new Date();
 
+  // Na República, o preset decide de onde a régua parte (e, nos fechados, onde
+  // ela fica). Nos outros modos `preset` é null e vale a calibragem do modo.
+  const preset = presetValido(modo.chave, chaveDoPreset);
+  const calibragem = preset ? PRESETS_DA_REPUBLICA[preset].calibragem : modo.calibragem;
+
   return {
     modo: modo.chave,
-    calibragem: modo.calibragem,
+    preset,
+    calibragem,
     // Quem fica com o centavo que a divisão não fecha. Null = ninguém decidiu
     // ainda, e o acerto usa um padrão declarado em vez de escolher calado.
     quemCede: null,
     periodo: { mes: hoje.getMonth() + 1, ano: hoje.getFullYear() },
-    faturas: {
-      luz: faturaVazia("kwh", modo.faturas),
-      agua: faturaVazia("m3", modo.faturas),
-    },
+    // Luz e água vêm de fábrica, desligadas: o grupo liga as contas que tem.
+    ciclos: ciclosDeFabrica(false),
+    // O dia do mês em que o período fecha. Null = ainda não escolhido: o
+    // período segue o primeiro ciclo ligado, como sempre seguiu a luz.
+    corte: null,
+    // Só o evento usa: um evento longo conta os dias de cada pessoa.
+    eventoLongo: false,
     moradores,
     tarefas: [],
     itens: modo.itens
@@ -80,28 +81,29 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas) {
 }
 
 /**
- * A mesma casa, um mês adiante: mantém quem mora e o que a casa tem, e limpa o
+ * O mesmo conjunto, um mês adiante: mantém quem mora e o que a casa tem, e limpa o
  * que é do mês que passou   valores das faturas, ciclos, dias fora e usos.
  * É o que a maioria dos clientes quer quando diz "quero refazer no mês que vem".
  */
 export function proximoMes(estado) {
+  // O corte fica: é uma regra do conjunto, não do mês.
   const { mes, ano } = estado.periodo;
   const seguinte = mes === 12 ? { mes: 1, ano: ano + 1 } : { mes: mes + 1, ano };
 
-  const limparFatura = (fatura) => ({
-    ...fatura,
+  // O ciclo continua existindo, ligado ou não, com as mesmas linhas: só os
+  // números, as datas e quem pagou são do mês que passou.
+  const limparCiclo = (ciclo) => ({
+    ...ciclo,
     janela: null,
+    vencimento: null,
     pagoPor: null,
-    linhas: (fatura.linhas ?? []).map((l) => ({ ...l, quantidade: "", valor: "" })),
+    linhas: (ciclo.linhas ?? []).map((l) => ({ ...l, quantidade: "", valor: "" })),
   });
 
   return {
     ...estado,
     periodo: { ...estado.periodo, ...seguinte, dias: undefined },
-    faturas: {
-      luz: limparFatura(estado.faturas.luz),
-      agua: limparFatura(estado.faturas.agua),
-    },
+    ciclos: (estado.ciclos ?? []).map(limparCiclo),
     moradores: estado.moradores.map((m) => ({
       ...m,
       diasFora: "",
@@ -124,7 +126,7 @@ export function proximoMes(estado) {
       pagoPor: null,
       data: null,
       ate: null,
-      eventos: [],
+      registrosDeUso: [],
     })),
   };
 }

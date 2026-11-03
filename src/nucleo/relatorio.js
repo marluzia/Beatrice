@@ -2,7 +2,7 @@ import {
   consumoDaFatura,
   datasMarcadas,
   diasContadosNaFatura,
-  polaridadeDaCasa,
+  polaridadeDoConjunto,
   janelaDaFatura,
   itemParaMotor,
   lavagensForaDoCiclo,
@@ -11,8 +11,9 @@ import {
   valorDoConsumo,
 } from "./adaptador.js";
 import { consumoDe } from "./motor.ts";
-import { modoDe } from "./modos.js";
+import { modoDe, presetDe } from "./modos.js";
 import { diasDaJanela, faturaAtiva, janelaValida } from "./calendario.js";
+import { ciclosDe, ciclosLigados, ehMedido, nomeNaFrase, unidadeDoRecurso } from "./ciclos.js";
 import { historicoEmTexto } from "./agenda.js";
 import { acertoDe } from "./acerto.js";
 import { cessaoDe } from "./cessao.js";
@@ -22,7 +23,7 @@ const diaCurto = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : " ")
 
 /** Numa república marcam-se os dias fora; numa temporada, os dias de estadia. */
 const rotuloDasDatas = (estado) =>
-  polaridadeDaCasa(estado) === "presenca" ? "dias de estadia marcados" : "dias fora marcados";
+  polaridadeDoConjunto(estado) === "presenca" ? "dias de estadia marcados" : "dias fora marcados";
 
 const diaLongo = (iso) =>
   iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : " ";
@@ -32,159 +33,22 @@ const numero = (v, casas = 2) =>
 
 const regua = (texto) => `${texto}\n${"=".repeat(texto.length)}`;
 
-function blocoDasFaturas(estado) {
-  const linhas = [];
-
-  for (const [qual, nome, unidade] of [
-    ["luz", "LUZ", "kWh"],
-    ["agua", "ÁGUA", "m³"],
-  ]) {
-    const fatura = estado.faturas[qual];
-
-    if (!faturaAtiva(fatura)) {
-      linhas.push(`${nome}: fora deste fechamento`, "");
-      continue;
-    }
-
-    const janela = janelaDaFatura(fatura, estado.periodo);
-    const ciclo = janelaValida(fatura?.janela)
-      ? `${diaLongo(fatura.janela.de)} a ${diaLongo(fatura.janela.ate)}`
-      : "sem datas de leitura (vale o mês de referência)";
-
-    linhas.push(
-      `${nome}`,
-      `  ciclo: ${ciclo}   ${diasDaJanela(janela, estado.periodo)} dias`,
-      `  consumo: ${numero(consumoDaFatura(fatura))} ${unidade}`,
-      `  total da fatura: R$ ${reais(totalDaFatura(fatura))}`,
-      `  do total, acompanha o consumo: R$ ${reais(valorDoConsumo(fatura))}`,
-      `  preço efetivo: R$ ${numero(tarifaDaFatura(fatura), 6)} por ${unidade}`,
-      "  linhas lançadas:",
-    );
-
-    for (const linha of fatura.linhas ?? []) {
-      const quanto = linha.quantidade ? `${numero(linha.quantidade)} ${unidade}` : " ";
-      linhas.push(
-        `    ${(linha.nome || "sem nome").padEnd(34)} ${quanto.padStart(12)}  ` +
-          `R$ ${reais(Number(String(linha.valor).replace(",", ".")) || 0).padStart(10)}  ${linha.comportamento}`,
-      );
-    }
-
-    linhas.push("");
-  }
-
-  return linhas;
-}
-
-function blocoDaPessoa(estado, resultado, calculado, indice) {
-  const morador = estado.moradores.find((m) => m.id === calculado.moradorId) ?? {};
-  const nome = nomeOu(morador.nome, indice);
-  const ausencias = datasMarcadas(morador, polaridadeDaCasa(estado));
-
-  const linhas = [
-    regua(`${nome}   R$ ${reais(calculado.total)}`),
-    "",
-    "  presença",
-  ];
-
-  for (const [qual, rotulo] of [
-    ["luz", "luz"],
-    ["agua", "água"],
-  ]) {
-    const fatura = estado.faturas[qual];
-    if (!faturaAtiva(fatura)) continue;
-    const janela = janelaDaFatura(fatura, estado.periodo);
-    linhas.push(
-      `    dias contados na ${rotulo}: ${diasContadosNaFatura(morador, fatura, estado.periodo, polaridadeDaCasa(estado))}` +
-        ` de ${diasDaJanela(janela, estado.periodo)}`,
-    );
-  }
-
-  linhas.push(
-    `    ${rotuloDasDatas(estado)}: ${ausencias.length}` +
-      (ausencias.length > 0 ? ` (${ausencias.map(diaCurto).join(", ")})` : ""),
-    "",
-    "  de onde veio o valor",
-  );
-
-  for (const parcela of calculado.linhas) {
-    linhas.push(`    ${parcela.nome.padEnd(38)} R$ ${reais(parcela.valor).padStart(10)}`);
-  }
-
-  linhas.push(
-    "",
-    `    LUZ R$ ${reais(calculado.luz)} · ÁGUA R$ ${reais(calculado.agua)} · REAIS R$ ${reais(calculado.reais)}`,
-    "",
-    "  participação em cada item",
-  );
-
-  for (const item of resultado.itens) {
-    const fatia = item.fatias.find((f) => f.moradorId === calculado.moradorId);
-    if (!fatia) continue;
-
-    const doEstado = estado.itens.find((i) => i.id === item.id);
-    const detalhe = [];
-
-    if (doEstado?.rateio === "uso") {
-      const eventos = (doEstado.eventos ?? []).filter((ev) =>
-        (ev.participantes ?? []).includes(calculado.moradorId),
-      );
-      const usos = eventos.length
-        ? eventos
-            .map(
-              (ev) =>
-                `${diaCurto(ev.data)}${(ev.participantes ?? []).length > 1 ? " (dividido)" : ""}`,
-            )
-            .join(", ")
-        : `${numero(doEstado.usosPorPessoa?.[calculado.moradorId] ?? 0)} usos declarados`;
-      detalhe.push(`usos: ${usos}`);
-    }
-
-    if (doEstado?.rateio === "presenca" || doEstado?.rateio === "dias") {
-      detalhe.push(`divide por ${doEstado.rateio === "dias" ? "dias em casa" : "presença"}`);
-    }
-    if (doEstado?.rateio === "igual") detalhe.push("divide igual");
-
-    linhas.push(
-      `    ${item.nome.padEnd(30)} ${(numero(fatia.proporcao * 100, 1) + "%").padStart(7)}` +
-        `  R$ ${reais(fatia.total).padStart(10)}${detalhe.length ? `  · ${detalhe.join(" · ")}` : ""}`,
-    );
-  }
-
-  const minhas = lavagensForaDoCiclo(estado).filter((o) =>
-    (o.participantes ?? []).includes(calculado.moradorId),
-  );
-
-  if (minhas.length > 0) {
-    linhas.push("", "  !! LANÇAR NO PRÓXIMO FECHAMENTO");
-    for (const o of minhas) {
-      linhas.push(
-        `    ${o.item} em ${diaLongo(o.dia)}   a ${o.faltando === "luz" ? "energia" : "água"} ` +
-          (o.quando === "futuro"
-            ? "virá na próxima fatura e NÃO está cobrada aqui."
-            : "entrou na fatura anterior, já fechada, e não é cobrada de novo."),
-      );
-    }
-  }
-
-  linhas.push("");
-  return linhas;
-}
-
 export function dadosDoRelatorio(estado, resultado) {
   const { mes, ano } = estado.periodo;
   const calibragem = Math.round((Number(estado.calibragem) || 0) * 100);
 
-  const faturas = [
-    ["luz", "Luz", "kWh"],
-    ["agua", "Água", "m³"],
-  ].map(([qual, nome, unidade]) => {
-    const fatura = estado.faturas[qual];
-    if (!faturaAtiva(fatura)) return { nome, unidade, ativa: false };
+  const faturas = ciclosDe(estado).map((fatura) => {
+    const id = fatura.id;
+    const nome = fatura.nome || "Conta";
+    const unidade = unidadeDoRecurso(fatura.recurso);
+    if (!faturaAtiva(fatura)) return { id, nome, unidade, medido: ehMedido(fatura), ativa: false };
 
     const janela = janelaDaFatura(fatura, estado.periodo);
     return {
+      id,
       nome,
       unidade,
+      medido: ehMedido(fatura),
       ativa: true,
       ciclo: janelaValida(fatura?.janela)
         ? `${diaLongo(fatura.janela.de)} a ${diaLongo(fatura.janela.ate)}`
@@ -206,10 +70,9 @@ export function dadosDoRelatorio(estado, resultado) {
   // O consumo físico de cada item, antes de virar dinheiro. É o que permite
   // conferir o relatório contra a etiqueta do aparelho e contra a fatura: sem
   // os kWh, "Ar-condicionado R$ 180" é um número que a casa só pode aceitar.
-  const janelas = {
-    luz: janelaDaFatura(estado.faturas.luz, estado.periodo),
-    agua: janelaDaFatura(estado.faturas.agua, estado.periodo),
-  };
+  const janelas = Object.fromEntries(
+    ciclosLigados(estado).map((c) => [c.id, janelaDaFatura(c, estado.periodo)]),
+  );
 
   const itens = resultado.itens
     .map((item) => {
@@ -218,8 +81,12 @@ export function dadosDoRelatorio(estado, resultado) {
 
       const fisico = consumoDe(itemParaMotor(doEstado, janelas));
       const medidas = [];
-      if (fisico.kwh) medidas.push(`${numero(fisico.kwh, 2)} kWh`);
-      if (fisico.m3) medidas.push(`${numero(fisico.m3, 3)} m³`);
+      for (const [id, quantidade] of Object.entries(fisico.porCiclo)) {
+        const ciclo = ciclosDe(estado).find((c) => c.id === id);
+        if (!quantidade || !ehMedido(ciclo)) continue;
+        const casas = ciclo.recurso === "kwh" ? 2 : 3;
+        medidas.push(`${numero(quantidade, casas)} ${unidadeDoRecurso(ciclo.recurso)}`);
+      }
 
       return {
         nome: item.nome,
@@ -234,18 +101,13 @@ export function dadosDoRelatorio(estado, resultado) {
 
   const pessoas = resultado.moradores.map((calculado, indice) => {
     const morador = estado.moradores.find((m) => m.id === calculado.moradorId) ?? {};
-    const ausencias = datasMarcadas(morador, polaridadeDaCasa(estado));
+    const ausencias = datasMarcadas(morador, polaridadeDoConjunto(estado));
 
-    const presenca = [
-      ["luz", "luz"],
-      ["agua", "água"],
-    ]
-      .filter(([qual]) => faturaAtiva(estado.faturas[qual]))
-      .map(([qual, rotulo]) => {
-        const fatura = estado.faturas[qual];
+    const presenca = ciclosLigados(estado)
+      .map((fatura) => {
         return {
-          conta: rotulo,
-          contados: diasContadosNaFatura(morador, fatura, estado.periodo, polaridadeDaCasa(estado)),
+          conta: nomeNaFrase(fatura),
+          contados: diasContadosNaFatura(morador, fatura, estado.periodo, polaridadeDoConjunto(estado)),
           de: diasDaJanela(janelaDaFatura(fatura, estado.periodo), estado.periodo),
         };
       });
@@ -259,11 +121,11 @@ export function dadosDoRelatorio(estado, resultado) {
         let detalhe = "";
 
         if (doEstado?.rateio === "uso") {
-          const eventos = (doEstado.eventos ?? []).filter((ev) =>
+          const registros = (doEstado.registrosDeUso ?? []).filter((ev) =>
             (ev.participantes ?? []).includes(calculado.moradorId),
           );
-          detalhe = eventos.length
-            ? `usos: ${eventos
+          detalhe = registros.length
+            ? `usos: ${registros
                 .map(
                   (ev) =>
                     `${diaCurto(ev.data)}${(ev.participantes ?? []).length > 1 ? " (dividido)" : ""}`,
@@ -289,8 +151,11 @@ export function dadosDoRelatorio(estado, resultado) {
       presenca,
       ausencias,
       linhas: calculado.linhas,
-      luz: calculado.luz,
-      agua: calculado.agua,
+      /** Quanto a pessoa deve de cada ciclo ligado, na ordem do conjunto. */
+      porCiclo: ciclosLigados(estado).map((c) => ({
+        nome: c.nome || "Conta",
+        valor: calculado.porCiclo?.[c.id] ?? 0,
+      })),
       reais: calculado.reais,
       participacoes,
       pendencias: orfas.filter((o) =>
@@ -341,9 +206,11 @@ export function dadosDoRelatorio(estado, resultado) {
       nome: modo.nome,
       exemplo: modo.exemplo,
       // Numa república marcam-se os dias fora; numa temporada, os de estadia.
-      presenca: polaridadeDaCasa(estado) === "presenca" ? "estadia" : "ausência",
+      presenca: polaridadeDoConjunto(estado) === "presenca" ? "estadia" : "ausência",
     },
     calibragem,
+    /** O preset da República, quando há um: diz que a régua foi decidida de antemão. */
+    preset: presetDe(estado)?.nome ?? null,
     faturas,
     itens,
     pessoas,
@@ -387,7 +254,7 @@ export function dadosDoRelatorio(estado, resultado) {
               "a soma bate exatamente com o valor devido."
             : `A divisão não fecha em dinheiro por ${quantos} ` +
               `${quantos === 1 ? "centavo" : "centavos"} e ninguém assumiu a moeda ainda. ` +
-              "O fechamento está em aberto até a casa escolher quem cede.",
+              "O fechamento está em aberto até o grupo escolher quem cede.",
     },
     alertas: resultado.alertas,
   };
@@ -401,7 +268,7 @@ export function montarRelatorio(estado, resultado) {
     `Conjunto: ${d.tipo.nome}${d.tipo.exemplo ? ` (${d.tipo.exemplo})` : ""}`,
     `Presença marcada por ${d.tipo.presenca}`,
     `Gerado em ${d.geradoEm}`,
-    `Uso comum calibrado em ${d.calibragem}% por igual, ${100 - d.calibragem}% pelos dias em casa.`,
+    `${d.preset ? `${d.preset}: uso` : "Uso"} comum calibrado em ${d.calibragem}% por igual, ${100 - d.calibragem}% pelos dias em casa.`,
     "",
     regua("AS CONTAS"),
     "",
@@ -415,10 +282,17 @@ export function montarRelatorio(estado, resultado) {
     linhas.push(
       f.nome.toUpperCase(),
       `  ciclo: ${f.ciclo}   ${f.dias} dias`,
-      `  consumo: ${numero(f.consumo)} ${f.unidade}`,
-      `  total da fatura: R$ ${reais(f.total)}`,
-      `  do total, acompanha o consumo: R$ ${reais(f.consumoEmReais)}`,
-      `  preço efetivo: R$ ${numero(f.tarifa, 6)} por ${f.unidade}`,
+      ...(f.medido
+        ? [
+            `  consumo: ${numero(f.consumo)} ${f.unidade}`,
+            `  total da fatura: R$ ${reais(f.total)}`,
+            `  do total, acompanha o consumo: R$ ${reais(f.consumoEmReais)}`,
+            `  preço efetivo: R$ ${numero(f.tarifa, 6)} por ${f.unidade}`,
+          ]
+        : [
+            `  total da fatura: R$ ${reais(f.total)}`,
+            `  do total, vai para o uso comum: R$ ${reais(f.consumoEmReais)}`,
+          ]),
       "  linhas lançadas:",
     );
     for (const l of f.linhas) {
@@ -429,7 +303,7 @@ export function montarRelatorio(estado, resultado) {
     linhas.push("");
   }
 
-  linhas.push(regua("O QUE A CASA TEM"), "");
+  linhas.push(regua("O QUE O CONJUNTO GASTA"), "");
   for (const i of d.itens) {
     linhas.push(
       `  ${i.nome.padEnd(30)} ${(i.consumo || " ").padStart(18)}  ` +
@@ -463,7 +337,7 @@ export function montarRelatorio(estado, resultado) {
 
   if (d.acerto.emAberto) {
     linhas.push(
-      "  EM ABERTO: falta a casa decidir quem fica com o centavo que não fecha.",
+      "  EM ABERTO: falta o grupo decidir quem fica com o centavo que não fecha.",
       "  Enquanto isso o acerto não pode ser calculado.",
     );
   } else if (acerto.totalCentralizado === 0) {
@@ -526,7 +400,7 @@ export function montarRelatorio(estado, resultado) {
     }
     linhas.push(
       "",
-      `    LUZ R$ ${reais(p.luz)} · ÁGUA R$ ${reais(p.agua)} · REAIS R$ ${reais(p.reais)}`,
+      `    ${[...p.porCiclo.map((c) => `${c.nome.toUpperCase()} R$ ${reais(c.valor)}`), `REAIS R$ ${reais(p.reais)}`].join(" · ")}`,
       "",
       "  participação em cada item",
     );
@@ -540,7 +414,7 @@ export function montarRelatorio(estado, resultado) {
       linhas.push("", "  !! LANÇAR NO PRÓXIMO FECHAMENTO");
       for (const o of p.pendencias) {
         linhas.push(
-          `    ${o.item} em ${diaLongo(o.dia)}   a ${o.faltando === "luz" ? "energia" : "água"} ` +
+          `    ${o.item} em ${diaLongo(o.dia)}   a parte ${o.faltando === "luz" ? "de energia" : `de ${o.nomeDoCiclo}`} ` +
             (o.quando === "futuro"
               ? "virá na próxima fatura e NÃO está cobrada aqui."
               : "entrou na fatura anterior, já fechada, e não é cobrada de novo."),

@@ -1,3 +1,12 @@
+// Calendário: datas, janelas e os ciclos de leitura.
+//
+// Uma janela é um intervalo [de, ate): `ate` é a leitura que fecha o ciclo e
+// abre o seguinte, e por isso o dia dela não é contado aqui.
+//
+// As funções que olham os ciclos recebem a LISTA de ciclos do conjunto
+// (`estado.ciclos`). Só os ligados contam.
+
+import { doCiclo } from "./ciclos.js";
 
 const doisDigitos = (n) => String(n).padStart(2, "0");
 
@@ -84,32 +93,35 @@ export function faturaPronta(fatura, hoje) {
   return cicloValido(janela, hoje);
 }
 
-export function faltaNaFatura(fatura, nome, hoje) {
-  if (faturaPronta(fatura, hoje)) return null;
+export function faltaNaFatura(ciclo, hoje) {
+  if (faturaPronta(ciclo, hoje)) return null;
 
-  const janela = fatura?.janela ?? {};
+  const de = doCiclo(ciclo);
+  const janela = ciclo?.janela ?? {};
   if (!janela.de || !janela.ate) {
-    return `Falta a data ${janela.de ? "final" : "inicial"} do ciclo da ${nome}.`;
+    return `Falta a data ${janela.de ? "final" : "inicial"} do ciclo ${de}.`;
   }
   if (janela.de >= janela.ate) {
-    return `Na ${nome}, a leitura final precisa vir depois da inicial.`;
+    return `No ciclo ${de}, a leitura final precisa vir depois da inicial.`;
   }
   if (!dataPlausivel(janela.de, hoje) || !dataPlausivel(janela.ate, hoje)) {
-    return `As datas da ${nome} precisam ser de ${ANO_MINIMO} até ${anoMaximo(hoje)}.`;
+    return `As datas ${de} precisam ser de ${ANO_MINIMO} até ${anoMaximo(hoje)}.`;
   }
 
   const dias = distanciaEmDias(janela.de, janela.ate);
-  return `O ciclo da ${nome} deu ${dias} dias. Uma leitura de fatura fica entre ${LIMITES_DO_CICLO.minimo} e ${LIMITES_DO_CICLO.maximo}.`;
+  return `O ciclo ${de} deu ${dias} dias. Uma leitura de fatura fica entre ${LIMITES_DO_CICLO.minimo} e ${LIMITES_DO_CICLO.maximo}.`;
 }
 
-export function faltasDoFechamento(faturas, hoje) {
-  return [
-    faltaNaFatura(faturas?.luz, "luz", hoje),
-    faltaNaFatura(faturas?.agua, "água", hoje),
-  ].filter(Boolean);
+/** Os ciclos de uma lista que estão ligados. */
+export const ciclosAtivos = (ciclos) => (Array.isArray(ciclos) ? ciclos : []).filter(faturaAtiva);
+
+export function faltasDoFechamento(ciclos, hoje) {
+  return ciclosAtivos(ciclos)
+    .map((c) => faltaNaFatura(c, hoje))
+    .filter(Boolean);
 }
 
-export const fechamentoPronto = (faturas, hoje) => faltasDoFechamento(faturas, hoje).length === 0;
+export const fechamentoPronto = (ciclos, hoje) => faltasDoFechamento(ciclos, hoje).length === 0;
 
 export const janelaPreenchida = (janela) => Boolean(janela?.de) && Boolean(janela?.ate);
 
@@ -184,25 +196,127 @@ export function mesPredominante(janela) {
   return { mes, ano };
 }
 
-export function periodoDasFaturas(faturas, padrao) {
-  return (
-    mesPredominante(faturas?.luz?.janela) ?? mesPredominante(faturas?.agua?.janela) ?? padrao
-  );
+/**
+ * O mês de referência, lido dos ciclos: o mês em que caiu a maior parte do
+ * primeiro ciclo ligado que tem datas. Sem nenhum, fica o que já estava.
+ */
+export function periodoDasFaturas(ciclos, padrao) {
+  for (const c of ciclosAtivos(ciclos)) {
+    const mes = mesPredominante(c.janela);
+    if (mes) return mes;
+  }
+  return padrao;
 }
 
-export function janelaDoFechamento(faturas, periodo) {
-  const luz = faturas?.luz;
-  const agua = faturas?.agua;
-  if (faturaAtiva(luz) && cicloValido(luz.janela)) return luz.janela;
-  if (faturaAtiva(agua) && cicloValido(agua.janela)) return agua.janela;
-  return janelaDoMes(periodo);
+// ── o corte ────────────────────────────────────────────────────────────────
+//
+// O corte é o dia do mês em que o período fecha, como a data de fechamento do
+// cartão de crédito. Com corte no dia 22, o período de agosto vai de 23/07 a
+// 22/08, e o de setembro começa no dia seguinte: períodos seguidos encostam
+// um no outro, sem buraco e sem sobreposição. Mês que não tem o dia (corte
+// 31 em fevereiro) usa o último dia dele.
+
+export const LIMITE_DO_PERIODO = 40;
+
+/**
+ * O corte é válido? Ele pode ser o PERÍODO DE CORTE escolhido pelo grupo   uma
+ * janela `{ de, ate }`, com `ate` sendo o dia seguinte ao último   ou, em
+ * conjuntos da v11, um dia do mês de 1 a 31.
+ */
+export const corteValido = (corte) =>
+  (Number.isInteger(corte) && corte >= 1 && corte <= 31) ||
+  (Boolean(corte) && typeof corte === "object" && janelaValida(corte));
+
+/** O corte é um período escolhido (e não um dia do mês)? */
+export const corteEhPeriodo = (corte) => Boolean(corte) && typeof corte === "object" && janelaValida(corte);
+
+const diaDoCorteNoMes = ({ mes, ano }, corte) => diaISO(ano, mes, Math.min(corte, diasDoMes(mes, ano)));
+
+/** A janela do período que fecha no corte deste mês de referência. */
+export function janelaDoCorte(periodo, corte) {
+  if (corteEhPeriodo(corte)) return { de: corte.de, ate: corte.ate };
+  if (!corteValido(corte)) return janelaDoMes(periodo);
+  return {
+    de: somarDias(diaDoCorteNoMes(mesAnterior(periodo), corte), 1),
+    ate: somarDias(diaDoCorteNoMes(periodo, corte), 1),
+  };
 }
 
-export function janelaTotal(faturas, periodo) {
-  const janelas = [faturas?.luz, faturas?.agua]
-    .filter(faturaAtiva)
-    .map((f) => f.janela)
+/**
+ * A janela do fechamento.
+ *
+ *  · com corte  → o período de corte escolhido (ou, num conjunto antigo,
+ *                 do dia seguinte ao corte anterior até o corte deste mês);
+ *  · sem corte  → do começo do ciclo que começa primeiro ao fim do que
+ *                 termina por último, entre os ciclos ligados com datas;
+ *  · sem nada   → o mês de referência.
+ */
+export function janelaDoFechamento(ciclos, periodo, corte = null) {
+  if (corteValido(corte)) return janelaDoCorte(periodo, corte);
+  const janelas = ciclosAtivos(ciclos)
+    .map((c) => c.janela)
     .filter((j) => cicloValido(j));
+  if (janelas.length === 0) return janelaDoMes(periodo);
+  return {
+    de: janelas.map((j) => j.de).sort()[0],
+    ate: janelas.map((j) => j.ate).sort().pop(),
+  };
+}
+
+/** Até quantos dias antes do primeiro ciclo, e depois do último, o corte pode ir. */
+export const FOLGA_DO_CORTE = 30;
+
+/**
+ * Até onde o período de corte pode ir: o início, até 30 dias antes do começo
+ * do ciclo que começa primeiro; o fim, até 30 dias depois do fim do ciclo que
+ * termina por último. Sem ciclo ligado com datas, a referência é o mês.
+ * `ate` é exclusivo, como em toda janela.
+ */
+export function limitesDoCorte(ciclos, periodo) {
+  const base = janelaDoFechamento(ciclos, periodo, null);
+  return { de: somarDias(base.de, -FOLGA_DO_CORTE), ate: somarDias(base.ate, FOLGA_DO_CORTE) };
+}
+
+/**
+ * Um período de corte trazido para dentro dos limites: o início não vai antes
+ * do primeiro dia permitido, nem o fim depois do último. Devolve null se, depois
+ * de ajustado, não sobrar pelo menos um dia.
+ */
+export function corteNosLimites(janela, limites) {
+  if (!janelaValida(janela)) return null;
+  const de = janela.de < limites.de ? limites.de : janela.de;
+  const ate = janela.ate > limites.ate ? limites.ate : janela.ate;
+  return de < ate ? { de, ate } : null;
+}
+
+/** O mês em que caiu a maior parte de uma janela qualquer (sem limite de tamanho). */
+export function mesDaMaiorParte(janela) {
+  if (!janelaValida(janela)) return null;
+  const dias = {};
+  const total = distanciaEmDias(janela.de, janela.ate);
+  for (let i = 0; i < total; i++) {
+    const p = partesDoDia(somarDias(janela.de, i));
+    const chave = `${p.ano}-${p.mes}`;
+    dias[chave] = (dias[chave] ?? 0) + 1;
+  }
+  const [vencedor] = Object.entries(dias).sort((a, b) => b[1] - a[1]);
+  if (!vencedor) return null;
+  const [ano, mes] = vencedor[0].split("-").map(Number);
+  return { mes, ano };
+}
+
+const janelasValidas = (ciclos) =>
+  ciclosAtivos(ciclos)
+    .map((c) => c.janela)
+    .filter((j) => cicloValido(j));
+
+/**
+ * Da data mais cedo à mais tarde que algum ciclo ligado cobre   e o período
+ * do corte, quando há corte. É onde faz sentido marcar presença e usos.
+ */
+export function janelaTotal(ciclos, periodo, corte = null) {
+  const janelas = janelasValidas(ciclos);
+  if (corteValido(corte)) janelas.push(janelaDoCorte(periodo, corte));
   if (janelas.length === 0) return janelaDoMes(periodo);
 
   return {
@@ -217,27 +331,44 @@ export const mesDoDia = (iso) => (iso ?? "").slice(0, 7);
 
 export const chaveDoMes = ({ mes, ano }) => `${ano}-${String(mes).padStart(2, "0")}`;
 
-export function janelaComum(faturas, periodo) {
-  const janelas = [faturas?.luz, faturas?.agua]
-    .filter(faturaAtiva)
-    .map((f) => f.janela)
-    .filter((j) => cicloValido(j));
-
-  if (janelas.length < 2) return janelaTotal(faturas, periodo);
+/** O trecho que todos os ciclos ligados cobrem ao mesmo tempo, ou null se não há um. */
+export function janelaComum(ciclos, periodo) {
+  const janelas = janelasValidas(ciclos);
+  if (janelas.length < 2) return janelaTotal(ciclos, periodo);
 
   const de = janelas.map((j) => j.de).sort().pop();
   const ate = janelas.map((j) => j.ate).sort()[0];
   return de < ate ? { de, ate } : null;
 }
 
-export function diasSemSobreposicao(faturas, periodo) {
-  const total = janelaTotal(faturas, periodo);
-  const comum = janelaComum(faturas, periodo);
+/** Quantos dias são cobertos por algum ciclo, mas não por todos. */
+export function diasSemSobreposicao(ciclos, periodo) {
+  const total = janelaTotal(ciclos, periodo);
+  const comum = janelaComum(ciclos, periodo);
   return diasDaJanela(total, periodo) - (comum ? diasDaJanela(comum, periodo) : 0);
 }
 
-export function temCicloInvalido(faturas) {
-  return [faturas?.luz, faturas?.agua]
-    .filter(faturaAtiva)
-    .some((f) => janelaPreenchida(f.janela) && !cicloValido(f.janela));
+export function temCicloInvalido(ciclos) {
+  return ciclosAtivos(ciclos).some((c) => janelaPreenchida(c.janela) && !cicloValido(c.janela));
+}
+
+/**
+ * Os ciclos ligados cuja leitura final cai fora do período do corte. Um ciclo
+ * entra no período em que termina; se termina depois do corte, ele é do
+ * período seguinte, e se termina antes do começo, do anterior.
+ */
+export function ciclosForaDoCorte(ciclos, periodo, corte) {
+  if (!corteValido(corte)) return [];
+  const janela = janelaDoCorte(periodo, corte);
+  const ultimoDia = ultimoDiaDaJanela(janela);
+
+  return ciclosAtivos(ciclos)
+    .filter((c) => cicloValido(c.janela))
+    .map((c) => {
+      const fim = ultimoDiaDaJanela(c.janela);
+      if (fim > ultimoDia) return { ciclo: c, fim, quando: "seguinte" };
+      if (fim < janela.de) return { ciclo: c, fim, quando: "anterior" };
+      return null;
+    })
+    .filter(Boolean);
 }

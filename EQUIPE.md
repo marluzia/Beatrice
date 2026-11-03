@@ -28,8 +28,8 @@ cuidado, não como burocracia   e é uma das poucas coisas que nos separa de uma
 planilha qualquer.
 
 Os dados ficam no navegador de quem atendeu. Não há servidor, não há conta, não
-há login. Se você limpar os dados do site, as casas somem   por isso existe o
-botão **Baixar** no painel de casas. Para qualquer casa que você não possa
+há login. Se você limpar os dados do site, os conjuntos somem   por isso existe o
+botão **Baixar** no painel de conjuntos. Para qualquer conjunto que você não possa
 perder, baixe o arquivo e guarde.
 
 ### Mandar o conjunto para o cliente
@@ -99,24 +99,55 @@ perde linha de fatura.
 
 ## Passo 3   fechamento no app
 
-Abra a CEDER, **Criar casa**, e escolha o modo:
+Abra a CEDER, **Criar conjunto**, e escolha o modo:
 
 | modo | quando usar |
 | --- | --- |
 | Moradia compartilhada | república, coliving, alojamento, flat dividido |
 | Multipropriedade | casa de praia, chalé, lancha, imóvel de temporada |
 | Casa ou família | casal ou família, até 5 pessoas |
-| Evento | churrasco, viagem, carona   sem fatura e sem ciclo |
+| Evento | churrasco, viagem, carona, vaquinha   sem fatura e sem ciclo. Em Despesas, **Evento longo** liga a divisão por dias e o passo Calendário |
 
-O modo não muda o cálculo. Muda com o que a casa abre, e **como a tela pergunta
+O modo não muda o cálculo. Muda com o que o conjunto abre, e **como a tela pergunta
 a presença**: na moradia marcam-se os dias **fora**; na multipropriedade, os
 dias de **estadia**. Numa casa de temporada, quem não tem dia marcado conta
 zero, e isso é proposital.
 
-Dê um nome à casa que você reconheça daqui a um mês: `República da Serra  
+Dê um nome ao conjunto que você reconheça daqui a um mês: `República da Serra  
 setembro`, não `teste 3`.
 
 ### Os quatro passos, na ordem
+
+O programa sempre abre em **Meus conjuntos**. Abra o conjunto pela lista.
+
+No topo, as etapas aparecem numa linha com nós: cada nó tem o número da
+etapa e o nome fica em cima. O nó cheio é a etapa atual. A linha fica grudada
+no topo da tela, e embaixo dela vão as seções da etapa: cada etapa mostra uma
+seção por vez (nas Contas, **Faturas cíclicas** e depois **Período**), e
+**Continuar** passa para a seção seguinte antes de mudar de etapa. Tocar no
+nome de uma seção pula direto para ela.
+
+**Contas.** Em **Faturas cíclicas**, todas as contas começam desligadas. Toque
+em **Água** ou **Luz** para ligar e em **editar** para preencher. As faturas
+ligadas viram abas de fichário: uma folha aberta por vez, o que cabe bem no
+celular. Toda conta criada pelo grupo tem um **x** ao lado do editar para
+removê-la; água e luz não, só desligam. Dentro dela, na ordem: quem pagou, o período de
+leitura (as duas datas da fatura) e as linhas. Outra conta que chega todo
+mês   gás encanado, aluguel, condomínio, internet   entra em **+ Gás ou
+outras**: dê o nome e diga o que ela mede. **Só valor** pede o valor e como
+divide (igual, por dias, porcentagem ou régua do uso comum); **kWh** ou **m³**
+abrem como a fatura de luz ou de água, com linhas e **+ outra**. Até 8 contas.
+
+Em **Período**, a figura mostra os ciclos de cada conta ao longo do período,
+com uma linha preta tracejada marcando o começo e o fim dele. **Sem corte**, o
+período vai do ciclo que começa primeiro ao que termina por último. **Com
+período de corte**, o grupo diz o período analisado inteiro: digite início e
+fim, ou arraste as duas bolinhas da própria barra do período, que preenchem
+as datas sozinhas (até 40 dias). Arrastar sem corte liga o corte. O início
+vai até 30 dias antes do ciclo que começa primeiro e o fim até 30 dias depois
+do que termina por último. Uma conta que termina depois do corte aparece com
+aviso, porque é do período seguinte. O
+**vencimento** de cada conta é só registro.
 
 **Contas.** Lance as linhas da fatura como elas estão escritas. Para cada
 linha, escolha o comportamento:
@@ -133,7 +164,8 @@ branco**   aí vale o mês de referência inteiro. Meia data trava a tela de
 propósito, porque um ciclo pela metade gera contagem de dias que não vem de
 lugar nenhum e o erro só aparece três telas depois.
 
-**Moradores.** Quantas pessoas e os dias de cada uma, conforme o modo.
+**Pessoas.** Quantas pessoas e os dias de cada uma, conforme o modo. (Na
+tela, moradores, cotistas e participantes são todos "pessoas".)
 
 **Marque os dias no calendário, um a um**   não só o total. Com as datas, a
 divisão por presença passa a ser exata: o app sabe se duas viagens coincidiram.
@@ -145,6 +177,13 @@ coincidiram e R$ 116,67 se não.
 **Itens.** O que a casa tem que gasta luz ou água, e quem usa. Só o que for
 relevante: um chuveiro que todo mundo usa igual não muda o rateio; o
 ar-condicionado de um quarto muda muito.
+
+Os itens entram como pilha: o último adicionado fica logo abaixo da seção
+Adicionar. Os que saem da fatura e os que não saem ficam em seções separadas:
+**Continuar** passa de um grupo para o outro, e depois para a mensagem de
+coleta. No celular o nome do item fica em cima e os controles descem para a
+linha de baixo. Num evento, a seção **Duração** vem antes de **O que o conjunto
+gasta**.
 
 Os itens aparecem nas mesmas duas categorias da seção Adicionar: **sai do ciclo
 de faturas** (tem teto, porque sai de dentro da conta) e **independente do
@@ -187,9 +226,9 @@ pagador próprio**. Quem pagou aquilo foi quem pagou a conta de luz.
 Quando a divisão não fecha em dinheiro, alguém fica com a diferença. A seção
 **vem antes** de "quanto cada um deve", porque a escolha muda aqueles valores.
 
-Toque no nome de quem cede. Embaixo dos nomes há uma fileira de R, um por
-morador, na mesma ordem: o ponto   a moeda   acende no R de quem você marcou, e
-o valor muda na hora na seção de baixo.
+Toque na caixa de quem cede. Cada pessoa tem uma caixa com o nome e o R; só
+a caixa de quem cede troca para o R. (com o ponto, que é a moeda), e o valor
+muda na hora na seção de baixo.
 
 **O app não escolhe por ninguém.** Se a casa não decidir, a moeda fica sem dono,
 a soma do que cada um deve não bate com o devido (e a tela diz isso), e a seção
@@ -263,9 +302,9 @@ motor.
 
 ## Para o mês seguinte
 
-No painel de casas, **Próximo mês** copia a casa com as mesmas pessoas e os
+No painel de conjuntos, **Próximo mês** copia o conjunto com as mesmas pessoas e os
 mesmos itens, já virada para o mês seguinte e com os valores em branco. É o
-caminho normal para quem já testou e quer repetir   não crie casa nova.
+caminho normal para quem já testou e quer repetir   não crie conjunto novo.
 
 ---
 
@@ -277,7 +316,7 @@ motor detecta e avisa que aquela parte vem na próxima fatura. Não é erro:
 repita o mesmo dia no fechamento do mês seguinte.
 
 **Multipropriedade e custo fixo.** Condomínio, seguro, IPTU e marina não
-dependem de uso. Use o item **Propriedade** e divida por **porcentagem**,
+dependem de uso. Use o item **Espaço** e divida por **porcentagem**,
 escrevendo a fração de cada cotista: porcentagem é uma fração declarada por
 pessoa, que é exatamente o que uma cota é. Não existe uma regra chamada "cota"
 com esse nome, e não faz falta   mas **avise o cliente de que a fração é
@@ -297,8 +336,8 @@ relatório que é faixa.
 ## Quando algo está errado no cálculo
 
 Não conserte na mão nem ajuste o número no relatório. Abra uma **issue** no
-repositório com: o modo da casa, o que você lançou, o que o motor devolveu e o
-que você esperava. Se der, use o botão **Baixar** e anexe o arquivo da casa  
+repositório com: o modo do conjunto, o que você lançou, o que o motor devolveu e o
+que você esperava. Se der, use o botão **Baixar** e anexe o arquivo do conjunto  
 com ele, qualquer pessoa reproduz o caso exato.
 
 Relatório entregue com número ajustado na mão é o único jeito garantido de

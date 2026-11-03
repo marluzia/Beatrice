@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { deDuasFaturas } from "./teste/conjuntoAntigo.js";
 import { calcular, orfasDoItem } from "./adaptador.js";
 import { criarItem, modeloPorChave } from "./catalogo.js";
 
@@ -12,7 +13,7 @@ const maquina = (eventos) => ({
   eventos,
 });
 
-const casa = ({ luzAtiva = true, aguaAtiva = true, eventos = [] } = {}) => ({
+const casaAntiga = ({ luzAtiva = true, aguaAtiva = true, eventos = [] } = {}) => ({
   periodo: { mes: 8, ano: 2026 },
   faturas: {
     luz: {
@@ -36,30 +37,33 @@ const casa = ({ luzAtiva = true, aguaAtiva = true, eventos = [] } = {}) => ({
   itens: [maquina(eventos)],
 });
 
+// Escrito com faturas luz/água (v9): passa pela migração real. Ver teste/conjuntoAntigo.js.
+const casa = (...a) => deDuasFaturas(casaAntiga(...a));
+
 const USO_TARDIO = [{ id: "e1", data: "2026-09-01", quantidade: "1", participantes: ["m0"] }];
 
 describe("usos fora do ciclo", () => {
   it("com as duas faturas, acusa as duas", () => {
     const estado = casa({ eventos: USO_TARDIO });
-    const orfas = orfasDoItem(estado.itens[0], estado.faturas, estado.periodo);
+    const orfas = orfasDoItem(estado.itens[0], estado);
     expect(orfas.map((o) => o.faltando).sort()).toEqual(["agua", "luz"]);
   });
 
   it("com a água desligada, acusa só a luz", () => {
     const estado = casa({ aguaAtiva: false, eventos: USO_TARDIO });
-    const orfas = orfasDoItem(estado.itens[0], estado.faturas, estado.periodo);
+    const orfas = orfasDoItem(estado.itens[0], estado);
     expect(orfas.map((o) => o.faltando)).toEqual(["luz"]);
   });
 
   it("com a luz desligada, acusa só a água", () => {
     const estado = casa({ luzAtiva: false, eventos: USO_TARDIO });
-    const orfas = orfasDoItem(estado.itens[0], estado.faturas, estado.periodo);
+    const orfas = orfasDoItem(estado.itens[0], estado);
     expect(orfas.map((o) => o.faltando)).toEqual(["agua"]);
   });
 
   it("sem nenhuma fatura, não acusa nada", () => {
     const estado = casa({ luzAtiva: false, aguaAtiva: false, eventos: USO_TARDIO });
-    expect(orfasDoItem(estado.itens[0], estado.faturas, estado.periodo)).toEqual([]);
+    expect(orfasDoItem(estado.itens[0], estado)).toEqual([]);
   });
 
   it("o alerta do rateio some junto com a fatura desligada", () => {
@@ -73,13 +77,13 @@ describe("usos fora do ciclo", () => {
   it("uso dentro dos dois ciclos não gera aviso nenhum", () => {
     const dentro = [{ id: "e1", data: "2026-08-05", quantidade: "1", participantes: ["m0"] }];
     const estado = casa({ eventos: dentro });
-    expect(orfasDoItem(estado.itens[0], estado.faturas, estado.periodo)).toEqual([]);
+    expect(orfasDoItem(estado.itens[0], estado)).toEqual([]);
   });
 
   it("uso na folga entre os ciclos acusa só a fatura que não cobre", () => {
     const naFolga = [{ id: "e1", data: "2026-08-15", quantidade: "1", participantes: ["m0"] }];
     const estado = casa({ eventos: naFolga });
-    const orfas = orfasDoItem(estado.itens[0], estado.faturas, estado.periodo);
+    const orfas = orfasDoItem(estado.itens[0], estado);
     expect(orfas.map((o) => o.faltando)).toEqual(["agua"]);
     expect(orfas[0].quando).toBe("futuro");
   });

@@ -5,22 +5,22 @@
 // Colabora com: Uso (quantos usos houve), Custo (que multiplica pela tarifa).
 //
 // Uma lavagem é 0,8 kWh e 0,05 m³ qualquer que seja a tarifa do mês. Separar
-// as duas coisas é o que permite, um dia, mostrar a conta em m³ e não só em
+// as duas coisas é o que permite mostrar a conta em kWh e m³, e não só em
 // reais.
 
-import type { Item } from "./tipos.ts";
+import type { CicloId, Item } from "./tipos.ts";
 import { usosTotaisDe } from "./uso.ts";
 
 /**
- * O que um item consome. Cada campo só existe quando o item de fato passa por
- * aquele recurso: um item de água não tem `kwh`, nem mesmo zero.
+ * O que um item consome. `porCiclo` traz a quantidade física puxada de cada
+ * ciclo, na unidade dele; um ciclo que o item não toca não aparece, nem com
+ * zero.
  *
  * `reais` é o custo que já chega em dinheiro, sem grandeza física por trás:
  * uma despesa, ou um uso cobrado em reais.
  */
 export interface ConsumoDoItem {
-  kwh?: number;
-  m3?: number;
+  porCiclo: Record<CicloId, number>;
   reais?: number;
 }
 
@@ -28,31 +28,35 @@ export function consumoDeclaradoPorHora(custo: { porHora: number; horas: number 
   return custo.porHora * custo.horas;
 }
 
-const naUnidade = (unidade: "kwh" | "m3", quantidade: number): ConsumoDoItem =>
-  unidade === "kwh" ? { kwh: quantidade } : { m3: quantidade };
-
 export function consumoDe(item: Item): ConsumoDoItem {
   const { custo } = item;
 
   switch (custo.tipo) {
     case "consumo":
-      return naUnidade(custo.unidade, custo.quantidade);
+      return { porCiclo: { ...custo.porCiclo } };
 
-    case "porHora":
-      return naUnidade(custo.unidade, consumoDeclaradoPorHora(custo));
+    case "porHora": {
+      const porCiclo: Record<CicloId, number> = {};
+      for (const [ciclo, porHora] of Object.entries(custo.porCiclo)) {
+        porCiclo[ciclo] = consumoDeclaradoPorHora({ porHora, horas: custo.horas });
+      }
+      return { porCiclo };
+    }
 
-    case "porUso":
+    case "porUso": {
       if (custo.unitario.origem !== "fatura") {
-        return { reais: usosTotaisDe(item) * custo.unitario.valorPorUso };
+        return { porCiclo: {}, reais: usosTotaisDe(item) * custo.unitario.valorPorUso };
       }
       // Cada ciclo conta os seus usos: a lavagem que caiu fora do ciclo da
       // água não gasta água nesta fatura.
-      return {
-        kwh: usosTotaisDe(item, "luz") * custo.unitario.kwhPorUso,
-        m3: usosTotaisDe(item, "agua") * custo.unitario.m3PorUso,
-      };
+      const porCiclo: Record<CicloId, number> = {};
+      for (const [ciclo, porUso] of Object.entries(custo.unitario.porCiclo)) {
+        porCiclo[ciclo] = usosTotaisDe(item, ciclo) * porUso;
+      }
+      return { porCiclo };
+    }
 
     case "reais":
-      return { reais: custo.valor };
+      return { porCiclo: {}, reais: custo.valor };
   }
 }

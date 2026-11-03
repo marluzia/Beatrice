@@ -6,6 +6,9 @@ export default defineConfig({
 
   test: {
     environment: "jsdom",
+    // Os testes deste projeto se chamam *.teste.*, que o padrão do vitest
+    // (*.test.*) não pega.
+    include: ["src/**/*.teste.{js,jsx,ts,tsx}"],
   },
 
   base: "./",

@@ -20,7 +20,7 @@ export default function Apoio({ resultado }) {
 
   return (
     <Ficha>
-      <Titulo nota="A CEDER é desenvolvida por uma equipe de forma independente e continua em evolução. Se ela facilitou o fechamento das contas da sua casa, uma contribuição ajuda a manter o projeto de pé.">
+      <Titulo nota="A CEDER é desenvolvida por uma equipe de forma independente e continua em evolução. Se ela facilitou o fechamento das contas do seu grupo, uma contribuição ajuda a manter o projeto de pé.">
         Gostou da CEDER? 💖
       </Titulo>
 

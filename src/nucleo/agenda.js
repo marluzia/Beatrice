@@ -4,21 +4,23 @@
 // uma pertence a uma entidade diferente:
 //
 //   morador.ausencias[] / .presencas[]   os dias de quem mora
-//   item.eventos[]                       os usos com data (uma lavagem, um ciclo)
+//   item.registrosDeUso[]                os usos com data (uma lavagem)
 //   item.data                            a despesa avulsa, lançada num dia
 //   estado.tarefas[]                     o trabalho feito por quem mora
 //
-// Este arquivo é o único lugar que junta os quatro numa lista só. O calendário
-// usa isso para marcar os dias, e o histórico para contar o mês em ordem.
+// Este arquivo é o único lugar que junta os quatro numa lista só. Cada entrada
+// dela é uma MARCAÇÃO: algo que aconteceu num dia. ("Evento" é só o tipo de
+// conjunto.) O calendário usa a lista para marcar os dias, e o histórico para
+// contar o mês em ordem.
 //
 // Nada aqui calcula dinheiro. A agenda é uma leitura do estado; quem divide é
 // o motor, e ele continua recebendo o estado do mesmo jeito de antes.
 
 import { MESES, nomeOu, num, reais } from "./formato.js";
 import { partesDoDia } from "./calendario.js";
-import { polaridadeDe } from "./modos.js";
+import { modoDoConjunto, polaridadeDoConjuntoNoModo as polaridadeDe } from "./modos.js";
 
-/** As quatro naturezas de evento, na ordem em que aparecem num dia. */
+/** As quatro naturezas de marcação, na ordem em que aparecem num dia. */
 export const NATUREZAS = ["presenca", "uso", "despesa", "tarefa"];
 
 export const ROTULO_DA_NATUREZA = {
@@ -63,8 +65,9 @@ export const fimDoItem = (item) =>
  * origem (`moradorId`, `itemId`, `tarefaId`).
  */
 export function agendaDe(estado) {
-  const eventos = [];
-  const polaridade = polaridadeDe(estado.modo);
+  const marcacoes = [];
+  const polaridade = polaridadeDe(estado);
+  const lugar = modoDoConjunto(estado).palavras.noLugar ?? "no espaço";
   const campo = polaridade === "presenca" ? "presencas" : "ausencias";
 
   // 1. Os dias de cada morador.
@@ -73,14 +76,14 @@ export function agendaDe(estado) {
       const quem = nomeOu(m.nome, i);
       for (const dia of m[campo] ?? []) {
         if (!partesDoDia(dia)) continue;
-        eventos.push({
+        marcacoes.push({
           id: `p-${m.id}-${dia}`,
           natureza: "presenca",
           dia,
           moradorId: m.id,
           indice: i,
           titulo: quem,
-          detalhe: polaridade === "presenca" ? "esteve na propriedade" : "não dormiu em casa",
+          detalhe: polaridade === "presenca" ? `esteve ${lugar}` : "não dormiu em casa",
         });
       }
     });
@@ -88,10 +91,10 @@ export function agendaDe(estado) {
 
   for (const item of estado.itens ?? []) {
     // 2. Os usos com data.
-    for (const uso of item.eventos ?? []) {
+    for (const uso of item.registrosDeUso ?? []) {
       if (!partesDoDia(uso.data)) continue;
       const quantos = num(uso.quantidade) || 1;
-      eventos.push({
+      marcacoes.push({
         id: `u-${item.id}-${uso.id}`,
         natureza: "uso",
         dia: uso.data,
@@ -116,7 +119,7 @@ export function agendaDe(estado) {
       if (ate) partes.push(`até ${ate.slice(8, 10)}/${ate.slice(5, 7)}`);
       partes.push(listar(nomesDe(estado, item.participantes)));
 
-      eventos.push({
+      marcacoes.push({
         id: `d-${item.id}`,
         natureza: "despesa",
         dia: item.data,
@@ -131,7 +134,7 @@ export function agendaDe(estado) {
   // 4. As tarefas.
   for (const tarefa of estado.tarefas ?? []) {
     if (!partesDoDia(tarefa.data)) continue;
-    eventos.push({
+    marcacoes.push({
       id: `t-${tarefa.id}`,
       natureza: "tarefa",
       dia: tarefa.data,
@@ -142,17 +145,17 @@ export function agendaDe(estado) {
   }
 
   const ordem = (e) => NATUREZAS.indexOf(e.natureza);
-  return eventos.sort((a, b) => a.dia.localeCompare(b.dia) || ordem(a) - ordem(b));
+  return marcacoes.sort((a, b) => a.dia.localeCompare(b.dia) || ordem(a) - ordem(b));
 }
 
-/** A agenda agrupada por dia: { "2026-09-12": [evento, ...] }. */
+/** A agenda agrupada por dia: { "2026-09-12": [marcação, ...] }. */
 export function agendaPorDia(estado) {
   const mapa = {};
   for (const e of agendaDe(estado)) (mapa[e.dia] ??= []).push(e);
   return mapa;
 }
 
-/** Quantos eventos de cada natureza existem no conjunto. */
+/** Quantas marcações de cada natureza existem no conjunto. */
 export function contagemPorNatureza(estado) {
   const conta = Object.fromEntries(NATUREZAS.map((n) => [n, 0]));
   for (const e of agendaDe(estado)) conta[e.natureza] += 1;
@@ -177,7 +180,7 @@ export function historicoEmTexto(estado) {
 
   const rotulo = (e) =>
     e.natureza === "presenca"
-      ? ROTULO_DA_NATUREZA.presenca[polaridadeDe(estado.modo)]
+      ? ROTULO_DA_NATUREZA.presenca[polaridadeDe(estado)]
       : ROTULO_DA_NATUREZA[e.natureza];
 
   const linhas = [];

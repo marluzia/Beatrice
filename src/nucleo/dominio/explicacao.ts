@@ -9,7 +9,7 @@
 // Os textos dos avisos moram todos aqui. Nenhum outro arquivo do domínio
 // escreve frase para a tela.
 
-import type { Alerta, Item, Morador, MoradorId, TotalMorador } from "./tipos.ts";
+import type { Alerta, Item, Morador, MoradorId, Recurso, TotalMorador, Unidade } from "./tipos.ts";
 import type { DiasContados } from "./morador.ts";
 import type { ItemAlocado } from "./alocacao.ts";
 import { escrito, plural } from "./numeros.ts";
@@ -26,8 +26,7 @@ export function totaisEmBranco(moradores: Morador[], diasContados: DiasContados)
       moradorId: m.id,
       nome: m.nome,
       diasContados: diasContados[m.id],
-      luz: 0,
-      agua: 0,
+      porCiclo: {},
       reais: 0,
       total: 0,
       linhas: [],
@@ -44,8 +43,9 @@ export function lancarNosTotais(totais: Totais, nome: string, alocado: ItemAloca
     // Participante que não é morador da casa: a fatia existe, mas não há de quem cobrar.
     if (!alvo) continue;
 
-    alvo.luz += parcela.luz;
-    alvo.agua += parcela.agua;
+    for (const [ciclo, valor] of Object.entries(parcela.porCiclo)) {
+      alvo.porCiclo[ciclo] = (alvo.porCiclo[ciclo] ?? 0) + valor;
+    }
     alvo.reais += parcela.reais;
     alvo.total += parcela.total;
 
@@ -63,13 +63,21 @@ export const itensSemNinguem = (quantos: number): Alerta => ({
       : `${quantos} itens estão sem ninguém marcado e ficaram de fora do rateio.`,
 });
 
-export const consumoPassaDaFatura = (qual: "luz" | "agua", excesso: number): Alerta => ({
-  nivel: "erro",
-  texto:
-    qual === "luz"
+const NOME_DA_UNIDADE: Record<Unidade, string> = { kwh: "kWh", m3: "m³" };
+
+export const consumoPassaDaFatura = (
+  ciclo: { id: string; nome: string; recurso: Recurso },
+  excesso: number,
+): Alerta => {
+  const unidade = ciclo.recurso ? NOME_DA_UNIDADE[ciclo.recurso] : "";
+  const texto =
+    ciclo.id === "luz"
       ? `Os itens de consumo elétrico passam em R$ ${escrito(excesso)} o valor da fatura de luz. Revise os kWh informados.`
-      : `Os itens de consumo de água passam em R$ ${escrito(excesso)} o valor da fatura de água. Revise os m³ informados.`,
-});
+      : ciclo.id === "agua"
+        ? `Os itens de consumo de água passam em R$ ${escrito(excesso)} o valor da fatura de água. Revise os m³ informados.`
+        : `Os itens que saem de ${ciclo.nome} passam em R$ ${escrito(excesso)} o valor da fatura. Revise os ${unidade} informados.`;
+  return { nivel: "erro", texto };
+};
 
 export const ninguemEmCasa = (): Alerta => ({
   nivel: "aviso",
@@ -93,7 +101,7 @@ export const presencaSuposta = (item: Item): Alerta => ({
  * acontece mesmo assim   30 e 30 viram metade para cada um. O aviso existe
  * porque isso quase nunca é o que a pessoa quis dizer ao escrever 30 e 30.
  */
-export const porcentagemNaoFecha = (item: Item, soma: number): Alerta => ({
+export const porcentagemNaoFecha = (item: Pick<Item, "nome">, soma: number): Alerta => ({
   nivel: "aviso",
   texto:
     `As porcentagens de "${item.nome}" somam ${escrito(soma)}%, não 100%. ` +
@@ -120,9 +128,9 @@ export const valorNaoFecha = (item: Item, soma: number, custo: number): Alerta =
   };
 };
 
-export const casaSemMorador = (somaDevida: number): Alerta => ({
+export const conjuntoSemPessoa = (somaDevida: number): Alerta => ({
   nivel: "erro",
-  texto: `Há R$ ${escrito(somaDevida)} a dividir e nenhum morador cadastrado. Cadastre quem morou na casa no período para o rateio existir.`,
+  texto: `Há R$ ${escrito(somaDevida)} a dividir e nenhuma pessoa cadastrada. Cadastre quem participou do conjunto no período para o rateio existir.`,
 });
 
 export function centavosDeDiferenca(

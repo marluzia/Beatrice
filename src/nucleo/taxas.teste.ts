@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { calcular, conferir } from "./motor.ts";
-import type { Estado, Item, Morador } from "./motor.ts";
+import { conferir } from "./motor.ts";
+// Casos escritos com duas faturas (luz e água): ver teste/duasFaturas.ts.
+import { calcular } from "./teste/duasFaturas.ts";
+import type { Morador } from "./motor.ts";
+import type { ItemDeDuasFaturas as Item } from "./teste/duasFaturas.ts";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Estado = any;
 
 const moradores = (fora: number[]): Morador[] =>
   fora.map((diasFora, i) => ({ id: `m${i}`, nome: `Pessoa ${i + 1}`, diasFora }));

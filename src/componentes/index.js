@@ -14,3 +14,5 @@ export { default as Rotulo } from "./Rotulo.jsx";
 export { default as Segmentado } from "./Segmentado.jsx";
 export { default as Seletor } from "./Seletor.jsx";
 export { default as Titulo } from "./Titulo.jsx";
+export { default as SeletorDePessoas } from "./SeletorDePessoas.jsx";
+export { default as SimboloDoCiclo } from "./SimboloDoCiclo.jsx";

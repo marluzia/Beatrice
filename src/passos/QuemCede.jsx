@@ -1,4 +1,4 @@
-import { Ficha, MarcaR, Pastilha, Titulo } from "../componentes/index.js";
+import { Ficha, MarcaR, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
 import { fechouRedondo } from "../nucleo/cessao.js";
 
@@ -14,10 +14,9 @@ import { fechouRedondo } from "../nucleo/cessao.js";
  * seria a calculadora tomando a única decisão que o produto inteiro existe
  * para devolver à casa.
  *
- * A fileira de R embaixo é o estado da moeda, em desenho: quando a divisão
- * fecha redonda, são R simples, sem moeda nenhuma em jogo. Quando sobra ou
- * falta centavo, viram o R. sem o ponto   e o ponto acende no R da posição de
- * quem foi marcado.
+ * Cada pessoa é uma caixa com o nome e o R simples. Só a caixa de quem cede
+ * troca para o R. (o R com o ponto, que é a moeda): o desenho diz com quem a
+ * moeda ficou, sem transformar todos os R em R. sem ponto.
  */
 export default function QuemCede({ estado, resultado, indicePorId, acoes }) {
   const moradores = estado.moradores ?? [];
@@ -27,18 +26,28 @@ export default function QuemCede({ estado, resultado, indicePorId, acoes }) {
   const escolhido = estado.quemCede ?? null;
   const redondo = fechouRedondo(resultado);
 
-  const fileira = (
-    <div className="cessao-fileira" role="img" aria-label={rotuloDaFileira(moradores, escolhido, redondo, indicePorId)}>
-      {moradores.map((m, i) => (
-        <MarcaR
-          key={m.id}
-          tamanho={52}
-          simples={redondo}
-          comPonto={!redondo && escolhido === m.id}
-          titulo={nomeOu(m.nome, indicePorId[m.id] ?? i)}
-          className="cessao-fileira__marca"
-        />
-      ))}
+  /** As caixas de cada pessoa. Clicáveis só quando há moeda para assumir. */
+  const caixas = (
+    <div className="cedentes" role="group" aria-label={rotuloDaFileira(moradores, escolhido, redondo, indicePorId)}>
+      {moradores.map((m, i) => {
+        const indice = indicePorId[m.id] ?? i;
+        const cede = !redondo && escolhido === m.id;
+        const nome = nomeOu(m.nome, indice);
+        return (
+          <button
+            type="button"
+            key={m.id}
+            className={`cedente ${cede ? "cedente--escolhido" : ""}`}
+            aria-pressed={cede}
+            disabled={redondo}
+            style={{ "--cor-da-pessoa": corDe(indice) }}
+            onClick={() => acoes.definirQuemCede(cede ? null : m.id)}
+          >
+            <MarcaR tamanho={34} simples={!cede} comPonto={cede} titulo={cede ? `${nome} cede` : nome} className="cedente__marca" />
+            <span className="cedente__nome">{nome}</span>
+          </button>
+        );
+      })}
     </div>
   );
 
@@ -52,7 +61,7 @@ export default function QuemCede({ estado, resultado, indicePorId, acoes }) {
         <p className="dica">
           Juntos dividimos justo.
         </p>
-        {fileira}
+        {caixas}
       </Ficha>
     );
   }
@@ -72,23 +81,8 @@ export default function QuemCede({ estado, resultado, indicePorId, acoes }) {
        
       </p>
 
-      {/* Os nomes vêm logo depois do recado: é onde a decisão acontece. */}
-      <div className="pastilhas">
-        {moradores.map((m, i) => {
-          const indice = indicePorId[m.id] ?? i;
-          return (
-            <Pastilha
-              key={m.id}
-              cor={corDe(indice)}
-              nome={nomeOu(m.nome, indice)}
-              ativo={escolhido === m.id}
-              aoClicar={() => acoes.definirQuemCede(escolhido === m.id ? null : m.id)}
-            />
-          );
-        })}
-      </div>
-
-      {fileira}
+      {/* As caixas vêm logo depois do recado: é onde a decisão acontece. */}
+      {caixas}
 
       {escolhido ? (
         <p className="dica">

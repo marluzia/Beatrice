@@ -1,9 +1,18 @@
 import { MESES, nomeOu, num, reais } from "./formato.js";
-import { datasMarcadas, polaridadeDaCasa, totalDaFatura } from "./adaptador.js";
+import { consumoDaFatura, datasMarcadas, polaridadeDoConjunto, totalDaFatura } from "./adaptador.js";
+import { cicloPorId, ciclosLigados, ehMedido, unidadeDoRecurso } from "./ciclos.js";
 import { diasDaJanela, janelaDoFechamento } from "./calendario.js";
-import { modoDe } from "./modos.js";
+import { modoDe, modoDoConjunto } from "./modos.js";
 
-const unidadeDe = (item) => (item.unidade === "kwh" ? "kWh" : "m³");
+/** Onde a pessoa esteve: "no espaço", "no evento". */
+const lugarDe = (estado) => modoDoConjunto(estado).palavras.noLugar ?? "no espaço";
+
+/** O consumo total do mês de um item, ciclo a ciclo: [{ ciclo, valor }]. */
+const consumoDoMes = (item, estado) =>
+  Object.entries(item.consumoPorCiclo ?? {}).map(([id, valor]) => ({
+    unidade: unidadeDoRecurso(cicloPorId(estado, id)?.recurso) || "unidades",
+    valor,
+  }));
 
 const qtd = (v) => num(v).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 
@@ -33,23 +42,23 @@ const VOCABULARIO = {
   },
   presenca: {
     rotulo: "Dias de estadia",
-    pergunta: (dias) => `quantos dias cada um ficou na propriedade (o ciclo tem ${dias})`,
-    pessoal: (nomes, dias) =>
-      `${listar(nomes)}: ${nomes.length > 1 ? "quantos dias ficaram" : "quantos dias ficou"} na propriedade (o ciclo tem ${dias})`,
+    pergunta: (dias, lugar = "no espaço") => `quantos dias cada um ficou ${lugar} (o ciclo tem ${dias})`,
+    pessoal: (nomes, dias, lugar = "no espaço") =>
+      `${listar(nomes)}: ${nomes.length > 1 ? "quantos dias ficaram" : "quantos dias ficou"} ${lugar} (o ciclo tem ${dias})`,
   },
 };
 
 /** Este conjunto conta dias de alguém? Um evento não conta. */
-const contaDias = (estado) => polaridadeDaCasa(estado) !== "nenhuma";
+const contaDias = (estado) => polaridadeDoConjunto(estado) !== "nenhuma";
 
-/** Este conjunto tem fatura de luz e água? Um evento não tem. */
+/** Este conjunto tem ciclos de fatura? Um evento não tem. */
 const temFaturas = (estado) => modoDe(estado?.modo).faturas !== false;
 
 const vocabulario = (estado) =>
-  VOCABULARIO[polaridadeDaCasa(estado) === "presenca" ? "presenca" : "ausencia"];
+  VOCABULARIO[polaridadeDoConjunto(estado) === "presenca" ? "presenca" : "ausencia"];
 
 const respondeuPresenca = (estado, m) => {
-  const polaridade = polaridadeDaCasa(estado);
+  const polaridade = polaridadeDoConjunto(estado);
   const marcadas = datasMarcadas(m, polaridade);
   if (marcadas.length > 0) return true;
   // Estadia vazia numa temporada é resposta ("não fui"); numa república, não.
@@ -58,7 +67,7 @@ const respondeuPresenca = (estado, m) => {
 };
 
 const quantosDias = (estado, m) => {
-  const marcadas = datasMarcadas(m, polaridadeDaCasa(estado));
+  const marcadas = datasMarcadas(m, polaridadeDoConjunto(estado));
   return marcadas.length > 0 ? marcadas.length : num(m.diasFora);
 };
 
@@ -68,8 +77,10 @@ const semResposta = (estado) =>
     .filter((m) => !m.respondeu)
     .map((m) => m.nome);
 
-function faturaLancada(fatura, nome, unidade) {
-  const consumo = num(fatura?.consumo);
+function faturaLancada(fatura) {
+  const nome = fatura.nome || "Conta";
+  const unidade = unidadeDoRecurso(fatura.recurso);
+  const consumo = ehMedido(fatura) ? consumoDaFatura(fatura) : 0;
   const total = totalDaFatura(fatura);
   if (!consumo && !total) return null;
 
@@ -79,11 +90,12 @@ function faturaLancada(fatura, nome, unidade) {
   return `${nome}: ${partes.join(", ")}`;
 }
 
-function itemLancado(item) {
-  const un = unidadeDe(item);
-
+function itemLancado(item, estado) {
   if (item.especie === "consumo") {
-    return num(item.quantidade) ? `${item.nome}: ${qtd(item.quantidade)} ${un}` : null;
+    const partes = consumoDoMes(item, estado)
+      .filter((c) => num(c.valor))
+      .map((c) => `${qtd(c.valor)} ${c.unidade}`);
+    return partes.length ? `${item.nome}: ${partes.join(" e ")}` : null;
   }
 
   if (item.especie === "porHora") {
@@ -117,11 +129,10 @@ function jaLancado(estado) {
   // Num evento não há fatura: pedir consumo em kWh de um churrasco é pedir
   // um dado que não existe, e quem recebe a mensagem não sabe o que responder.
   if (temFaturas(estado)) {
-    const luz = faturaLancada(estado.faturas?.luz, "Luz", "kWh");
-    if (luz) linhas.push(luz);
-
-    const agua = faturaLancada(estado.faturas?.agua, "Água", "m³");
-    if (agua) linhas.push(agua);
+    for (const ciclo of ciclosLigados(estado)) {
+      const lancada = faturaLancada(ciclo);
+      if (lancada) linhas.push(lancada);
+    }
   }
 
   const responderam = !contaDias(estado)
@@ -141,15 +152,18 @@ function jaLancado(estado) {
   }
 
   for (const item of itensAtivos(estado)) {
-    const linha = itemLancado(item);
+    const linha = itemLancado(item, estado);
     if (linha) linhas.push(linha);
   }
 
   return linhas;
 }
 
-function faltaNaFatura(fatura, nome, unidade) {
-  const semConsumo = !num(fatura?.consumo);
+function faltaNaFatura(fatura) {
+  const nome = fatura.nome || "Conta";
+  const unidade = unidadeDoRecurso(fatura.recurso);
+  // Ciclo só monetário não tem consumo a perguntar: só o valor.
+  const semConsumo = ehMedido(fatura) && !consumoDaFatura(fatura);
   const semValor = !totalDaFatura(fatura);
 
   if (semConsumo && semValor) return `${nome}: consumo em ${unidade} e as linhas da fatura`;
@@ -166,9 +180,9 @@ function faltando(estado, diasNoMes) {
   const faltaDias = contaDias(estado) ? semResposta(estado) : [];
 
   if (faltaDias.length > 0 && faltaDias.length === estado.moradores.length) {
-    perguntas.push({ texto: palavras.pergunta(diasNoMes), pessoal: true });
+    perguntas.push({ texto: palavras.pergunta(diasNoMes, lugarDe(estado)), pessoal: true });
   } else if (faltaDias.length > 0) {
-    perguntas.push({ texto: palavras.pessoal(faltaDias, diasNoMes), pessoal: true });
+    perguntas.push({ texto: palavras.pessoal(faltaDias, diasNoMes, lugarDe(estado)), pessoal: true });
   }
 
   for (const item of itensAtivos(estado)) {
@@ -181,11 +195,10 @@ function faltando(estado, diasNoMes) {
   }
 
   if (temFaturas(estado)) {
-    const luz = faltaNaFatura(estado.faturas?.luz, "Luz", "kWh");
-    if (luz) perguntas.push({ texto: luz, pessoal: false });
-
-    const agua = faltaNaFatura(estado.faturas?.agua, "Água", "m³");
-    if (agua) perguntas.push({ texto: agua, pessoal: false });
+    for (const ciclo of ciclosLigados(estado)) {
+      const falta = faltaNaFatura(ciclo);
+      if (falta) perguntas.push({ texto: falta, pessoal: false });
+    }
   }
 
   for (const item of itensAtivos(estado)) {
@@ -212,11 +225,10 @@ function faltando(estado, diasNoMes) {
       perguntas.push({ texto: `${item.nome}: quantos usos no mês`, pessoal: false });
     }
 
-    if (item.especie === "consumo" && !num(item.quantidade)) {
-      perguntas.push({
-        texto: `${item.nome}: consumo do mês em ${unidadeDe(item)}`,
-        pessoal: false,
-      });
+    if (item.especie === "consumo") {
+      for (const c of consumoDoMes(item, estado).filter((c) => !num(c.valor))) {
+        perguntas.push({ texto: `${item.nome}: consumo do mês em ${c.unidade}`, pessoal: false });
+      }
     }
 
     if (item.especie === "reais" && !num(item.valor)) {
@@ -250,13 +262,16 @@ function observacoesDeGrupo(estado) {
 
 export function montarMensagemDeColeta(estado) {
   const { mes, ano } = estado.periodo;
-  const diasNoMes = diasDaJanela(janelaDoFechamento(estado.faturas, estado.periodo), estado.periodo);
+  const diasNoMes = diasDaJanela(
+    janelaDoFechamento(estado.ciclos, estado.periodo, estado.corte),
+    estado.periodo,
+  );
   const nomes = estado.moradores.map((m, i) => nomeOu(m.nome, i));
 
   const linhas = [`Fechamento de ${MESES[mes - 1]} de ${ano}`, ""];
 
   if (nomes.length === 0) {
-    linhas.push("Nenhum morador cadastrado ainda, sem isso não há a quem perguntar.");
+    linhas.push("Nenhuma pessoa cadastrada ainda, sem isso não há a quem perguntar.");
     return linhas.join("\n");
   }
 

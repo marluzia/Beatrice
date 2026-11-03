@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { agendaDe, ehDespesaDatada, fimDoItem } from "./agenda.js";
-import { carregarCasa, listarCasas } from "./persistencia.js";
+import { carregarConjunto, listarConjuntos } from "./persistencia.js";
 import { estadoInicial } from "./estadoInicial.js";
 
 const item = (extra = {}) => ({
@@ -79,8 +79,8 @@ describe("conjunto antigo sobe para a versão 9", () => {
       JSON.stringify({ versao: 8, estado: antigo }),
     );
 
-    const casas = listarCasas();
-    const subida = carregarCasa(casas[0].id);
+    const casas = listarConjuntos();
+    const subida = carregarConjunto(casas[0].id);
     expect(subida.itens[0].ate).toBeNull();
     expect(subida.itens[0].data).toBe("2026-06-12");
   });

@@ -33,6 +33,12 @@ export default function RelatorioImpresso({ estado, resultado }) {
         <p className="impresso-carimbo">
           Gerado em {d.geradoEm}
           <br />
+          {d.preset && (
+            <>
+              {d.preset}
+              <br />
+            </>
+          )}
           Uso comum: {d.calibragem}% por igual, {100 - d.calibragem}% pelos dias em casa
           <br />
           Presença marcada por {d.tipo.presenca}
@@ -42,7 +48,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
       <section className="impresso-bloco">
         <h2>As contas</h2>
         {d.faturas.map((f) => (
-          <div className="impresso-fatura" key={f.nome}>
+          <div className="impresso-fatura" key={f.id ?? f.nome}>
             <h3>
               {f.nome}
               {f.ativa ? (
@@ -55,9 +61,18 @@ export default function RelatorioImpresso({ estado, resultado }) {
             {f.ativa && (
               <>
                 <p className="impresso-resumo">
-                  {numero(f.consumo)} {f.unidade} · total R$ {reais(f.total)} · acompanha o
-                  consumo R$ {reais(f.consumoEmReais)} · preço efetivo R${" "}
-                  {numero(f.tarifa, 6)} por {f.unidade}
+                  {f.medido ? (
+                    <>
+                      {numero(f.consumo)} {f.unidade} · total R$ {reais(f.total)} · acompanha o
+                      consumo R$ {reais(f.consumoEmReais)} · preço efetivo R${" "}
+                      {numero(f.tarifa, 6)} por {f.unidade}
+                    </>
+                  ) : (
+                    <>
+                      total R$ {reais(f.total)} · vai para o uso comum R${" "}
+                      {reais(f.consumoEmReais)}
+                    </>
+                  )}
                 </p>
                 <table>
                   <thead>
@@ -86,7 +101,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
       </section>
 
       <section className="impresso-bloco">
-        <h2>O que a casa tem</h2>
+        <h2>O que o conjunto gasta</h2>
         <table>
           <thead>
             <tr>
@@ -164,7 +179,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
             <tfoot>
               <tr>
                 <td colSpan="2">
-                  Luz R$ {reais(p.luz)} · Água R$ {reais(p.agua)} · Reais R$ {reais(p.reais)}
+                  {[...p.porCiclo.map((c) => `${c.nome} R$ ${reais(c.valor)}`), `Reais R$ ${reais(p.reais)}`].join(" · ")}
                 </td>
                 <td className="num">R$ {reais(p.total)}</td>
                 <td />
@@ -203,7 +218,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
 
         {d.acerto.emAberto ? (
           <p>
-            Falta a casa decidir quem fica com o centavo que não fecha. Enquanto
+            Falta o grupo decidir quem fica com o centavo que não fecha. Enquanto
             isso, o acerto não pode ser calculado.
           </p>
         ) : d.acerto.semCentralizacao ? (

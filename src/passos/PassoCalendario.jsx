@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Botao, Campo, Ficha, Pastilha, Titulo } from "../componentes/index.js";
+import { Botao, Campo, Ficha, Pastilha, SimboloDoCiclo, Titulo } from "../componentes/index.js";
+import { ciclosLigados, naOrdemDaTela } from "../nucleo/ciclos.js";
 import {
+  cicloValido,
   NOMES_CURTOS_DOS_DIAS,
   chaveDoMes,
   dentroDaJanela,
@@ -14,6 +16,7 @@ import {
 } from "../nucleo/calendario.js";
 import { MESES, corDe, nomeOu } from "../nucleo/formato.js";
 import { agendaPorDia, ROTULO_DA_NATUREZA } from "../nucleo/agenda.js";
+import { mostra } from "./secoes.js";
 
 const diaCurto = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
@@ -40,8 +43,8 @@ const CORES = {
  * A lista embaixo é o histórico: o mês em ordem, para a casa conferir o que
  * foi lançado e enxergar o que ficou sem marcação.
  */
-export default function PassoCalendario({ estado, acoes, modo }) {
-  const limite = modo.faturas ? janelaTotal(estado.faturas, estado.periodo) : null;
+export default function PassoCalendario({ estado, acoes, modo, secao, irParaSecao }) {
+  const limite = modo.faturas ? janelaTotal(estado.ciclos, estado.periodo, estado.corte) : null;
 
   const inicio = limite?.de ? partesDoDia(limite.de) : null;
   const [visivel, setVisivel] = useState(
@@ -57,6 +60,7 @@ export default function PassoCalendario({ estado, acoes, modo }) {
   const podeAvancar = !limite || mesAtual < mesDoDia(ultimoDiaDaJanela(limite));
 
   const polaridade = modo.presenca;
+  const ligados = naOrdemDaTela(ciclosLigados(estado)).filter((c) => cicloValido(c.janela));
   const rotuloPresenca = ROTULO_DA_NATUREZA.presenca[polaridade];
   const campo = polaridade === "presenca" ? "presencas" : "ausencias";
 
@@ -66,8 +70,18 @@ export default function PassoCalendario({ estado, acoes, modo }) {
 
   const tarefaPorId = (id) => (estado.tarefas ?? []).find((t) => t.id === id);
 
+  // Um dia tocado no histórico abre no calendário, no mês dele.
+  const abrirDoHistorico = (dia) => {
+    const p = partesDoDia(dia);
+    if (p) setVisivel({ mes: p.mes, ano: p.ano });
+    setAberto(dia);
+    irParaSecao?.("mes");
+  };
+
   return (
     <div className="coluna">
+      {mostra(secao, "mes") && (
+      <>
       <Ficha>
         <Titulo
           nota={
@@ -123,6 +137,8 @@ export default function PassoCalendario({ estado, acoes, modo }) {
             const cobre = !limite || dentroDaJanela(dia, limite);
             const numero = partesDoDia(dia).dia;
             const naturezas = [...new Set(doDia.map((e) => e.natureza))];
+            // Os ciclos ligados que cobrem este dia: gota, raio ou círculo no topo.
+            const doCiclo = ligados.filter((c) => dentroDaJanela(dia, c.janela));
 
             const classes = [
               "calendario-dia",
@@ -148,6 +164,11 @@ export default function PassoCalendario({ estado, acoes, modo }) {
                 }
                 onClick={() => setAberto(aberto === dia ? null : dia)}
               >
+                <span className="calendario-ciclos" aria-hidden="true">
+                  {doCiclo.map((c) => (
+                    <SimboloDoCiclo key={c.id} ciclo={c} tamanho={8} />
+                  ))}
+                </span>
                 {numero}
                 {naturezas.length > 0 && (
                   <span className="marcas" aria-hidden="true">
@@ -162,6 +183,11 @@ export default function PassoCalendario({ estado, acoes, modo }) {
         </div>
 
         <div className="legenda-agenda" aria-hidden="true">
+          {ligados.map((c) => (
+            <span key={c.id}>
+              <SimboloDoCiclo ciclo={c} tamanho={10} /> ciclo {c.id === "luz" ? "da luz" : c.id === "agua" ? "da água" : `de ${c.nome}`}
+            </span>
+          ))}
           {polaridade !== "nenhuma" && (
             <span>
               <i className="marca" style={{ background: CORES.presenca }} /> {rotuloPresenca}
@@ -187,7 +213,7 @@ export default function PassoCalendario({ estado, acoes, modo }) {
             <>
               <p className="dica">
                 {polaridade === "presenca"
-                  ? "Quem esteve na propriedade neste dia:"
+                  ? `Quem esteve ${modo.palavras.noLugar ?? "no espaço"} neste dia:`
                   : "Quem não dormiu em casa neste dia:"}
               </p>
               <div className="pastilhas">
@@ -231,7 +257,7 @@ export default function PassoCalendario({ estado, acoes, modo }) {
           )}
 
           <LancamentosDoDia
-            eventos={porDia[aberto] ?? []}
+            marcacoes={porDia[aberto] ?? []}
             estado={estado}
             acoes={acoes}
             polaridade={polaridade}
@@ -239,21 +265,25 @@ export default function PassoCalendario({ estado, acoes, modo }) {
           />
         </Ficha>
       )}
+      </>
+      )}
 
-      <Historico porDia={porDia} polaridade={polaridade} aoAbrir={setAberto} />
+      {mostra(secao, "historico") && (
+        <Historico porDia={porDia} polaridade={polaridade} aoAbrir={abrirDoHistorico} />
+      )}
     </div>
   );
 }
 
 /** Os lançamentos do dia aberto, cada um com o que dá para editar nele. */
-function LancamentosDoDia({ eventos, estado, acoes, polaridade, tarefaPorId }) {
-  if (eventos.length === 0) {
+function LancamentosDoDia({ marcacoes, estado, acoes, polaridade, tarefaPorId }) {
+  if (marcacoes.length === 0) {
     return <p className="vazio">Nada lançado neste dia ainda.</p>;
   }
 
   return (
     <div className="lancamentos">
-      {eventos.map((e) => {
+      {marcacoes.map((e) => {
         if (e.natureza === "tarefa") {
           const tarefa = tarefaPorId(e.tarefaId);
           if (!tarefa) return null;

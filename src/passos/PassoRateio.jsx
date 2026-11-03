@@ -4,14 +4,17 @@ import { corDe, nomeOu, reais } from "../nucleo/formato.js";
 import { lavagensForaDoCiclo, totalDaFatura } from "../nucleo/adaptador.js";
 import { montarRelatorio, nomeDoArquivo } from "../nucleo/relatorio.js";
 import { cessaoDe } from "../nucleo/cessao.js";
+import { reguaVisivel } from "../nucleo/modos.js";
+import { ciclosLigados, deConta } from "../nucleo/ciclos.js";
 import RelatorioImpresso from "./RelatorioImpresso.jsx";
 import Regua from "./Regua.jsx";
 import Acerto from "./Acerto.jsx";
 import QuemCede from "./QuemCede.jsx";
 import Apoio from "./Apoio.jsx";
 import { AjudaCentavos } from "./ajudas.jsx";
+import { mostra } from "./secoes.js";
 
-export default function PassoRateio({ estado, resultado, indicePorId, acoes, modo, nomeDoConjunto }) {
+export default function PassoRateio({ estado, resultado, indicePorId, acoes, modo, nomeDoConjunto, secao }) {
   const [abertos, setAbertos] = useState({});
   const fecha = Math.abs(resultado.diferenca) < 0.005;
 
@@ -70,6 +73,8 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
 
   return (
     <div className="coluna">
+      {mostra(secao, "divisao") && (
+      <>
       {/* O aviso de arredondamento sai daqui: ele agora mora dentro de "Quem
           cede", junto da decisão que pede. Os outros alertas continuam no topo
           porque não há o que decidir sobre eles nesta tela. */}
@@ -80,10 +85,11 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
       ))}
 
       {/* Sem fatura não existe sobra para calibrar: num evento este cartão não
-          teria o que fazer. */}
-      {modo?.faturas !== false && (
+          teria o que fazer. Nos presets fechados da República (Moderada,
+          Comunal, Temporal) a casa já decidiu, e a régua não aparece. */}
+      {reguaVisivel(estado) && (
       <Ficha>
-        <Titulo nota="A parte da luz e da água que nenhum aparelho explica. Arraste para ponderar por dias ou por igual.">
+        <Titulo nota="A parte das contas que nenhum aparelho explica. Arraste para ponderar por dias ou por igual.">
           Calibrar o uso comum
         </Titulo>
         <div className="calibragem">
@@ -113,7 +119,7 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
         </p>
 
         {/* Numa república os dias de cada um são parecidos e a régua muda pouco.
-            Numa propriedade de temporada ela muda a conta inteira, então o
+            Num espaço de temporada ela muda a conta inteira, então o
             argumento aparece na hora em que a decisão está sendo tomada. */}
       </Ficha>
       )}
@@ -161,7 +167,12 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
                   ))}
                   {modo?.faturas !== false && (
                     <div className="detalhe-resumo">
-                      LUZ {reais(m.luz)} · ÁGUA {reais(m.agua)} · REAIS {reais(m.reais)}
+                      {[
+                        ...ciclosLigados(estado).map(
+                          (c) => `${(c.nome || "Conta").toUpperCase()} ${reais(m.porCiclo?.[c.id] ?? 0)}`,
+                        ),
+                        `REAIS ${reais(m.reais)}`,
+                      ].join(" · ")}
                     </div>
                   )}
 
@@ -169,8 +180,8 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
                     <p className="detalhe-nota" key={`${o.itemId}-${o.dia}`}>
                       {o.item} em {diaCurto(o.dia)}:{" "}
                       {o.quando === "futuro"
-                        ? `a ${o.faltando === "luz" ? "energia" : "água"} desse dia vem na próxima fatura e não está cobrada aqui. Marque o mesmo dia no fechamento do mês que vem.`
-                        : `a ${o.faltando === "luz" ? "energia" : "água"} desse dia entrou na fatura anterior, que já foi fechada. Aqui não é cobrada de novo.`}
+                        ? `a parte de ${o.nomeDoCiclo} desse dia vem na próxima fatura e não está cobrada aqui. Marque o mesmo dia no fechamento do mês que vem.`
+                        : `a parte de ${o.nomeDoCiclo} desse dia entrou na fatura anterior, que já foi fechada. Aqui não é cobrada de novo.`}
                     </p>
                   ))}
                 </div>
@@ -190,7 +201,10 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
           </p>
         )}
       </Ficha>
+      </>
+      )}
 
+      {mostra(secao, "acerto") && (
       <Acerto
         estado={estado}
         resultado={resultado}
@@ -199,7 +213,10 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
         nomeDoConjunto={nomeDoConjunto}
         travado={cessao.precisaEscolher}
       />
+      )}
 
+      {mostra(secao, "conferencia") && (
+      <>
       <Ficha>
         <Titulo nota="Cada barra é um item inteiro. A largura de cada cor é a fatia daquela pessoa.">
           Como cada item foi dividido
@@ -224,10 +241,7 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
             // encher a conferência de linha que não existe.
             ...(modo?.faturas === false
               ? []
-              : [
-                  ["Fatura de luz", totalDaFatura(estado.faturas.luz)],
-                  ["Fatura de água", totalDaFatura(estado.faturas.agua)],
-                ]),
+              : ciclosLigados(estado).map((c) => [`Fatura ${deConta(c)}`, totalDaFatura(c)])),
             ["Despesas em reais", resultado.totalEmReais],
           ].map(([rotulo, valor]) => (
             <div className="conferencia-linha" key={rotulo}>
@@ -260,11 +274,13 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
         </div>
         <p className="dica">
           O PDF abre a janela de impressão do navegador: escolha "Salvar como PDF" no
-          destino. O texto serve para conferir linha a linha ou colar no grupo da casa.
+          destino. O texto serve para conferir linha a linha ou colar no grupo.
         </p>
       </Ficha>
 
       <Apoio resultado={resultado} />
+      </>
+      )}
 
       <RelatorioImpresso estado={estado} resultado={resultado} />
     </div>

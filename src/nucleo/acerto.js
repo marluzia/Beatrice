@@ -33,7 +33,7 @@
 
 import { nomeOu, num } from "./formato.js";
 import { totalDaFatura } from "./traducao/fatura.js";
-import { faturaAtiva } from "./calendario.js";
+import { ciclosLigados, deConta } from "./ciclos.js";
 import { emCentavos, quemCedeDe } from "./cessao.js";
 
 export { emCentavos, quemCedeDe };
@@ -44,33 +44,27 @@ export { emCentavos, quemCedeDe };
  *
  * São as faturas ligadas e os itens cujo custo sai em reais. O que sai de
  * dentro da fatura   geladeira, máquina, chuveiro   não aparece aqui: o
- * dinheiro daquilo já está no valor da conta de luz ou de água, e contar de
- * novo seria cobrar duas vezes.
+ * dinheiro daquilo já está no valor da conta do ciclo, e contar de novo seria
+ * cobrar duas vezes.
  */
 export function despesasPagaveis(estado, resultado) {
   const lista = [];
 
   // As faturas: a parte de cada um já vem somada no resultado, porque uma
   // fatura não é um item só   ela se desmancha em aparelhos, uso comum e taxas.
-  for (const [qual, nome, campo] of [
-    ["luz", "Conta de luz", "luz"],
-    ["agua", "Conta de água", "agua"],
-  ]) {
-    const fatura = estado.faturas?.[qual];
-    if (!faturaAtiva(fatura)) continue;
-
-    const centavos = emCentavos(totalDaFatura(fatura));
+  for (const ciclo of ciclosLigados(estado)) {
+    const centavos = emCentavos(totalDaFatura(ciclo));
     if (centavos === 0) continue;
 
     lista.push({
-      id: `fatura-${qual}`,
+      id: `fatura-${ciclo.id}`,
       tipo: "fatura",
-      nome,
+      nome: `Conta ${deConta(ciclo)}`,
       centavos,
-      pagoPor: fatura.pagoPor ?? null,
+      pagoPor: ciclo.pagoPor ?? null,
       // quanto cada um deve desta fatura
       porPessoa: Object.fromEntries(
-        resultado.moradores.map((m) => [m.moradorId, m[campo]]),
+        resultado.moradores.map((m) => [m.moradorId, m.porCiclo?.[ciclo.id] ?? 0]),
       ),
     });
   }
@@ -152,8 +146,8 @@ export function transferenciasDe(saldos) {
 /**
  * Quem fica com o centavo que sobra ou falta: ver `cessao.js`.
  *
- * O fechamento inteiro e o acerto usam o mesmo critério   a escolha da casa,
- * ou quem mais deve enquanto ninguém escolheu. Os dois resíduos são números
+ * O fechamento inteiro e o acerto usam o mesmo critério: a escolha do
+ * conjunto, e nenhuma enquanto ninguém escolheu. Os dois resíduos são números
  * diferentes (o do fechamento olha tudo, o do acerto só o que alguém
  * centralizou), mas o dono é decidido do mesmo jeito nos dois.
  */

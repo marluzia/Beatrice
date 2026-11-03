@@ -11,7 +11,7 @@
 //   traducao/uso.js      os usos com data viram usos por ciclo; os que caem
 //                        fora do ciclo são apontados
 //   traducao/item.js     a espécie do item vira um custo e uma regra
-//   traducao/casa.js     a casa inteira vira o Estado que o domínio fecha
+//   traducao/conjunto.js o conjunto inteiro vira o Estado que o domínio fecha
 
 export {
   consumoDaFatura,
@@ -31,7 +31,7 @@ export {
   diasContadosDe,
   diasContadosNaFatura,
   diasForaNaJanela,
-  polaridadeDaCasa,
+  polaridadeDoConjunto,
   presentesPorDia,
   temDatasMarcadas,
   todosComDatas,
@@ -39,23 +39,24 @@ export {
 
 export {
   alertaDeLavagens,
-  eventosDe,
+  ciclosDoUso,
   lavagensForaDoCiclo,
   orfasDoItem,
-  parteNoEvento,
+  parteNoRegistro,
+  registrosDe,
   temUsoDatado,
   usosDe,
   usosPorJanela,
 } from "./traducao/uso.js";
 
 export {
+  ciclosDoAparelho,
   faltaParaItem,
   itemParaMotor,
   rateiosDoItem,
   totalDeclaradoPorHora,
-  unidadeDoItem,
 } from "./traducao/item.js";
 
-export { calcular, paraMotor } from "./traducao/casa.js";
+export { alertaDoCorte, calcular, paraMotor } from "./traducao/conjunto.js";
 
 export { diasDoPeriodo } from "./motor.ts";

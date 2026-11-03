@@ -6,40 +6,45 @@
 import { rateiosPermitidos, consumoDeclaradoPorHora } from "../motor.ts";
 import { num } from "../formato.js";
 import { faturaAtiva } from "../calendario.js";
+import { cicloPorId, deConta, doCiclo, unidadeDoRecurso } from "../ciclos.js";
+import { ciclosDoItem } from "../catalogo.js";
 import { consumoDaFatura, valorDoConsumo } from "./fatura.js";
 import { temUsoDatado, usosDe, usosPorJanela } from "./uso.js";
 
-export const unidadeDoItem = (item) => item.unidade;
+/** Uma tabela "id do ciclo → texto" vira "id do ciclo → número". */
+const emNumeros = (t) => Object.fromEntries(Object.entries(t ?? {}).map(([c, v]) => [c, num(v)]));
 
-/** O que falta na fatura para este item conseguir custar alguma coisa. */
-export function faltaParaItem(item, faturas) {
-  const precisa = new Set();
+/** Os ids dos ciclos de que o item puxa, pelo jeito de medir atual. */
+export const ciclosDoAparelho = (item) => ciclosDoItem(item);
 
-  if (item.especie === "consumo" || item.especie === "porHora") {
-    precisa.add(item.unidade);
-  }
-  if (item.especie === "porUso" && item.origemUso === "fatura") {
-    if (faturaAtiva(faturas?.luz)) precisa.add("kwh");
-    if (faturaAtiva(faturas?.agua)) precisa.add("m3");
-    if (precisa.size === 0) precisa.add("kwh");
-  }
+/**
+ * O que falta nas faturas para este item conseguir custar alguma coisa.
+ *
+ * Aparelho de ciclos fixos (a geladeira é luz) reclama de qualquer ciclo dele
+ * que não esteja pronto. Aparelho de ciclos livres só reclama dos ciclos
+ * ligados que escolheu: um ciclo desligado aparece no cartão para ser tirado
+ * com o x, e não trava o cartão   senão a pessoa não teria como tirá-lo.
+ */
+export function faltaParaItem(item, estado) {
+  const ids = ciclosDoItem(item);
+  if (ids.length === 0) return [];
 
   const faltando = [];
 
-  for (const unidade of precisa) {
-    const qual = unidade === "kwh" ? "luz" : "agua";
-    const nome = unidade === "kwh" ? "luz" : "água";
-    const fatura = faturas?.[qual];
+  for (const id of ids) {
+    const ciclo = cicloPorId(estado, id);
+    const ligado = ciclo && faturaAtiva(ciclo);
 
-    if (!faturaAtiva(fatura)) {
-      faltando.push(`a conta de ${nome} não está neste fechamento`);
+    if (!ligado) {
+      if (item.ciclosLivres) continue;
+      faltando.push(`a conta ${ciclo ? deConta(ciclo) : "de onde ele saía"} não está neste fechamento`);
       continue;
     }
-    if (consumoDaFatura(fatura) <= 0) {
-      faltando.push(`o consumo da ${nome}, em ${unidade === "kwh" ? "kWh" : "m³"}`);
+    if (consumoDaFatura(ciclo) <= 0) {
+      faltando.push(`o consumo ${doCiclo(ciclo)}, em ${unidadeDoRecurso(ciclo.recurso)}`);
     }
-    if (valorDoConsumo(fatura) === 0) {
-      faltando.push(`as linhas de consumo da fatura de ${nome}`);
+    if (valorDoConsumo(ciclo) === 0) {
+      faltando.push(`as linhas de consumo da fatura ${deConta(ciclo)}`);
     }
   }
 
@@ -48,11 +53,11 @@ export function faltaParaItem(item, faturas) {
 
 function custoDoItem(item) {
   if (item.especie === "consumo") {
-    return { tipo: "consumo", quantidade: num(item.quantidade), unidade: item.unidade };
+    return { tipo: "consumo", porCiclo: emNumeros(item.consumoPorCiclo) };
   }
 
   if (item.especie === "porHora") {
-    return { tipo: "porHora", porHora: num(item.porHora), horas: num(item.horas), unidade: item.unidade };
+    return { tipo: "porHora", horas: num(item.horas), porCiclo: emNumeros(item.porHoraPorCiclo) };
   }
 
   if (item.especie === "porUso") {
@@ -62,7 +67,7 @@ function custoDoItem(item) {
       unitario:
         item.origemUso === "reais"
           ? { origem: "reais", valorPorUso: num(item.valorPorUso) }
-          : { origem: "fatura", kwhPorUso: num(item.kwhPorUso), m3PorUso: num(item.m3PorUso) },
+          : { origem: "fatura", porCiclo: emNumeros(item.porUsoPorCiclo) },
     };
   }
 
@@ -92,11 +97,13 @@ function rateioDoItem(item, janelas) {
   return {
     tipo: item.rateio,
     usos: Object.fromEntries((item.participantes ?? []).map((id) => [id, usosDe(item, id)])),
-    // Com data, os usos de cada ciclo são contados à parte.
-    ...(temUsoDatado(item) && janelas
+    // Com data, os usos de cada ciclo são contados à parte. `janelas` é o
+    // intervalo de cada ciclo ligado, pelo id.
+    ...(temUsoDatado(item) && janelas && Object.keys(janelas).length > 0
       ? {
-          usosLuz: usosPorJanela(item, janelas.luz),
-          usosAgua: usosPorJanela(item, janelas.agua),
+          usosPorCiclo: Object.fromEntries(
+            Object.entries(janelas).map(([ciclo, janela]) => [ciclo, usosPorJanela(item, janela)]),
+          ),
         }
       : {}),
   };
@@ -136,5 +143,11 @@ export const rateiosDoItem = (item, modo) => {
   return oferecidas.includes(item.rateio) ? oferecidas : [item.rateio, ...oferecidas];
 };
 
+/** O total do mês de um aparelho por hora, ciclo a ciclo: "id do ciclo → quantidade". */
 export const totalDeclaradoPorHora = (item) =>
-  consumoDeclaradoPorHora({ porHora: num(item.porHora), horas: num(item.horas) });
+  Object.fromEntries(
+    Object.entries(item.porHoraPorCiclo ?? {}).map(([ciclo, v]) => [
+      ciclo,
+      consumoDeclaradoPorHora({ porHora: num(v), horas: num(item.horas) }),
+    ]),
+  );

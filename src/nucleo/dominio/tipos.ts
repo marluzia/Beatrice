@@ -5,6 +5,13 @@
 
 export type MoradorId = string;
 
+/**
+ * O id de um ciclo de fatura. Luz e água vêm de fábrica com os ids "luz" e
+ * "agua"; os ciclos que a casa cria ganham um id próprio. O domínio não
+ * distingue os de fábrica dos outros.
+ */
+export type CicloId = string;
+
 // ── Morador ────────────────────────────────────────────────────────────────
 
 export interface Morador {
@@ -12,10 +19,8 @@ export interface Morador {
   nome: string;
   /** Dias fora no período do fechamento. */
   diasFora: number;
-  /** Dias fora dentro do ciclo da fatura de luz, quando ele não coincide com o fechamento. */
-  diasForaLuz?: number;
-  /** Idem, para a água. */
-  diasForaAgua?: number;
+  /** Dias fora dentro do ciclo de cada fatura, quando ele não coincide com o período. */
+  diasForaPorCiclo?: Record<CicloId, number>;
 }
 
 // ── Recurso ────────────────────────────────────────────────────────────────
@@ -24,36 +29,45 @@ export interface Morador {
 export type Unidade = "kwh" | "m3";
 
 /**
- * Qual recurso medido está em jogo numa conta. `null` quer dizer "o período
- * do fechamento", que é onde moram as despesas em reais.
- *
- * Hoje são só dois recursos medidos, luz e água, e eles aparecem com nome
- * próprio em vários tipos abaixo (`luzKwh`, `diasLuz`, `usosLuz`...). Tornar
- * isso uma lista de recursos é a próxima onda; por ora, todo lugar que
- * distingue os dois passa por este tipo, o que deixa a troca rastreável.
+ * O recurso que um ciclo mede. `null` é um ciclo só monetário   aluguel,
+ * condomínio, internet: tem linhas e valor, mas nenhuma grandeza física.
  */
-export type Mundo = "luz" | "agua" | null;
+export type Recurso = Unidade | null;
+
+/**
+ * Em qual intervalo uma regra mede os pesos: o ciclo de uma fatura, pelo id,
+ * ou `null` para o período do fechamento, que é onde moram as despesas em
+ * reais.
+ */
+export type Mundo = CicloId | null;
 
 // ── Custo ──────────────────────────────────────────────────────────────────
 
 export type Custo =
-  | { tipo: "consumo"; quantidade: number; unidade: Unidade }
+  /**
+   * Sai de dentro da fatura de um ou mais ciclos medidos, cada quantidade na
+   * unidade do seu ciclo: um chuveiro elétrico gasta kWh da luz e m³ da água.
+   */
+  | { tipo: "consumo"; porCiclo: Record<CicloId, number> }
   | {
       tipo: "porUso";
       usosTotais?: number;
-      usosTotaisLuz?: number;
-      usosTotaisAgua?: number;
+      /** Usos que caíram dentro de cada ciclo, quando os usos têm data. */
+      usosTotaisPorCiclo?: Record<CicloId, number>;
       unitario:
-        | { origem: "fatura"; kwhPorUso: number; m3PorUso: number }
+        /** Quanto cada uso puxa de cada ciclo: 0,8 kWh da luz e 0,05 m³ da água. */
+        | { origem: "fatura"; porCiclo: Record<CicloId, number> }
         | { origem: "reais"; valorPorUso: number };
     }
-  | { tipo: "porHora"; porHora: number; horas: number; unidade: Unidade }
+  /** Quanto o aparelho gasta por hora em cada ciclo, vezes as horas ligado. */
+  | { tipo: "porHora"; horas: number; porCiclo: Record<CicloId, number> }
   | { tipo: "reais"; valor: number };
 
 /** Um custo já em reais, separado pela conta de onde ele sai. */
 export interface CustoBruto {
-  luz: number;
-  agua: number;
+  /** Quanto sai de cada ciclo. Um ciclo que o item não toca não aparece. */
+  porCiclo: Record<CicloId, number>;
+  /** Quanto sai do bolso, sem passar por fatura. */
   reais: number;
 }
 
@@ -81,10 +95,8 @@ export type Rateio =
        */
       tipo: "uso" | "horas";
       usos: Record<MoradorId, number>;
-      /** Usos que caíram dentro do ciclo da luz, quando os usos têm data. */
-      usosLuz?: Record<MoradorId, number>;
-      /** Idem, para a água. */
-      usosAgua?: Record<MoradorId, number>;
+      /** Os usos de cada um que caíram dentro de cada ciclo, quando os usos têm data. */
+      usosPorCiclo?: Record<CicloId, Record<MoradorId, number>>;
     };
 
 export type TipoDeRateio = Rateio["tipo"];
@@ -108,17 +120,32 @@ export interface TaxaFixa {
   valor: number;
 }
 
-export interface Faturas {
-  luzKwh: number;
-  luzValor: number;
-  /** Forma antiga: as taxas como um total só. */
-  luzTaxasFixas?: number;
+/**
+ * A fatura de um ciclo, como o domínio a recebe. Um ciclo desligado não chega
+ * aqui: a tradução só manda os ativos.
+ */
+export interface Fatura {
+  id: CicloId;
+  /** Como a casa chama este ciclo: "Luz", "Água", "Gás", "Aluguel". */
+  nome: string;
+  /** O que ele mede. `null` = só dinheiro. */
+  recurso: Recurso;
+  /** Quanto foi consumido, na unidade do recurso. Zero num ciclo sem recurso. */
+  quantidade: number;
+  /** O total da conta. */
+  valor: number;
   /** Forma atual: as taxas linha a linha. */
-  luzTaxas?: TaxaFixa[];
-  aguaM3: number;
-  aguaValor: number;
-  aguaTaxasFixas?: number;
-  aguaTaxas?: TaxaFixa[];
+  taxas?: TaxaFixa[];
+  /** Forma antiga: as taxas como um total só. */
+  taxasFixas?: number;
+  /** Tamanho do ciclo em dias, quando ele não coincide com o período. */
+  dias?: number;
+  /**
+   * Como o que sobra deste ciclo se divide. Sem regra, vai pela régua do uso
+   * comum (`calibragem`). Uma conta só de valor   aluguel   costuma ter regra
+   * própria: igual, por dias, por porcentagem.
+   */
+  rateio?: Rateio;
 }
 
 // ── Ciclo ──────────────────────────────────────────────────────────────────
@@ -128,10 +155,6 @@ export interface Periodo {
   dias?: number;
   mes: number;
   ano: number;
-  /** Tamanho do ciclo da fatura de luz, quando ele não coincide com o fechamento. */
-  diasLuz?: number;
-  /** Idem, para a água. */
-  diasAgua?: number;
 }
 
 // ── Presença: quem estava em casa, dia a dia ───────────────────────────────
@@ -150,9 +173,10 @@ export interface Periodo {
 export type PresencaPorDia = MoradorId[][];
 
 export interface Presencas {
-  mes: PresencaPorDia;
-  luz: PresencaPorDia;
-  agua: PresencaPorDia;
+  /** O período do fechamento. */
+  mes?: PresencaPorDia;
+  /** Cada ciclo de fatura, pelo id. */
+  porCiclo?: Record<CicloId, PresencaPorDia | undefined>;
 }
 
 // ── Casa: o agregado que o fechamento recebe ───────────────────────────────
@@ -161,7 +185,8 @@ export interface Estado {
   /** Quanto do uso comum divide por igual; o resto vai pelos dias. De 0 a 1. */
   calibragem?: number;
   periodo: Periodo;
-  faturas: Faturas;
+  /** Os ciclos ativos, na ordem da casa. Até 8. */
+  faturas: Fatura[];
   moradores: Morador[];
   itens: Item[];
   /** Quem estava em casa em cada dia, quando a casa marcou as datas. */
@@ -182,7 +207,8 @@ export interface ItemCalculado {
   nome: string;
   /** Item que o fechamento criou sozinho: o uso comum e as taxas fixas. */
   automatico: boolean;
-  origem: "luz" | "agua" | "reais" | "mista";
+  /** O id do ciclo de onde o custo saiu, "reais", ou "mista" quando sai de mais de um. */
+  origem: CicloId | "reais" | "mista";
   custoTotal: number;
   fatias: Fatia[];
 }
@@ -193,8 +219,8 @@ export interface TotalMorador {
   moradorId: MoradorId;
   nome: string;
   diasContados: number;
-  luz: number;
-  agua: number;
+  /** Quanto cada um deve de cada ciclo. */
+  porCiclo: Record<CicloId, number>;
   reais: number;
   total: number;
   /** O total desmontado item a item. */
@@ -208,20 +234,31 @@ export interface Alerta {
 
 // ── Fechamento ─────────────────────────────────────────────────────────────
 
+/** O que o fechamento mediu de cada ciclo. */
+export interface CicloCalculado {
+  id: CicloId;
+  nome: string;
+  recurso: Recurso;
+  /** Dias do ciclo. */
+  dias: number;
+  /** Dias de cada um dentro dele. */
+  diasContados: Record<MoradorId, number>;
+  /** Reais por unidade consumida. Zero num ciclo sem recurso. */
+  tarifa: number;
+  /** O total da fatura. */
+  valor: number;
+  /** O que nenhum item explicou e virou uso comum. */
+  sobra: number;
+}
+
 export interface Resultado {
   diasNoPeriodo: number;
-  diasNoPeriodoLuz: number;
-  diasNoPeriodoAgua: number;
-  tarifaLuz: number;
-  tarifaAgua: number;
   diasContados: Record<MoradorId, number>;
-  diasContadosLuz: Record<MoradorId, number>;
-  diasContadosAgua: Record<MoradorId, number>;
   somaDiasContados: number;
+  /** Um por ciclo ativo, na ordem em que vieram. */
+  ciclos: CicloCalculado[];
   itens: ItemCalculado[];
   moradores: TotalMorador[];
-  sobraLuz: number;
-  sobraAgua: number;
   totalEmReais: number;
   somaCobrada: number;
   somaDevida: number;

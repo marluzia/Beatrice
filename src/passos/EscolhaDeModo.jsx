@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Botao, Campo, Ficha, Rotulo, Titulo } from "../componentes/index.js";
-import { LISTA_DE_MODOS, modoDe } from "../nucleo/modos.js";
+import { LISTA_DE_MODOS, modoDe, presetValido } from "../nucleo/modos.js";
+import EscolhaDePreset from "./EscolhaDePreset.jsx";
 
 /**
  * A primeira pergunta: que tipo de conjunto é este. A resposta não muda o
@@ -10,15 +11,19 @@ export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
   const [escolhido, setEscolhido] = useState("moradia");
   const [nome, setNome] = useState("");
   const [pessoas, setPessoas] = useState("");
+  // `undefined` = ainda não escolheu; `presetValido` devolve o padrão do modo.
+  const [preset, setPreset] = useState(undefined);
 
   const modo = modoDe(escolhido);
+  const presetAtual = presetValido(escolhido, preset);
 
   const quantas = () => {
     const n = parseInt(pessoas, 10);
     return Number.isFinite(n) ? Math.max(0, Math.min(modo.maximoDeMoradores, n)) : modo.moradores;
   };
 
-  const criar = () => aoCriar(nome.trim() || modo.nome, escolhido, quantas());
+  const criar = () =>
+    aoCriar(nome.trim() || modo.nome, escolhido, quantas(), presetAtual ?? undefined);
 
   return (
     <div className="coluna">
@@ -49,6 +54,15 @@ export default function EscolhaDeModo({ aoCriar, aoCancelar, podeCancelar }) {
           })}
         </div>
       </Ficha>
+
+      {presetAtual && (
+        <Ficha>
+          <Titulo nota="O uso comum é a parte das contas que nenhum aparelho explica. Dá para trocar depois, em Pessoas.">
+            Como a república divide o uso comum
+          </Titulo>
+          <EscolhaDePreset modo={escolhido} valor={presetAtual} aoMudar={setPreset} />
+        </Ficha>
+      )}
 
       <Ficha>
         <Titulo>Como chamar</Titulo>

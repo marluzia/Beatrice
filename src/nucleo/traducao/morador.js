@@ -27,7 +27,7 @@ import {
   janelaValida,
   somarDias,
 } from "../calendario.js";
-import { polaridadeDe } from "../modos.js";
+import { polaridadeDoConjuntoNoModo } from "../modos.js";
 import { janelaDaFatura } from "./fatura.js";
 
 /** O campo em que este modo guarda as datas marcadas. */
@@ -64,14 +64,14 @@ export function diasContadosNaFatura(morador, fatura, periodo, polaridade = "aus
 }
 
 /** Quantos dias do fechamento o morador passou em casa. */
-export function diasContadosDe(morador, periodo, faturas, polaridade = "ausencia") {
-  const janela = faturas ? janelaDoFechamento(faturas, periodo) : janelaDoMes(periodo);
+export function diasContadosDe(morador, periodo, ciclos, polaridade = "ausencia", corte = null) {
+  const janela = janelaDoFechamento(ciclos, periodo, corte);
   const dias = diasDaJanela(janela, periodo);
   return emCasa(dias, diasForaNaJanela(morador, janela, polaridade));
 }
 
-/** A polaridade de uma casa, lida do modo que ela guarda. */
-export const polaridadeDaCasa = (estado) => polaridadeDe(estado?.modo);
+/** A polaridade de um conjunto, lida do modo que ele guarda. */
+export const polaridadeDoConjunto = (estado) => polaridadeDoConjuntoNoModo(estado);
 
 // ── quem estava em casa em cada dia ────────────────────────────────────────
 //

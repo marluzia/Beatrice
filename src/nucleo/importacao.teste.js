@@ -1,27 +1,30 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { cicloPorId } from "./ciclos.js";
 import {
-  carregarCasa,
-  criarCasa,
-  exportarCasa,
-  importarCasa,
-  listarCasas,
+  carregarConjunto,
+  criarConjunto,
+  exportarConjunto,
+  importarConjunto,
+  listarConjuntos,
 } from "./persistencia.js";
 import { estadoInicial } from "./estadoInicial.js";
 import { calcular } from "./adaptador.js";
 
 const casa = () => {
-  const e = estadoInicial("moradia", 3);
+  // República Livre: a régua em 25% só existe no preset que deixa a casa
+  // arrastar. Nos fechados, a calibragem é a do preset.
+  const e = estadoInicial("moradia", 3, "livre");
   e.periodo = { mes: 6, ano: 2026 };
   e.moradores.forEach((m, i) => { m.nome = ["Ana", "Bruno", "Carla"][i]; });
   const ids = e.moradores.map((m) => m.id);
 
   e.moradores[0].ausencias = ["2026-06-03", "2026-06-04"];
-  e.faturas.luz.janela = { de: "2026-06-01", ate: "2026-07-01" };
-  e.faturas.luz.pagoPor = ids[0];
-  e.faturas.luz.linhas = [
+  cicloPorId(e, "luz").janela = { de: "2026-06-01", ate: "2026-07-01" };
+  cicloPorId(e, "luz").pagoPor = ids[0];
+  cicloPorId(e, "luz").linhas = [
     { id: "l1", nome: "Energia", quantidade: "312", valor: "268,40", comportamento: "consumo" },
   ];
-  e.faturas.agua.ativa = false;
+  cicloPorId(e, "agua").ativa = false;
   e.calibragem = 0.25;
   e.quemCede = ids[2];
   e.tarefas = [{ id: "t1", data: "2026-06-07", nome: "Quintal", responsaveis: [ids[1]], observacao: "" }];
@@ -39,23 +42,23 @@ beforeEach(() => window.localStorage.clear());
 // caminho quebrar, o teste não serviu para nada.
 describe("exportar e importar devolve a mesma casa", () => {
   it("o arquivo é JSON com cabeçalho reconhecível", () => {
-    const pacote = JSON.parse(exportarCasa(criarCasa("Serra", casa())));
-    expect(pacote.ceder).toBe("casa");
-    expect(pacote.versao).toBe(9);
+    const pacote = JSON.parse(exportarConjunto(criarConjunto("Serra", casa())));
+    expect(pacote.ceder).toBe("conjunto");
+    expect(pacote.versao).toBe(11);
     expect(pacote.nome).toBe("Serra");
   });
 
   it("num navegador vazio, a casa volta inteira", () => {
-    const json = exportarCasa(criarCasa("Serra", casa()));
+    const json = exportarConjunto(criarConjunto("Serra", casa()));
     window.localStorage.clear();
 
-    const id = importarCasa(json);
+    const id = importarConjunto(json);
     expect(id).not.toBeNull();
 
-    const volta = carregarCasa(id);
+    const volta = carregarConjunto(id);
     expect(volta.moradores.map((m) => m.nome)).toEqual(["Ana", "Bruno", "Carla"]);
     expect(volta.moradores[0].ausencias).toEqual(["2026-06-03", "2026-06-04"]);
-    expect(volta.faturas.luz.janela).toEqual({ de: "2026-06-01", ate: "2026-07-01" });
+    expect(cicloPorId(volta, "luz").janela).toEqual({ de: "2026-06-01", ate: "2026-07-01" });
     expect(volta.calibragem).toBe(0.25);
     expect(volta.tarefas).toHaveLength(1);
     expect(volta.itens[0].data).toBe("2026-06-02");
@@ -64,11 +67,11 @@ describe("exportar e importar devolve a mesma casa", () => {
 
   it("e as contas dão exatamente o mesmo", () => {
     const original = casa();
-    const json = exportarCasa(criarCasa("Serra", original));
+    const json = exportarConjunto(criarConjunto("Serra", original));
     window.localStorage.clear();
 
     const antes = calcular(original);
-    const depois = calcular(carregarCasa(importarCasa(json)));
+    const depois = calcular(carregarConjunto(importarConjunto(json)));
 
     expect(depois.somaDevida).toBeCloseTo(antes.somaDevida, 9);
     expect(depois.residuoDeCentavos).toBe(antes.residuoDeCentavos);
@@ -89,11 +92,11 @@ describe("arquivo que não é da CEDER é recusado, não quebra a tela", () => {
     JSON.stringify({ ceder: "casa", versao: 9, nome: "x" }),
     JSON.stringify({ versao: 9, estado: { qualquer: "coisa" } }),
   ])("recusa %s", (texto) => {
-    expect(importarCasa(texto)).toBeNull();
+    expect(importarConjunto(texto)).toBeNull();
   });
 
   it("recusa versão futura, que este app não sabe ler", () => {
-    expect(importarCasa(JSON.stringify({ ceder: "casa", versao: 99, nome: "x", estado: casa() }))).toBeNull();
+    expect(importarConjunto(JSON.stringify({ ceder: "casa", versao: 99, nome: "x", estado: casa() }))).toBeNull();
   });
 });
 
@@ -102,28 +105,28 @@ describe("arquivo de uma versão anterior sobe sozinho", () => {
     const v8 = casa();
     v8.itens = v8.itens.map(({ ate, ...resto }) => resto);
 
-    const id = importarCasa(JSON.stringify({ ceder: "casa", versao: 8, nome: "Da v8", estado: v8 }));
+    const id = importarConjunto(JSON.stringify({ ceder: "casa", versao: 8, nome: "Da v8", estado: v8 }));
     expect(id).not.toBeNull();
-    expect(carregarCasa(id).itens.every((i) => i.ate === null)).toBe(true);
+    expect(carregarConjunto(id).itens.every((i) => i.ate === null)).toBe(true);
   });
 });
 
 describe("importar o mesmo arquivo duas vezes", () => {
   it("não sobrescreve a casa que já estava lá", () => {
-    const id = criarCasa("Serra", casa());
-    const json = exportarCasa(id);
+    const id = criarConjunto("Serra", casa());
+    const json = exportarConjunto(id);
 
-    importarCasa(json);
-    expect(carregarCasa(id)).not.toBeNull();
+    importarConjunto(json);
+    expect(carregarConjunto(id)).not.toBeNull();
   });
 
   it("a cópia ganha um número, para dar para distinguir no painel", () => {
-    const json = exportarCasa(criarCasa("Serra", casa()));
+    const json = exportarConjunto(criarConjunto("Serra", casa()));
 
-    importarCasa(json);
-    importarCasa(json);
+    importarConjunto(json);
+    importarConjunto(json);
 
-    const nomes = listarCasas().map((c) => c.nome).sort();
+    const nomes = listarConjuntos().map((c) => c.nome).sort();
     expect(nomes).toEqual(["Serra", "Serra (2)", "Serra (3)"]);
   });
 });

@@ -7,23 +7,35 @@
 // e o único que não sabe fazer nenhuma delas sozinho.
 //
 // A ordem:
-//   1. ler as faturas              → tarifas e taxas          (Fatura)
+//   1. ler a fatura de cada ciclo  → tarifas e taxas          (Fatura)
 //   2. medir os ciclos             → dias de cada um          (Ciclo, Morador)
 //   3. custear cada item           → reais por conta          (Consumo, Custo)
 //   4. alocar cada item            → parcelas                 (RegraDeAlocação, Alocação)
 //   5. alocar o que sobrou         → uso comum e taxas fixas  (Alocação)
 //   6. conferir                    → conservação e centavos   (Explicação)
 
-import type { Alerta, CustoBruto, Estado, Item, ItemCalculado, Rateio, Resultado, TaxaFixa } from "./tipos.ts";
+import type {
+  Alerta,
+  CicloCalculado,
+  CicloId,
+  CustoBruto,
+  Estado,
+  Item,
+  ItemCalculado,
+  Rateio,
+  Resultado,
+  TaxaFixa,
+} from "./tipos.ts";
 import { emCentavos, entreZeroEUm, somar, TOLERANCIA } from "./numeros.ts";
 import { diasDoCiclo, diasDoPeriodo } from "./ciclo.ts";
 import { diasContadosEm, somaDosDias } from "./morador.ts";
-import { medirFatura, somaDeTaxas } from "./fatura.ts";
+import { medirFatura } from "./fatura.ts";
 import { custoDe } from "./custo.ts";
 import { regraExata, somaDeclarada } from "./regras.ts";
 import { alocar, medirJanelas } from "./alocacao.ts";
+import type { Janela } from "./alocacao.ts";
 import {
-  casaSemMorador,
+  conjuntoSemPessoa,
   centavosDeDiferenca,
   consumoPassaDaFatura,
   itensSemNinguem,
@@ -35,28 +47,41 @@ import {
   totaisEmBranco,
 } from "./explicacao.ts";
 
+/** O nome do uso comum de um ciclo: "Uso comum de luz", ou só o nome num ciclo sem recurso. */
+function nomeDoUsoComum(ciclo: { id: CicloId; nome: string; recurso: unknown }): string {
+  if (ciclo.id === "luz") return "Uso comum de luz";
+  if (ciclo.id === "agua") return "Uso comum de água";
+  return ciclo.recurso === null ? ciclo.nome : `Uso comum de ${ciclo.nome}`;
+}
+
 export function calcular(estado: Estado): Resultado {
-  const { moradores, faturas, itens, periodo } = estado;
+  const { moradores, itens, periodo } = estado;
   const alertas: Alerta[] = [];
 
-  // 1. Faturas
-  const luz = medirFatura(faturas, "luz");
-  const agua = medirFatura(faturas, "agua");
+  // 1. Faturas. Dois ciclos com o mesmo id seriam o mesmo dinheiro contado
+  //    duas vezes; fica o primeiro.
+  const vistos = new Set<CicloId>();
+  const faturas = (estado.faturas ?? []).filter((f) => !vistos.has(f.id) && vistos.add(f.id));
+  const medidas = faturas.map((f) => medirFatura(f));
 
   // 2. Ciclos
   const diasNoPeriodo = diasDoPeriodo(periodo);
-  const diasNoPeriodoLuz = diasDoCiclo(periodo.diasLuz, diasNoPeriodo);
-  const diasNoPeriodoAgua = diasDoCiclo(periodo.diasAgua, diasNoPeriodo);
-
   const diasContados = diasContadosEm(moradores, diasNoPeriodo, (m) => m.diasFora);
-  const diasContadosLuz = diasContadosEm(moradores, diasNoPeriodoLuz, (m) => m.diasForaLuz ?? m.diasFora);
-  const diasContadosAgua = diasContadosEm(moradores, diasNoPeriodoAgua, (m) => m.diasForaAgua ?? m.diasFora);
+
+  const porCiclo: Record<CicloId, Janela> = {};
+  for (const f of faturas) {
+    const dias = diasDoCiclo(f.dias, diasNoPeriodo);
+    porCiclo[f.id] = {
+      dias,
+      contados: diasContadosEm(moradores, dias, (m) => m.diasForaPorCiclo?.[f.id] ?? m.diasFora),
+      presentes: estado.presencas?.porCiclo?.[f.id],
+    };
+  }
 
   const janelas = medirJanelas(
     moradores,
     { dias: diasNoPeriodo, contados: diasContados, presentes: estado.presencas?.mes },
-    { dias: diasNoPeriodoLuz, contados: diasContadosLuz, presentes: estado.presencas?.luz },
-    { dias: diasNoPeriodoAgua, contados: diasContadosAgua, presentes: estado.presencas?.agua },
+    porCiclo,
   );
 
   const somaDiasContados = somaDosDias(moradores, diasContados);
@@ -66,16 +91,17 @@ export function calcular(estado: Estado): Resultado {
   const semNinguem = itens.length - validos.length;
   if (semNinguem > 0) alertas.push(itensSemNinguem(semNinguem));
 
-  const tarifas = { luz: luz.tarifa, agua: agua.tarifa };
+  const tarifas = Object.fromEntries(medidas.map((m) => [m.id, m.tarifa]));
   const custos = validos.map((i) => custoDe(i, tarifas));
 
   // O que a fatura cobrou e nenhum item explicou vira uso comum.
-  const sobraLuz = luz.consumoEmReais - somar(custos.map((c) => c.luz));
-  const sobraAgua = agua.consumoEmReais - somar(custos.map((c) => c.agua));
+  const sobras: Record<CicloId, number> = {};
+  for (const m of medidas) {
+    sobras[m.id] = m.consumoEmReais - somar(custos.map((c) => c.porCiclo[m.id] ?? 0));
+    if (sobras[m.id] < -TOLERANCIA) alertas.push(consumoPassaDaFatura(m, Math.abs(sobras[m.id])));
+  }
   const totalEmReais = somar(custos.map((c) => c.reais));
 
-  if (sobraLuz < -TOLERANCIA) alertas.push(consumoPassaDaFatura("luz", Math.abs(sobraLuz)));
-  if (sobraAgua < -TOLERANCIA) alertas.push(consumoPassaDaFatura("agua", Math.abs(sobraAgua)));
   if (somaDiasContados === 0 && moradores.length > 0) alertas.push(ninguemEmCasa());
 
   // 4. Alocação dos itens
@@ -112,33 +138,48 @@ export function calcular(estado: Estado): Resultado {
 
     if (item.rateio.tipo === "valor") {
       const soma = somaDeclarada(item);
-      const custo = custos[i].luz + custos[i].agua + custos[i].reais;
+      const custo = somar(Object.values(custos[i].porCiclo)) + custos[i].reais;
       if (Math.abs(soma - custo) > TOLERANCIA) alertas.push(valorNaoFecha(item, soma, custo));
     }
   });
 
-  // 5. O que sobrou: uso comum e taxas fixas, entre todos os moradores
+  // Um ciclo dividido por porcentagem avisa como um item, se não somar 100.
+  for (const f of faturas) {
+    if (f.rateio?.tipo !== "porcentagem") continue;
+    const soma = somar(moradores.map((m) => (f.rateio as { porcentagens: Record<string, number> }).porcentagens[m.id] ?? 0));
+    if (Math.abs(soma - 100) > 0.005) {
+      alertas.push(porcentagemNaoFecha({ nome: f.nome }, soma));
+    }
+  }
+
+  // 5. O que sobrou: uso comum e taxas fixas de cada ciclo, entre todos os moradores
   const todos = moradores.map((m) => m.id);
 
   if (todos.length > 0) {
     const calibragem = entreZeroEUm(estado.calibragem ?? 0);
     const comum = { participantes: todos, rateio: { tipo: "misto", igual: calibragem } as Rateio };
 
-    processar(
-      { ...comum, id: "__luz", nome: "Uso comum de luz", custo: { tipo: "reais", valor: sobraLuz } },
-      { luz: sobraLuz, agua: 0, reais: 0 },
-      true,
-    );
-    processar(
-      { ...comum, id: "__agua", nome: "Uso comum de água", custo: { tipo: "reais", valor: sobraAgua } },
-      { luz: 0, agua: sobraAgua, reais: 0 },
-      true,
-    );
+    for (const m of medidas) {
+      // Um ciclo pode trazer a própria regra (o aluguel por porcentagem);
+      // sem regra, a sobra vai pela régua do uso comum.
+      const proprio = faturas.find((f) => f.id === m.id)?.rateio;
+      processar(
+        {
+          ...comum,
+          ...(proprio ? { rateio: proprio } : {}),
+          id: `__${m.id}`,
+          nome: nomeDoUsoComum(m),
+          custo: { tipo: "reais", valor: sobras[m.id] },
+        },
+        { porCiclo: { [m.id]: sobras[m.id] }, reais: 0 },
+        true,
+      );
+    }
 
     // Cada taxa vira um item dividido por igual. No total antigo, o valor que
     // entra pode ter sido recortado; o ajuste distribui o corte entre as taxas.
-    const publicarTaxas = (lista: TaxaFixa[], cobrado: number, prefixo: string, qual: "luz" | "agua") => {
-      const soma = somaDeTaxas(lista);
+    const publicarTaxas = (lista: TaxaFixa[], cobrado: number, ciclo: CicloId) => {
+      const soma = somar(lista.map((t) => t.valor));
       if (soma === 0 || cobrado === 0) return;
       const ajuste = cobrado / soma;
 
@@ -148,50 +189,53 @@ export function calcular(estado: Estado): Resultado {
           {
             participantes: todos,
             rateio: { tipo: "igual" },
-            id: `${prefixo}${i}`,
+            id: `__taxa_${ciclo}_${i}`,
             nome: taxa.nome,
             custo: { tipo: "reais", valor },
           },
-          qual === "luz" ? { luz: valor, agua: 0, reais: 0 } : { luz: 0, agua: valor, reais: 0 },
+          { porCiclo: { [ciclo]: valor }, reais: 0 },
           true,
         );
       });
     };
 
-    publicarTaxas(luz.taxas, luz.taxasCobradas, "__taxa_luz_", "luz");
-    publicarTaxas(agua.taxas, agua.taxasCobradas, "__taxa_agua_", "agua");
+    for (const m of medidas) publicarTaxas(m.taxas, m.taxasCobradas, m.id);
   }
 
   // 6. Conferência
   const lista = moradores.map((m) => totais[m.id]);
   const somaCobrada = somar(lista.map((t) => t.total));
-  const somaDevida = luz.valor + agua.valor + totalEmReais;
+  const somaDevida = somar(medidas.map((m) => m.valor)) + totalEmReais;
 
   const centavosCobrados = lista.reduce((s, t) => s + emCentavos(t.total), 0);
   const residuoDeCentavos = emCentavos(somaDevida) - centavosCobrados;
   const somaCobradaArredondada = centavosCobrados / 100;
 
-  const casaVazia = moradores.length === 0 && Math.abs(somaDevida) > TOLERANCIA;
-  if (casaVazia) alertas.push(casaSemMorador(somaDevida));
+  const conjuntoVazio = moradores.length === 0 && Math.abs(somaDevida) > TOLERANCIA;
+  if (conjuntoVazio) alertas.push(conjuntoSemPessoa(somaDevida));
 
-  if (!casaVazia && residuoDeCentavos !== 0) {
+  if (!conjuntoVazio && residuoDeCentavos !== 0) {
     alertas.push(centavosDeDiferenca(residuoDeCentavos, somaCobradaArredondada, somaDevida));
   }
 
+  const ciclos: CicloCalculado[] = medidas.map((m) => ({
+    id: m.id,
+    nome: m.nome,
+    recurso: m.recurso,
+    dias: porCiclo[m.id].dias,
+    diasContados: porCiclo[m.id].contados,
+    tarifa: m.tarifa,
+    valor: m.valor,
+    sobra: sobras[m.id],
+  }));
+
   return {
     diasNoPeriodo,
-    diasNoPeriodoLuz,
-    diasNoPeriodoAgua,
-    tarifaLuz: luz.tarifa,
-    tarifaAgua: agua.tarifa,
     diasContados,
-    diasContadosLuz,
-    diasContadosAgua,
     somaDiasContados,
+    ciclos,
     itens: calculados,
     moradores: lista,
-    sobraLuz,
-    sobraAgua,
     totalEmReais,
     somaCobrada,
     somaDevida,
@@ -201,6 +245,10 @@ export function calcular(estado: Estado): Resultado {
     alertas,
   };
 }
+
+/** O que o fechamento mediu de um ciclo, ou `undefined` se ele não estava ativo. */
+export const cicloDe = (resultado: Resultado, id: CicloId): CicloCalculado | undefined =>
+  resultado.ciclos.find((c) => c.id === id);
 
 /** A soma cobrada fecha com a soma devida? É a conservação do custo. */
 export function conferir(resultado: Resultado): boolean {

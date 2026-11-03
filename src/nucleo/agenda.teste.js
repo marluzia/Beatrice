@@ -1,8 +1,9 @@
-// A agenda junta quatro origens de evento datado numa lista só. O teste existe
+// A agenda junta quatro origens de marcação datada numa lista só. O teste existe
 // porque cada origem mora numa entidade diferente do estado, e esquecer uma
 // delas não quebra nada   só faz o dia sumir do calendário em silêncio.
 
 import { describe, expect, it } from "vitest";
+import { cicloPorId } from "./ciclos.js";
 import { estadoInicial, novaTarefa } from "./estadoInicial.js";
 import { agendaDe, agendaPorDia, contagemPorNatureza, historicoEmTexto } from "./agenda.js";
 import { calcular } from "./adaptador.js";
@@ -13,15 +14,15 @@ const CICLO = { de: "2026-09-01", ate: "2026-10-01" };
 function conjunto(modo = "moradia", quantos = 2) {
   const estado = estadoInicial(modo, quantos);
   estado.periodo = { mes: 9, ano: 2026 };
-  estado.faturas.luz.janela = { ...CICLO };
-  estado.faturas.agua.janela = { ...CICLO };
+  cicloPorId(estado, "luz").janela = { ...CICLO };
+  cicloPorId(estado, "agua").janela = { ...CICLO };
   estado.moradores[0].nome = "Ana";
   if (estado.moradores[1]) estado.moradores[1].nome = "Bruno";
   return estado;
 }
 
 describe("as quatro origens entram na agenda", () => {
-  it("dia fora de um morador vira evento de presença", () => {
+  it("dia fora de um morador vira marcação de presença", () => {
     const e = conjunto();
     e.moradores[0].ausencias = ["2026-09-10"];
 
@@ -33,7 +34,7 @@ describe("as quatro origens entram na agenda", () => {
     expect(agenda[0].moradorId).toBe(e.moradores[0].id);
   });
 
-  it("na temporada o evento de presença é a estadia, não a ausência", () => {
+  it("na temporada a marcação de presença é a estadia, não a ausência", () => {
     const e = conjunto("temporada");
     e.moradores[0].presencas = ["2026-09-10"];
     e.moradores[0].ausencias = ["2026-09-20"]; // campo da outra polaridade: ignorado
@@ -44,7 +45,7 @@ describe("as quatro origens entram na agenda", () => {
     expect(agenda[0].detalhe).toContain("esteve");
   });
 
-  it("uso com data vira evento de uso, com quem participou", () => {
+  it("uso com data vira marcação de uso, com quem participou", () => {
     const e = conjunto();
     const ids = e.moradores.map((m) => m.id);
     e.itens = [
@@ -53,7 +54,7 @@ describe("as quatro origens entram na agenda", () => {
         nome: "Máquina de lavar",
         especie: "porUso",
         participantes: ids,
-        eventos: [{ id: "ev1", data: "2026-09-12", quantidade: "2", participantes: [ids[0]] }],
+        registrosDeUso: [{ id: "ev1", data: "2026-09-12", quantidade: "2", participantes: [ids[0]] }],
       },
     ];
 
@@ -79,7 +80,7 @@ describe("as quatro origens entram na agenda", () => {
     expect(agenda[0].detalhe).toContain("15,00");
   });
 
-  it("tarefa vira evento de tarefa, com quem fez", () => {
+  it("tarefa vira marcação de tarefa, com quem fez", () => {
     const e = conjunto();
     e.tarefas = [
       { ...novaTarefa("2026-09-03"), nome: "Lavar louça", responsaveis: [e.moradores[1].id] },
@@ -101,7 +102,7 @@ describe("a agenda em ordem", () => {
     e.itens = [
       {
         ...e.itens[0], nome: "Máquina", especie: "porUso", participantes: ids,
-        eventos: [{ id: "ev1", data: "2026-09-12", quantidade: "1", participantes: ids }],
+        registrosDeUso: [{ id: "ev1", data: "2026-09-12", quantidade: "1", participantes: ids }],
       },
       { ...e.itens[1], nome: "Galão", especie: "reais", valor: "15", data: "2026-09-03", participantes: ids },
     ];
@@ -122,7 +123,7 @@ describe("a agenda em ordem", () => {
     expect(doDia.map((e) => e.natureza)).toEqual(["despesa", "tarefa"]);
   });
 
-  it("agrupa por dia sem perder evento", () => {
+  it("agrupa por dia sem perder marcação", () => {
     const porDia = agendaPorDia(cheio());
     expect(Object.keys(porDia)).toHaveLength(3);
     expect(porDia["2026-09-03"]).toHaveLength(2);
@@ -167,7 +168,7 @@ describe("a agenda não mexe no cálculo", () => {
   it("tarefa não muda valor nenhum", () => {
     const e = conjunto();
     const ids = e.moradores.map((m) => m.id);
-    e.faturas.luz.linhas = [
+    cicloPorId(e, "luz").linhas = [
       { id: "l1", nome: "Energia", quantidade: "200", valor: "200", comportamento: "consumo" },
     ];
     e.itens = e.itens.map((i) => ({ ...i, participantes: ids }));

@@ -3,19 +3,14 @@ import {
   LIMITES_DO_CICLO,
   cicloValido,
   dentroDaJanela,
-  diasSemSobreposicao,
   faturaAtiva,
   diaISO,
   diasDaJanela,
   diasDoMes,
   diasNaJanela,
   distanciaEmDias,
-  janelaComum,
-  janelaDoFechamento,
   janelaDoMes,
   janelaPreenchida,
-  janelaTotal,
-  periodoDasFaturas,
   janelaValida,
   diasEntre,
   fimDoMes,
@@ -24,9 +19,21 @@ import {
   mesSeguinte,
   partesDoDia,
   somarDias,
-  temCicloInvalido,
   ultimoDiaDaJanela,
 } from "./calendario.js";
+import * as C from "./calendario.js";
+import { listaDeCiclos } from "./teste/conjuntoAntigo.js";
+
+// Estes casos foram escritos com as faturas como `{ luz, agua }`. As funções
+// do calendário recebem hoje a lista de ciclos; os nomes abaixo fazem a ponte
+// (ver teste/conjuntoAntigo.js) e chamam as funções reais.
+const emLista = (f) => (Array.isArray(f) ? f : listaDeCiclos(f ?? {}));
+const diasSemSobreposicao = (f, ...resto) => C.diasSemSobreposicao(emLista(f), ...resto);
+const janelaComum = (f, ...resto) => C.janelaComum(emLista(f), ...resto);
+const janelaDoFechamento = (f, ...resto) => C.janelaDoFechamento(emLista(f), ...resto);
+const janelaTotal = (f, ...resto) => C.janelaTotal(emLista(f), ...resto);
+const periodoDasFaturas = (f, ...resto) => C.periodoDasFaturas(emLista(f), ...resto);
+const temCicloInvalido = (f, ...resto) => C.temCicloInvalido(emLista(f), ...resto);
 
 describe("leitura de datas", () => {
   it("monta o ISO com zero à esquerda", () => {
@@ -185,8 +192,8 @@ describe("janela do fechamento", () => {
   const agua = { unidade: "m3", janela: { de: "2026-08-01", ate: "2026-09-01" } };
   const periodo = { mes: 8, ano: 2026 };
 
-  it("é o ciclo da luz, não o mês do calendário", () => {
-    expect(janelaDoFechamento({ luz, agua }, periodo)).toEqual(luz.janela);
+  it("vai do ciclo que começa primeiro ao que termina por último", () => {
+    expect(janelaDoFechamento({ luz, agua }, periodo)).toEqual({ de: agua.janela.de, ate: luz.janela.ate });
   });
 
   it("cai na água quando a luz ainda não tem datas", () => {

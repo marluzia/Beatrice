@@ -18,7 +18,7 @@ export default function MensagemDeColeta({ estado }) {
 
   return (
     <Ficha>
-      <Titulo nota="Cole no grupo da casa. A mensagem pergunta só o que os itens configurados exigem, e pede que todo mundo responda no mesmo lugar, à vista de todos.">
+      <Titulo nota="Cole no grupo de mensagens do conjunto. A mensagem pergunta só o que os itens configurados exigem, e pede que todo mundo responda no mesmo lugar, à vista de todos.">
         Juntar os dados do mês
       </Titulo>
 

@@ -2,15 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   cicloValido,
   diasDaJanela,
-  diasSemSobreposicao,
-  janelaComum,
-  janelaDoFechamento,
-  janelaTotal,
   mesPredominante,
-  periodoDasFaturas,
-  temCicloInvalido,
   ultimoDiaDaJanela,
 } from "./calendario.js";
+import * as C from "./calendario.js";
+import { listaDeCiclos } from "./teste/conjuntoAntigo.js";
+
+// Estes casos foram escritos com as faturas como `{ luz, agua }`. As funções
+// do calendário recebem hoje a lista de ciclos; os nomes abaixo fazem a ponte
+// (ver teste/conjuntoAntigo.js) e chamam as funções reais.
+const emLista = (f) => (Array.isArray(f) ? f : listaDeCiclos(f ?? {}));
+const diasSemSobreposicao = (f, ...resto) => C.diasSemSobreposicao(emLista(f), ...resto);
+const janelaComum = (f, ...resto) => C.janelaComum(emLista(f), ...resto);
+const janelaDoFechamento = (f, ...resto) => C.janelaDoFechamento(emLista(f), ...resto);
+const janelaTotal = (f, ...resto) => C.janelaTotal(emLista(f), ...resto);
+const periodoDasFaturas = (f, ...resto) => C.periodoDasFaturas(emLista(f), ...resto);
+const temCicloInvalido = (f, ...resto) => C.temCicloInvalido(emLista(f), ...resto);
 
 const LUZ = { de: "2026-07-25", ate: "2026-08-21" };
 const AGUA = { de: "2026-07-14", ate: "2026-08-12" };
@@ -55,8 +62,8 @@ describe("o mês do fechamento", () => {
 });
 
 describe("as três janelas", () => {
-  it("o fechamento segue o ciclo da luz", () => {
-    expect(janelaDoFechamento(faturas, periodo)).toEqual(LUZ);
+  it("sem corte, o fechamento vai do começo da água ao fim da luz", () => {
+    expect(janelaDoFechamento(faturas, periodo)).toEqual({ de: AGUA.de, ate: LUZ.ate });
   });
 
   it("a janela total vai da leitura mais cedo à mais tarde", () => {

@@ -1,4 +1,4 @@
-// Modos: o que muda entre uma república, uma propriedade de temporada, uma
+// Modos: o que muda entre uma república, um espaço de temporada, uma
 // família e um evento.
 //
 // A CEDER divide despesas de CONJUNTOS. Os quatro modos são o mesmo objeto em
@@ -27,6 +27,57 @@ export const POLARIDADES = ["ausencia", "presenca", "nenhuma"];
 
 const PASSOS_COM_CONTAS = ["contas", "moradores", "itens", "calendario", "rateio"];
 
+/**
+ * Presets da República: o jeito da casa dividir o USO COMUM   a sobra da luz
+ * e da água que nenhum aparelho explica   decidido uma vez, na criação, e não
+ * de novo a cada fechamento.
+ *
+ * Um preset é um padrão, nunca um cálculo: ele só fixa a `calibragem` que já
+ * existe (0 = tudo por dias, 1 = tudo por igual) e decide se a régua aparece no
+ * rateio. Taxas fixas continuam por igual e cada item continua com a sua regra.
+ *
+ * Nos três presets fechados a régua some do rateio. Isso tem um efeito bom de
+ * brinde: quem cede nunca é desfeito por alguém arrastando a régua depois.
+ */
+export const PRESETS_DA_REPUBLICA = {
+  moderada: {
+    chave: "moderada",
+    nome: "República Moderada",
+    curto: "Moderada",
+    resumo: "Uso comum metade por igual, metade pelos dias em casa.",
+    calibragem: 0.5,
+    regua: false,
+  },
+  comunal: {
+    chave: "comunal",
+    nome: "República Comunal",
+    curto: "Comunal",
+    resumo: "Uso comum 100% por igual: os dias em casa não contam nele.",
+    calibragem: 1,
+    regua: false,
+  },
+  temporal: {
+    chave: "temporal",
+    nome: "República Temporal",
+    curto: "Temporal",
+    resumo: "Uso comum 100% pelos dias em casa: quem viajou paga menos.",
+    calibragem: 0,
+    regua: false,
+  },
+  livre: {
+    chave: "livre",
+    nome: "República Livre",
+    curto: "Livre",
+    resumo: "A república ajusta a régua do uso comum a cada fechamento.",
+    // Só o ponto de partida: na Livre a régua aparece e a casa arrasta.
+    calibragem: 0,
+    regua: true,
+  },
+};
+
+/** O preset de quem não tem preset gravado: nunca esconde uma régua que a casa usava. */
+export const PRESET_DE_RESGATE = "livre";
+
 export const MODOS = {
   moradia: {
     chave: "moradia",
@@ -44,15 +95,18 @@ export const MODOS = {
     maximoDeMoradores: 20,
     itens: ["faxina", "geladeira", "maquina", "gas", "internet"],
     passos: PASSOS_COM_CONTAS,
+    presets: ["moderada", "comunal", "temporal", "livre"],
+    presetPadrao: "moderada",
 
     palavras: {
-      pessoa: "morador",
-      pessoas: "moradores",
-      Pessoas: "Moradores",
+      pessoa: "pessoa",
+      pessoas: "pessoas",
+      Pessoas: "Pessoas",
       conjunto: "república",
       oConjunto: "a república",
       quemMora: "Quem mora aqui",
-      semPessoas: "Diga quantas pessoas dividem a casa para montar a lista.",
+      noLugar: "em casa",
+      semPessoas: "Diga quantas pessoas moram na república para montar a lista.",
     },
 
     nota: "O rateio do uso comum vai por dias em casa.",
@@ -76,17 +130,18 @@ export const MODOS = {
     passos: PASSOS_COM_CONTAS,
 
     palavras: {
-      pessoa: "cotista",
-      pessoas: "cotistas",
-      Pessoas: "Cotistas",
-      conjunto: "propriedade",
-      oConjunto: "a propriedade",
-      quemMora: "Quem usa a propriedade",
-      semPessoas: "Diga quantos cotistas dividem a propriedade para montar a lista.",
+      pessoa: "pessoa",
+      pessoas: "pessoas",
+      Pessoas: "Pessoas",
+      conjunto: "espaço",
+      oConjunto: "o espaço",
+      quemMora: "Quem usa o espaço",
+      semPessoas: "Diga quantas pessoas dividem o espaço para montar a lista.",
+      noLugar: "no espaço",
     },
 
     nota:
-      "Aqui marca-se a estadia de cada um, não a ausência. Custo fixo que não depende de uso   condomínio, seguro, IPTU   ainda divide igual: não existe rateio por cota.",
+      "Aqui marca-se a estadia de cada um, não a ausência. Custo fixo que não depende de uso   condomínio, seguro, IPTU   divide por porcentagem: a cota de cada pessoa vai no próprio item.",
   },
 
   familia: {
@@ -113,6 +168,7 @@ export const MODOS = {
       conjunto: "casa",
       oConjunto: "a casa",
       quemMora: "Quem mora aqui",
+      noLugar: "em casa",
       semPessoas: "Diga quantas pessoas moram aqui para montar a lista.",
     },
 
@@ -134,15 +190,17 @@ export const MODOS = {
     moradores: 4,
     maximoDeMoradores: 20,
     itens: ["outra", "outra"],
-    passos: ["moradores", "itens", "calendario", "rateio"],
+    // O calendário só entra num evento longo (ver `modoDoConjunto`).
+    passos: ["moradores", "itens", "rateio"],
 
     palavras: {
-      pessoa: "participante",
-      pessoas: "participantes",
-      Pessoas: "Participantes",
+      pessoa: "pessoa",
+      pessoas: "pessoas",
+      Pessoas: "Pessoas",
       conjunto: "evento",
       oConjunto: "o evento",
       quemMora: "Quem participou",
+      noLugar: "no evento",
       semPessoas: "Diga quantas pessoas participaram para montar a lista.",
     },
 
@@ -164,16 +222,80 @@ export const polaridadeDe = (chave) => modoDe(chave).presenca;
 /** Este modo conta dias de alguma forma? */
 export const contaDias = (chave) => polaridadeDe(chave) !== "nenhuma";
 
+/** Os presets que este modo oferece, na ordem da tela. Lista vazia = modo sem presets. */
+export const presetsDe = (chave) =>
+  (modoDe(chave).presets ?? []).map((p) => PRESETS_DA_REPUBLICA[p]).filter(Boolean);
+
+/**
+ * A chave de preset que vale para um modo, a partir do que veio.
+ *
+ *  · modo sem presets          → null
+ *  · chave válida para o modo  → ela mesma
+ *  · `undefined` (criação)     → o padrão do modo
+ *  · qualquer outra coisa      → livre, que não esconde nada
+ */
+export function presetValido(chaveDoModo, chaveDoPreset) {
+  const oferecidos = modoDe(chaveDoModo).presets ?? [];
+  if (oferecidos.length === 0) return null;
+  if (oferecidos.includes(chaveDoPreset)) return chaveDoPreset;
+  if (chaveDoPreset === undefined) return modoDe(chaveDoModo).presetPadrao ?? oferecidos[0];
+  return PRESET_DE_RESGATE;
+}
+
+/**
+ * O preset de um conjunto, ou null se o modo dele não tem presets. Conjunto
+ * antigo, sem preset gravado, é lido como Livre: ele vinha usando a régua.
+ */
+export function presetDe(estado) {
+  const chave = presetValido(estado?.modo ?? PADRAO, estado?.preset ?? null);
+  return chave ? PRESETS_DA_REPUBLICA[chave] : null;
+}
+
+/** A calibragem que o preset impõe, ou null quando quem decide é a régua. */
+export function calibragemFixa(estado) {
+  const preset = presetDe(estado);
+  return preset && !preset.regua ? preset.calibragem : null;
+}
+
+/** A régua do uso comum aparece no rateio deste conjunto? */
+export function reguaVisivel(estado) {
+  if (modoDe(estado?.modo ?? PADRAO).faturas === false) return false;
+  return calibragemFixa(estado) === null;
+}
+
 /** Os títulos dos passos deste modo, na ordem em que a navegação os mostra. */
-export function passosDe(chave) {
-  const modo = modoDe(chave);
+export function passosDe(modoOuChave) {
+  const modo = typeof modoOuChave === "string" ? modoDe(modoOuChave) : modoOuChave ?? modoDe(PADRAO);
+  const evento = modo.chave === "evento";
   const titulo = {
     contas: "Contas",
     moradores: modo.palavras.Pessoas,
-    itens: chave === "evento" ? "Despesas" : "Itens",
-    calendario: chave === "evento" ? "Dias" : "Calendário",
-    rateio: chave === "evento" ? "Divisão" : "Rateio",
+    itens: evento ? "Despesas" : "Itens",
+    calendario: "Calendário",
+    rateio: "Rateio",
   };
 
   return modo.passos.map((p) => ({ chave: p, titulo: titulo[p] }));
 }
+
+/**
+ * O modo como ESTE conjunto o usa. Hoje só o evento muda: um evento longo
+ * (uma viagem, um acampamento) passa a contar os dias de cada pessoa   marca-
+ * se o dia em que cada uma esteve, como numa multipropriedade   e ganha o
+ * passo do calendário. Um evento curto continua sem dias.
+ */
+export function modoDoConjunto(estado) {
+  const modo = modoDe(estado?.modo ?? PADRAO);
+  if (modo.chave !== "evento" || !estado?.eventoLongo) return modo;
+
+  return {
+    ...modo,
+    presenca: "presenca",
+    passos: ["moradores", "itens", "calendario", "rateio"],
+    eventoLongo: true,
+    nota: "Evento longo: marque os dias em que cada pessoa esteve. A divisão por dias pesa quem ficou mais.",
+  };
+}
+
+/** Como este conjunto pergunta a presença, considerando o evento longo. */
+export const polaridadeDoConjuntoNoModo = (estado) => modoDoConjunto(estado).presenca;

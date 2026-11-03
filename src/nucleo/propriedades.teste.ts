@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { calcular, conferir, diasDoPeriodo } from "./motor.ts";
-import type { Estado, Item, Rateio } from "./motor.ts";
+import { conferir, diasDoPeriodo } from "./motor.ts";
+// Casos escritos com duas faturas (luz e água): ver teste/duasFaturas.ts.
+import { calcular } from "./teste/duasFaturas.ts";
+import type { Rateio } from "./motor.ts";
+import type { ItemDeDuasFaturas as Item } from "./teste/duasFaturas.ts";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Estado = any;
 
 const REPETICOES = 400;
 
@@ -154,7 +159,7 @@ describe(`propriedades, em ${REPETICOES} repúblicas sorteadas`, () => {
   });
 
   paraToda("quem não participa de nada não paga nada", (e, r) => {
-    const participaDeAlgo = new Set(e.itens.flatMap((i) => i.participantes));
+    const participaDeAlgo = new Set(e.itens.flatMap((i: Item) => i.participantes));
     for (const m of r.moradores) {
       const soUsoComum = !participaDeAlgo.has(m.moradorId);
       if (soUsoComum && r.sobraLuz === 0 && r.sobraAgua === 0) {
@@ -164,7 +169,7 @@ describe(`propriedades, em ${REPETICOES} repúblicas sorteadas`, () => {
   });
 
   paraToda("item sem participantes gera aviso", (e, r) => {
-    const orfaos = e.itens.filter((i) => i.participantes.length === 0).length;
+    const orfaos = e.itens.filter((i: Item) => i.participantes.length === 0).length;
     if (orfaos > 0) {
       expect(r.alertas.some((a) => a.texto.includes("sem ninguém marcado"))).toBe(true);
     }

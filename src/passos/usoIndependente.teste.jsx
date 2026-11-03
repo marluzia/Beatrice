@@ -14,35 +14,38 @@ const moradores = IDS.map((id, i) => ({
 
 const indicePorId = { m0: 0, m1: 1, m2: 2 };
 
-const faturas = {
-  luz: {
-    unidade: "kwh",
+const ciclos = [
+  {
+    id: "luz",
+    nome: "Luz",
+    recurso: "kwh",
     ativa: true,
     janela: { de: "2026-05-31", ate: "2026-06-28" },
     linhas: [
       { id: "l1", nome: "Energia", quantidade: "100", valor: "100", comportamento: "consumo" },
     ],
   },
-  agua: {
-    unidade: "m3",
+  {
+    id: "agua",
+    nome: "Água",
+    recurso: "m3",
     ativa: true,
     janela: { de: "2026-05-31", ate: "2026-06-28" },
     linhas: [{ id: "l2", nome: "Água", quantidade: "10", valor: "90", comportamento: "consumo" }],
   },
-};
+];
 
-function maquina(eventos = []) {
+function maquina(registrosDeUso = []) {
   return {
     ...criarItem(modeloPorChave("maquina"), ["m0", "m2"]),
-    kwhPorUso: "0,44",
-    m3PorUso: "0,88",
+    porUsoPorCiclo: { luz: "0,44", agua: "0,88" },
     rateio: "uso",
-    eventos,
+    registrosDeUso,
   };
 }
 
-function montar(eventos) {
-  const item = maquina(eventos);
+function montar(registrosDeUso) {
+  const item = maquina(registrosDeUso);
   const mudancas = [];
 
   render(
@@ -50,7 +53,7 @@ function montar(eventos) {
       item={item}
       moradores={moradores}
       indicePorId={indicePorId}
-      faturas={faturas}
+      ciclos={ciclos}
       periodo={{ mes: 6, ano: 2026 }}
       resultado={{ itens: [] }}
       acoes={{
@@ -87,7 +90,7 @@ describe("adicionar uso", () => {
     fireEvent.click(screen.getByText(/adicionar uso/i));
 
     const [campo, valor] = mudancas.at(-1);
-    expect(campo).toBe("eventos");
+    expect(campo).toBe("registrosDeUso");
     expect(valor.at(-1).participantes).toEqual([]);
   });
 

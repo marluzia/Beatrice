@@ -4,27 +4,36 @@ import {
   Botao,
   Campo,
   CampoData,
-  Pastilha,
   Rotulo,
   Segmentado,
-  Seletor,
   SeletorDeDia,
+  SeletorDePessoas,
+  SimboloDoCiclo,
 } from "../componentes/index.js";
-import { corDe, nomeOu, reais } from "../nucleo/formato.js";
+import QuemPagou from "./QuemPagou.jsx";
+import { campoDoConsumo, ciclosDoItem, especiesDe } from "../nucleo/catalogo.js";
+import { nomeOu, reais } from "../nucleo/formato.js";
 import {
-  eventosDe,
+  ciclosDoUso,
   faltaParaItem,
   orfasDoItem,
-  parteNoEvento,
+  parteNoRegistro,
   rateiosDoItem,
+  registrosDe,
   totalDeclaradoPorHora,
 } from "../nucleo/adaptador.js";
 import {
   diasSemSobreposicao,
-  faturaAtiva,
   janelaTotal,
   ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
+import {
+  cicloPorId,
+  ciclosMedidos,
+  deConta,
+  nomeNaFrase,
+  unidadeDoRecurso,
+} from "../nucleo/ciclos.js";
 import {
   aoMudarFim,
   aoMudarInicio,
@@ -63,40 +72,39 @@ const TABELAS = {
   horas: { campo: "usosPorPessoa", sufixo: "h", teclado: "decimal", passo: "qualquer" },
 };
 
-/**
- * De quais faturas este item puxa dinheiro.
- *
- * Serve para dizer quem pagou um item que sai da fatura: quem pagou aquilo foi
- * quem pagou a conta de onde ele sai, e essa informação já existe em Contas.
- */
-function contasDoItem(item, temLuz, temAgua) {
-  if (item.especie === "porUso" && item.origemUso === "fatura") {
-    return [
-      temLuz && Number(String(item.kwhPorUso).replace(",", ".")) > 0 && "luz",
-      temAgua && Number(String(item.m3PorUso).replace(",", ".")) > 0 && "agua",
-    ].filter(Boolean);
-  }
-
-  if (item.especie === "consumo" || item.especie === "porHora") {
-    return [item.unidade === "m3" ? "agua" : "luz"];
-  }
-
-  return [];
+/** Os ciclos da tabela do item, como objetos do estado (os que existem). */
+function contasDoItem(item, estado) {
+  return ciclosDoItem(item)
+    .map((id) => cicloPorId(estado, id))
+    .filter(Boolean);
 }
 
-const NOME_DA_CONTA = { luz: "conta de luz", agua: "conta de água" };
+function dicaDoItem(item, estado) {
+  if (item.especie !== "porUso" || item.origemUso === "reais") return item.dica;
 
-function dicaDoItem(item, temLuz, temAgua) {
-  if (item.especie !== "porUso" || item.origemUso !== "fatura") return item.dica;
-
-  const contas = [temLuz && "luz", temAgua && "água"].filter(Boolean);
+  const contas = ciclosDoUso(item, estado).map(nomeNaFrase);
   if (contas.length === 0) return item.dica;
 
-  const quais = contas.join(" e ");
-  const metricas = contas.length === 2 ? "as métricas de energia e água" : `a métrica de ${quais}`;
+  const quais = contas.length === 1 ? contas[0] : `${contas.slice(0, -1).join(", ")} e ${contas.at(-1)}`;
+  const metricas = contas.length > 1 ? "o gasto de cada conta" : `o gasto de ${quais}`;
 
-  return `Cada ciclo puxa ${quais} da fatura. Insira ${metricas} por ciclo da máquina. Cada um paga pelas lavagens que fez. Uma lavagem por uso entre duas pessoas conta 0,5 para cada.`;
+  return `Cada uso puxa ${quais} da fatura. Insira ${metricas} por uso; se não quiser contar uma conta, tire com o x. Cada um paga pelos usos que fez. Um uso entre duas pessoas conta 0,5 para cada.`;
 }
+
+const NOMES_DAS_ESPECIES = { consumo: "total do mês", porHora: "por hora", porUso: "por uso" };
+
+/** O rótulo do campo de consumo de um ciclo, conforme o jeito de medir. */
+function rotuloDoConsumo(especie, ciclo) {
+  const nome = nomeNaFrase(ciclo);
+  if (especie === "porHora") return `Gasto por hora (${nome})`;
+  if (especie === "porUso") return `Cada uso gasta (${nome})`;
+  return `Consumo no mês (${nome})`;
+}
+
+const sufixoDoConsumo = (especie, ciclo) => {
+  const unidade = unidadeDoRecurso(ciclo?.recurso) || "unid.";
+  return especie === "porHora" ? `${unidade}/h` : unidade;
+};
 
 export default function CartaoItem({
   item,
@@ -104,52 +112,55 @@ export default function CartaoItem({
   indicePorId,
   resultado,
   periodo,
-  faturas,
+  ciclos,
+  corte = null,
   acoes,
   modo,
 }) {
+  // O pedaço do estado que este cartão consulta: os ciclos e o período.
+  const estado = { ciclos, periodo, corte, itens: [item], moradores };
   const [aberto, setAberto] = useState(false);
 
   const calculado = resultado.itens.find((x) => x.id === item.id);
   const set = (campo, valor) => acoes.editarItem(item.id, campo, valor);
   const rateios = rateiosDoItem(item, modo);
 
-  const porFatura = item.especie === "porUso" && item.origemUso === "fatura";
+  const porFatura = item.especie === "porUso" && item.origemUso !== "reais";
+  const campo = campoDoConsumo(item);
+  const tabela = campo ? item[campo] ?? {} : {};
+  const medidos = ciclosMedidos(estado);
 
-  const temLuz = faturaAtiva(faturas?.luz);
-  const temAgua = faturaAtiva(faturas?.agua);
-  const escolheUnidade = temLuz && temAgua;
-
-  // Quem é medido em kWh ou m³ pode ser declarado pelo total do mês ou pelo
-  // consumo por hora. Quem é por uso ou em reais não tem essa escolha.
-  const podeTrocarEspecie = item.especie === "consumo" || item.especie === "porHora";
+  // Os jeitos de medir que este item oferece. Um item "por uso" que sai do
+  // bolso (a faxina) não troca de jeito: o preço da diária é o que conta.
+  const especies = especiesDe(item).filter((e) => e !== "reais");
+  const podeTrocarEspecie = especies.length > 1 && item.origemUso !== "reais";
 
   // Só tem pagador o que sai do bolso. O que sai de dentro da fatura já foi
-  // pago por quem pagou a conta de luz ou de água; pedir pagador aqui faria a
+  // pago por quem pagou a conta de onde ele sai; pedir pagador aqui faria a
   // mesma despesa ser contada duas vezes no acerto.
   const saiDoBolso =
     item.especie === "reais" || (item.especie === "porUso" && item.origemUso === "reais");
 
-  const contas = contasDoItem(item, temLuz, temAgua);
+  const contas = contasDoItem(item, estado);
 
-  const diasSoltos = diasSemSobreposicao(faturas, periodo);
+  const diasSoltos = diasSemSobreposicao(ciclosDoUso(item, estado), periodo);
 
-  const dica = dicaDoItem(item, temLuz, temAgua);
+  const dica = dicaDoItem(item, estado);
 
-  const eventos = eventosDe(item);
+  const eventos = registrosDe(item);
 
   const [porData, setPorData] = useState(porFatura);
   const datado = porFatura && (eventos.length > 0 || porData);
 
   const totalDeUsos = (item.participantes ?? []).reduce((soma, id) => {
-    if (eventos.length > 0) return soma + eventos.reduce((s, e) => s + parteNoEvento(e, id), 0);
+    if (eventos.length > 0) return soma + eventos.reduce((s, e) => s + parteNoRegistro(e, id), 0);
     return soma + (Number(item.usosPorPessoa?.[id]) || 0);
   }, 0);
 
-  const trocarEventos = (lista) => set("eventos", lista);
+  const trocarEventos = (lista) => set("registrosDeUso", lista);
 
   const adicionarEvento = () => {
-    const limite = janelaTotal(faturas, periodo);
+    const limite = janelaTotal(ciclos, periodo, corte);
     trocarEventos([
       ...eventos,
       {
@@ -161,22 +172,8 @@ export default function CartaoItem({
     ]);
   };
 
-  const editarEvento = (id, campo, valor) =>
-    trocarEventos(eventos.map((e) => (e.id === id ? { ...e, [campo]: valor } : e)));
-
-  const alternarNoEvento = (id, moradorId) =>
-    trocarEventos(
-      eventos.map((e) => {
-        if (e.id !== id) return e;
-        const dentro = e.participantes.includes(moradorId);
-        return {
-          ...e,
-          participantes: dentro
-            ? e.participantes.filter((x) => x !== moradorId)
-            : [...e.participantes, moradorId],
-        };
-      }),
-    );
+  const editarEvento = (id, chave, valor) =>
+    trocarEventos(eventos.map((e) => (e.id === id ? { ...e, [chave]: valor } : e)));
 
   const removerEvento = (id) => trocarEventos(eventos.filter((e) => e.id !== id));
 
@@ -185,17 +182,41 @@ export default function CartaoItem({
     setPorData(false);
   };
 
-  const orfas = porFatura ? orfasDoItem(item, faturas, periodo) : [];
-
-  const nomeDe = (id) => {
-    const m = moradores.find((x) => x.id === id);
-    return m ? nomeOu(m.nome, indicePorId[id]) : "alguém";
+  /**
+   * Trocar o jeito de medir leva junto as contas escolhidas, com os números
+   * em branco: um total do mês não vira, por engano, gasto por hora.
+   */
+  const trocarEspecie = (nova) => {
+    const alvo = campoDoConsumo({ ...item, especie: nova, origemUso: "fatura" });
+    if (alvo && Object.keys(item[alvo] ?? {}).length === 0) {
+      set(alvo, Object.fromEntries(Object.keys(tabela).map((id) => [id, ""])));
+    }
+    if (nova === "porUso") set("origemUso", "fatura");
+    set("especie", nova);
   };
-  const diaCurto = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
-  const oQueFalta = (o) => (o.faltando === "luz" ? "energia" : "água");
 
-  const falta = faltaParaItem(item, faturas);
+  /** Liga ou tira (o x) uma conta da tabela de consumo do aparelho. */
+  const alternarCiclo = (id) => {
+    if (!campo) return;
+    if (id in tabela) {
+      const { [id]: _fora, ...resto } = tabela;
+      set(campo, resto);
+    } else {
+      set(campo, { ...tabela, [id]: "" });
+    }
+  };
+
+  const orfas = porFatura ? orfasDoItem(item, estado) : [];
+  const orfasDoRegistro = (id) => orfas.filter((o) => o.registroId === id);
+
+  const diaCurto = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  const oQueFalta = (o) => (o.faltando === "luz" ? "energia" : `parte de ${o.nomeDoCiclo}`);
+
+  const falta = faltaParaItem(item, estado);
   const bloqueado = falta.length > 0;
+
+  const participantes = moradores.filter((m) => item.participantes.includes(m.id));
+  const totaisPorHora = item.especie === "porHora" ? totalDeclaradoPorHora(item) : {};
 
   return (
     <div className="cartao-item">
@@ -221,6 +242,15 @@ export default function CartaoItem({
         </button>
         <button
           type="button"
+          className="item-acao"
+          aria-label={`Duplicar ${item.nome}`}
+          title="Duplicar"
+          onClick={() => acoes.duplicarItem?.(item.id)}
+        >
+          duplicar
+        </button>
+        <button
+          type="button"
           className="item-acao item-acao--remover"
           aria-label={`Remover ${item.nome}`}
           onClick={() => acoes.removerItem(item.id)}
@@ -231,192 +261,149 @@ export default function CartaoItem({
 
       {bloqueado && (
         <p className="item-falta">
-          Falta {falta.join(" e ")} . Lance em Contas para este item entrar na conta.
+          Falta {falta.join(" e ")}. Ligue e preencha em Faturas para este item entrar na conta.
         </p>
       )}
 
       {aberto && !bloqueado && (
         <div className="item-corpo">
-          {/* Quem pagou vem primeiro, logo abaixo do cabeçalho da despesa:
-              é a pergunta que decide se existe acerto ou não, e deixá-la no
-              fim fazia a pessoa configurar o item inteiro sem nunca ver que
-              ela existia. */}
-          <div className="grupo">
-            <Rotulo>Quem pagou</Rotulo>
-
-            {saiDoBolso ? (
-              <>
-                <Seletor
-                  valor={item.pagoPor ?? ""}
-                  aoMudar={(v) => acoes.definirPagador("item", item.id, v || null)}
-                  opcoes={[
-                    { valor: "", texto: "cada um pagou a sua parte" },
-                    ...moradores.map((m, i) => ({ valor: m.id, texto: nomeOu(m.nome, i) })),
-                  ]}
-                  texto
-                />
-                <p className="dica">
-                  {item.pagoPor
-                    ? "Essa pessoa adiantou pelo grupo: os outros devem a ela no acerto."
-                    : "Sem ninguém marcado, vale que cada um pagou a própria parte direto. Não gera dívida entre vocês."}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="item-pagador-herdado">
-                  {contas.length === 0
-                    ? "Sai da fatura."
-                    : contas
-                        .map((qual) => {
-                          const quem = faturas?.[qual]?.pagoPor;
-                          const i = moradores.findIndex((m) => m.id === quem);
-                          return `${NOME_DA_CONTA[qual]}: ${
-                            i < 0 ? "ninguém marcado ainda" : nomeOu(moradores[i].nome, i)
-                          }`;
-                        })
-                        .join(" · ")}
-                </p>
-              </>
-            )}
-          </div>
+          {/* Quem pagou vem primeiro, logo abaixo do nome da despesa: é a
+              pergunta que decide se existe acerto ou não. */}
+          {saiDoBolso ? (
+            <QuemPagou
+              pessoas={moradores}
+              indicePorId={indicePorId}
+              valor={item.pagoPor ?? null}
+              aoMudar={(id) => acoes.definirPagador("item", item.id, id)}
+              semNinguem="Ninguém marcado: cada um pagou a própria parte direto. Não gera dívida entre vocês."
+              comAlguem="Essa pessoa adiantou pelo grupo: os outros devem a ela no acerto."
+            />
+          ) : (
+            <div className="grupo">
+              <Rotulo>Quem pagou</Rotulo>
+              <p className="item-pagador-herdado">
+                {contas.length === 0
+                  ? "Sai da fatura de quem pagou a conta."
+                  : contas
+                      .map((ciclo) => {
+                        const i = moradores.findIndex((m) => m.id === ciclo.pagoPor);
+                        return `conta ${deConta(ciclo)}: ${
+                          i < 0 ? "ninguém marcado ainda" : nomeOu(moradores[i].nome, i)
+                        }`;
+                      })
+                      .join(" · ")}
+              </p>
+            </div>
+          )}
 
           {dica && <p className="dica">{dica}</p>}
 
-          {/* Aparelho pode ser medido de dois jeitos: o total do mês, ou o que
-              ele gasta por hora vezes as horas ligadas. A etiqueta costuma
-              trazer o segundo, então vale poder trocar. */}
+          {/* Como medir: total do mês, por hora ou por uso, conforme o item. */}
           {podeTrocarEspecie && (
             <Segmentado
-              rotuloDoGrupo="Como medir o aparelho"
-              opcoes={[
-                { valor: "consumo", texto: "total do mês" },
-                { valor: "porHora", texto: "por hora" },
-              ]}
+              rotuloDoGrupo="Como medir"
+              opcoes={especies.map((e) => ({ valor: e, texto: NOMES_DAS_ESPECIES[e] }))}
               valor={item.especie}
-              aoMudar={(v) => set("especie", v)}
+              aoMudar={trocarEspecie}
             />
           )}
 
+          {/* De quais contas o aparelho puxa. Livre: a pessoa escolhe e tira
+              com o x. Fixo (a geladeira é luz): não há escolha. */}
+          {campo && item.ciclosLivres && (
+            <div className="grupo">
+              <Rotulo>Puxa de quais contas</Rotulo>
+              {medidos.length === 0 ? (
+                <p className="dica">Nenhuma conta medida ligada. Ligue luz, água ou outra em Faturas.</p>
+              ) : (
+                <div className="linha-acoes">
+                  {medidos.map((c) => {
+                    const dentro = c.id in tabela;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`botao botao--catalogo ${dentro ? "botao--ligado" : ""}`}
+                        aria-pressed={dentro}
+                        onClick={() => alternarCiclo(c.id)}
+                      >
+                        <SimboloDoCiclo ciclo={c} tamanho={11} /> {c.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {Object.keys(tabela).length === 0 && medidos.length > 0 && (
+                <p className="dica dica--alerta">Escolha de qual conta este aparelho puxa.</p>
+              )}
+            </div>
+          )}
+
           <div className="linha-campos">
-            {item.especie === "consumo" && (
-              <>
-                <Campo
-                  rotulo="Consumo no mês"
-                  valor={item.quantidade}
-                  aoMudar={(v) => set("quantidade", v)}
-                  largura="campo--curto"
-                  placeholder="0"
-                />
-                {escolheUnidade ? (
-                  <Seletor
-                    rotulo="Unidade"
-                    valor={item.unidade}
-                    aoMudar={(v) => set("unidade", v)}
-                    opcoes={[
-                      { valor: "kwh", texto: "kWh · sai da luz" },
-                      { valor: "m3", texto: "m³ · sai da água" },
-                    ]}
-                    texto
-                  />
-                ) : (
-                  <span className="selo">
-                    {item.unidade === "m3" ? "m³ · sai da água" : "kWh · sai da luz"}
+            {campo &&
+              Object.keys(tabela).map((id) => {
+                const ciclo = cicloPorId(estado, id);
+                const desligado = !ciclo || !medidos.some((c) => c.id === id);
+                return (
+                  <span className="campo-com-x" key={id}>
+                    <Campo
+                      rotulo={ciclo ? rotuloDoConsumo(item.especie, ciclo) : "Conta removida"}
+                      sufixo={sufixoDoConsumo(item.especie, ciclo)}
+                      valor={tabela[id] ?? ""}
+                      aoMudar={(v) => set(campo, { ...tabela, [id]: v })}
+                      largura="campo--curto"
+                      placeholder="0"
+                    />
+                    {item.ciclosLivres && (
+                      <button
+                        type="button"
+                        className="linha-fatura__remover"
+                        aria-label={`Não contar ${ciclo?.nome ?? "esta conta"}`}
+                        title="Não contar esta conta"
+                        onClick={() => alternarCiclo(id)}
+                      >
+                        ×
+                      </button>
+                    )}
+                    {!item.ciclosLivres && ciclo && (
+                      <span className="selo">sai da conta {deConta(ciclo)}</span>
+                    )}
+                    {desligado && <span className="selo selo--erro">desligada em Faturas</span>}
                   </span>
-                )}
-              </>
-            )}
+                );
+              })}
 
             {item.especie === "porHora" && (
-              <>
-                <Campo
-                  rotulo="Consumo do aparelho"
-                  sufixo={item.unidade === "kwh" ? "kWh/h" : "m³/h"}
-                  valor={item.porHora}
-                  aoMudar={(v) => set("porHora", v)}
-                  largura="campo--curto"
-                  placeholder="0"
-                />
-                <Campo
-                  rotulo="Horas ligado no mês"
-                  sufixo="h"
-                  valor={item.horas}
-                  aoMudar={(v) => set("horas", v)}
-                  largura="campo--curto"
-                  placeholder="0"
-                />
-                {escolheUnidade ? (
-                  <Seletor
-                    rotulo="Unidade"
-                    valor={item.unidade}
-                    aoMudar={(v) => set("unidade", v)}
-                    opcoes={[
-                      { valor: "kwh", texto: "kWh · sai da luz" },
-                      { valor: "m3", texto: "m³ · sai da água" },
-                    ]}
-                    texto
-                  />
-                ) : (
-                  <span className="selo">
-                    {item.unidade === "m3" ? "m³ · sai da água" : "kWh · sai da luz"}
-                  </span>
-                )}
-              </>
+              <Campo
+                rotulo="Horas ligado no mês"
+                sufixo="h"
+                valor={item.horas}
+                aoMudar={(v) => set("horas", v)}
+                largura="campo--curto"
+                placeholder="0"
+              />
             )}
 
-            {item.especie === "porUso" && (
-              <>
-                <Seletor
-                  rotulo="Cada uso sai de"
-                  valor={item.origemUso}
-                  aoMudar={(v) => set("origemUso", v)}
-                  opcoes={[
-                    { valor: "fatura", texto: "da fatura de luz e água" },
-                    { valor: "reais", texto: "do bolso, em reais" },
-                  ]}
-                  texto
-                />
-                {item.origemUso === "reais" ? (
-                  <Campo
-                    rotulo="Cada uso custa"
-                    sufixo="R$"
-                    valor={item.valorPorUso}
-                    aoMudar={(v) => set("valorPorUso", v)}
-                    largura="campo--curto"
-                    placeholder="0,00"
-                  />
-                ) : (
-                  <>
-                    {temLuz && (
-                      <Campo
-                        rotulo="Cada uso gasta"
-                        sufixo="kWh"
-                        valor={item.kwhPorUso}
-                        aoMudar={(v) => set("kwhPorUso", v)}
-                        largura="campo--curto"
-                      />
-                    )}
-                    {temAgua && (
-                      <Campo
-                        rotulo="Cada uso gasta"
-                        sufixo="m³"
-                        valor={item.m3PorUso}
-                        aoMudar={(v) => set("m3PorUso", v)}
-                        largura="campo--curto"
-                      />
-                    )}
-                  </>
-                )}
-                {item.rateio !== "uso" && (
-                  <Campo
-                    rotulo="Usos no mês"
-                    valor={item.usos}
-                    aoMudar={(v) => set("usos", v)}
-                    largura="campo--minimo"
-                    placeholder="0"
-                    tipoDeTeclado="numeric"
-                  />
-                )}
-              </>
+            {item.especie === "porUso" && item.origemUso === "reais" && (
+              <Campo
+                rotulo="Cada uso custa"
+                sufixo="R$"
+                valor={item.valorPorUso}
+                aoMudar={(v) => set("valorPorUso", v)}
+                largura="campo--curto"
+                placeholder="0,00"
+              />
+            )}
+
+            {item.especie === "porUso" && item.rateio !== "uso" && item.rateio !== "horas" && (
+              <Campo
+                rotulo="Usos no mês"
+                valor={item.usos}
+                aoMudar={(v) => set("usos", v)}
+                largura="campo--minimo"
+                placeholder="0"
+                tipoDeTeclado="numeric"
+              />
             )}
 
             {item.especie === "reais" && (
@@ -431,15 +418,17 @@ export default function CartaoItem({
             )}
           </div>
 
-          {item.especie === "porHora" && totalDeclaradoPorHora(item) > 0 && (
-            <p className="dica">
-              Dá {totalDeclaradoPorHora(item).toLocaleString("pt-BR", {
-                maximumFractionDigits: 1,
-              })}{" "}
-              {item.unidade === "kwh" ? "kWh" : "m³"} no mês, descontados da fatura antes do
-              uso comum.
-            </p>
-          )}
+          {item.especie === "porHora" &&
+            Object.entries(totaisPorHora).some(([, v]) => v > 0) && (
+              <p className="dica">
+                Dá{" "}
+                {Object.entries(totaisPorHora)
+                  .filter(([, v]) => v > 0)
+                  .map(([id, v]) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ${unidadeDoRecurso(cicloPorId(estado, id)?.recurso)}`)
+                  .join(" e ")}{" "}
+                no mês, descontados da fatura antes do uso comum.
+              </p>
+            )}
 
           <div className="grupo">
             <Rotulo>Como divide</Rotulo>
@@ -454,21 +443,15 @@ export default function CartaoItem({
             )}
           </div>
 
-          <QuandoFoi item={item} set={set} />
-
           <div className="grupo">
             <Rotulo>Quem paga</Rotulo>
-            <div className="pastilhas">
-              {moradores.map((m) => (
-                <Pastilha
-                  key={m.id}
-                  cor={corDe(indicePorId[m.id])}
-                  nome={nomeOu(m.nome, indicePorId[m.id])}
-                  ativo={item.participantes.includes(m.id)}
-                  aoClicar={() => acoes.alternarParticipante(item.id, m.id)}
-                />
-              ))}
-            </div>
+            <SeletorDePessoas
+              rotulo="Quem paga"
+              pessoas={moradores}
+              indicePorId={indicePorId}
+              selecionados={item.participantes}
+              aoMudar={(ids) => acoes.definirParticipantes(item.id, ids)}
+            />
           </div>
 
           {TABELAS[item.rateio] && item.rateio !== "uso" && item.rateio !== "horas" &&
@@ -485,23 +468,6 @@ export default function CartaoItem({
           {(item.rateio === "uso" || item.rateio === "horas") && item.participantes.length > 0 && (
             <div className="grupo">
               <Rotulo>{item.rateio === "horas" ? "Horas de cada um" : "Usos de cada um"}</Rotulo>
-
-              {orfas.length > 0 && (
-                <Alerta nivel="aviso">
-                  <ul className="lista-orfas">
-                    {orfas.map((o) => (
-                      <li key={`${o.eventoId}-${o.faltando}`}>
-                        <strong>{diaCurto(o.dia)}</strong>: esse uso está fora do ciclo da
-                        conta de {o.faltando === "luz" ? "luz" : "água"}, então a{" "}
-                        {oQueFalta(o)} dele{" "}
-                        {o.quando === "passado"
-                          ? "entrou na fatura anterior, que já foi fechada. Aqui ela não é cobrada de novo."
-                          : "virá na próxima fatura. Não está cobrada aqui. Lance este mesmo dia no fechamento do mês que vem."}
-                      </li>
-                    ))}
-                  </ul>
-                </Alerta>
-              )}
 
               {porFatura && (
                 <Segmentado
@@ -530,7 +496,7 @@ export default function CartaoItem({
                           valor={evento.data}
                           aoMudar={(v) => editarEvento(evento.id, "data", v)}
                           periodo={periodo}
-                          limite={janelaTotal(faturas, periodo)}
+                          limite={janelaTotal(ciclos, periodo, corte)}
                           etiqueta="Dia do uso"
                         />
                         <Campo
@@ -552,19 +518,13 @@ export default function CartaoItem({
                         </button>
                       </div>
 
-                      <div className="pastilhas">
-                        {moradores
-                          .filter((m) => item.participantes.includes(m.id))
-                          .map((m) => (
-                            <Pastilha
-                              key={m.id}
-                              cor={corDe(indicePorId[m.id])}
-                              nome={nomeOu(m.nome, indicePorId[m.id])}
-                              ativo={evento.participantes.includes(m.id)}
-                              aoClicar={() => alternarNoEvento(evento.id, m.id)}
-                            />
-                          ))}
-                      </div>
+                      <SeletorDePessoas
+                        rotulo="Quem usou"
+                        pessoas={participantes}
+                        indicePorId={indicePorId}
+                        selecionados={evento.participantes}
+                        aoMudar={(ids) => editarEvento(evento.id, "participantes", ids)}
+                      />
 
                       {evento.participantes.length === 0 && (
                         <p className="dica dica--alerta">
@@ -582,6 +542,18 @@ export default function CartaoItem({
                           para cada.
                         </p>
                       )}
+
+                      {/* O aviso de fora do ciclo fica embaixo de quem usou,
+                          no lançamento a que ele se refere. */}
+                      {orfasDoRegistro(evento.id).map((o) => (
+                        <p className="dica dica--alerta" key={`${o.registroId}-${o.faltando}`}>
+                          <strong>{diaCurto(o.dia)}</strong>: este uso está fora do ciclo da conta de{" "}
+                          {o.nomeDoCiclo}, então a {oQueFalta(o)} dele{" "}
+                          {o.quando === "passado"
+                            ? "entrou na fatura anterior, que já foi fechada. Aqui ela não é cobrada de novo."
+                            : "virá na próxima fatura. Não está cobrada aqui. Lance este mesmo dia no fechamento do mês que vem."}
+                        </p>
+                      ))}
                     </div>
                   ))}
 
@@ -590,8 +562,8 @@ export default function CartaoItem({
                   </Botao>
 
                   <p className="dica">
-                    Os usos valem de {diaCurto(janelaTotal(faturas, periodo).de)} a{" "}
-                    {diaCurto(ultimoDiaDaJanela(janelaTotal(faturas, periodo)))}, que é o que
+                    Os usos valem de {diaCurto(janelaTotal(ciclos, periodo, corte).de)} a{" "}
+                    {diaCurto(ultimoDiaDaJanela(janelaTotal(ciclos, periodo, corte)))}, que é o que
                     as faturas cobrem juntas.
                   </p>
 
@@ -627,16 +599,28 @@ export default function CartaoItem({
 
                   {porFatura && diasSoltos > 0 && (
                     <Alerta nivel="aviso">
-                      Sem as datas, a CEDER não sabe em que ciclo cada uso caiu. Os ciclos de
-                      luz e água têm {diasSoltos} {diasSoltos === 1 ? "dia" : "dias"} que uma
-                      cobre e a outra não. Um uso nesses dias vai ser cobrado nas duas, e a
+                      Sem as datas, a CEDER não sabe em que ciclo cada uso caiu. As contas
+                      deste item têm {diasSoltos} {diasSoltos === 1 ? "dia" : "dias"} que uma
+                      cobre e outra não. Um uso nesses dias vai ser cobrado em todas, e a
                       conta fica imprecisa. Lançar por data resolve.
                     </Alerta>
                   )}
-
                 </>
               )}
             </div>
+          )}
+
+          {/* Quando foi é sempre a última seção. Com usos lançados por data,
+              cada uso já diz quando foi, e a data do item não se aplica. */}
+          {eventos.length > 0 ? (
+            <div className="grupo">
+              <Rotulo>Quando foi</Rotulo>
+              <p className="dica">
+                Desativado: este item tem usos com data, e cada um já diz quando foi.
+              </p>
+            </div>
+          ) : (
+            <QuandoFoi item={item} set={set} />
           )}
         </div>
       )}

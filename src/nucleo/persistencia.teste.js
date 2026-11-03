@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  carregarCasa,
-  casaAtual,
-  criarCasa,
-  definirCasaAtual,
-  exportarCasa,
-  importarCasa,
-  listarCasas,
-  removerCasa,
-  renomearCasa,
-  salvarCasa,
+  carregarConjunto,
+  conjuntoAtual,
+  criarConjunto,
+  definirConjuntoAtual,
+  exportarConjunto,
+  importarConjunto,
+  listarConjuntos,
+  removerConjunto,
+  renomearConjunto,
+  salvarConjunto,
 } from "./persistencia.js";
 import { estadoInicial } from "./estadoInicial.js";
 
@@ -17,108 +17,108 @@ beforeEach(() => window.localStorage.clear());
 
 describe("várias casas no mesmo navegador", () => {
   it("começa sem casa nenhuma", () => {
-    expect(listarCasas()).toEqual([]);
-    expect(casaAtual()).toBeNull();
+    expect(listarConjuntos()).toEqual([]);
+    expect(conjuntoAtual()).toBeNull();
   });
 
   it("guarda cada casa separada, com o próprio modo", () => {
-    const serra = criarCasa("República da Serra", estadoInicial("moradia"));
-    const buzios = criarCasa("Casa de Búzios", estadoInicial("temporada"));
+    const serra = criarConjunto("República da Serra", estadoInicial("moradia"));
+    const buzios = criarConjunto("Casa de Búzios", estadoInicial("temporada"));
 
-    expect(listarCasas()).toHaveLength(2);
-    expect(carregarCasa(serra).modo).toBe("moradia");
-    expect(carregarCasa(buzios).modo).toBe("temporada");
+    expect(listarConjuntos()).toHaveLength(2);
+    expect(carregarConjunto(serra).modo).toBe("moradia");
+    expect(carregarConjunto(buzios).modo).toBe("temporada");
   });
 
   it("salvar uma casa não encosta na outra", () => {
-    const serra = criarCasa("Serra", estadoInicial("moradia"));
-    const buzios = criarCasa("Búzios", estadoInicial("temporada"));
+    const serra = criarConjunto("Serra", estadoInicial("moradia"));
+    const buzios = criarConjunto("Búzios", estadoInicial("temporada"));
 
-    const estado = carregarCasa(serra);
+    const estado = carregarConjunto(serra);
     estado.moradores[0].nome = "Marialuzia";
-    salvarCasa(serra, estado);
+    salvarConjunto(serra, estado);
 
-    expect(carregarCasa(serra).moradores[0].nome).toBe("Marialuzia");
-    expect(carregarCasa(buzios).moradores[0].nome).toBe("");
+    expect(carregarConjunto(serra).moradores[0].nome).toBe("Marialuzia");
+    expect(carregarConjunto(buzios).moradores[0].nome).toBe("");
   });
 
   it("a ficha do painel acompanha o estado salvo", () => {
-    const id = criarCasa("Serra", estadoInicial("moradia", 3));
+    const id = criarConjunto("Serra", estadoInicial("moradia", 3));
 
-    const estado = carregarCasa(id);
+    const estado = carregarConjunto(id);
     estado.moradores.push({ id: "extra", nome: "Nova", diasFora: "", ausencias: [] });
     estado.periodo = { mes: 7, ano: 2027 };
-    salvarCasa(id, estado);
+    salvarConjunto(id, estado);
 
-    const ficha = listarCasas().find((c) => c.id === id);
+    const ficha = listarConjuntos().find((c) => c.id === id);
     expect(ficha.pessoas).toBe(4);
     expect(ficha.mes).toBe(7);
     expect(ficha.ano).toBe(2027);
   });
 
   it("renomeia sem tocar no estado", () => {
-    const id = criarCasa("Sem nome", estadoInicial("moradia"));
-    renomearCasa(id, "República da Serra");
+    const id = criarConjunto("Sem nome", estadoInicial("moradia"));
+    renomearConjunto(id, "República da Serra");
 
-    expect(listarCasas().find((c) => c.id === id).nome).toBe("República da Serra");
-    expect(carregarCasa(id)).not.toBeNull();
+    expect(listarConjuntos().find((c) => c.id === id).nome).toBe("República da Serra");
+    expect(carregarConjunto(id)).not.toBeNull();
   });
 
   it("nome em branco não apaga o nome que já existia", () => {
-    const id = criarCasa("Serra", estadoInicial("moradia"));
-    renomearCasa(id, "   ");
-    expect(listarCasas().find((c) => c.id === id).nome).toBe("Serra");
+    const id = criarConjunto("Serra", estadoInicial("moradia"));
+    renomearConjunto(id, "   ");
+    expect(listarConjuntos().find((c) => c.id === id).nome).toBe("Serra");
   });
 
   it("apagar tira a casa e o estado dela", () => {
-    const id = criarCasa("Serra", estadoInicial("moradia"));
-    removerCasa(id);
+    const id = criarConjunto("Serra", estadoInicial("moradia"));
+    removerConjunto(id);
 
-    expect(listarCasas()).toHaveLength(0);
-    expect(carregarCasa(id)).toBeNull();
+    expect(listarConjuntos()).toHaveLength(0);
+    expect(carregarConjunto(id)).toBeNull();
   });
 
   it("apagar a casa aberta deixa o painel sem casa atual", () => {
-    const id = criarCasa("Serra", estadoInicial("moradia"));
-    expect(casaAtual()).toBe(id);
+    const id = criarConjunto("Serra", estadoInicial("moradia"));
+    expect(conjuntoAtual()).toBe(id);
 
-    removerCasa(id);
-    expect(casaAtual()).toBeNull();
+    removerConjunto(id);
+    expect(conjuntoAtual()).toBeNull();
   });
 
   it("a casa atual some se ela deixou de existir", () => {
-    const id = criarCasa("Serra", estadoInicial("moradia"));
-    definirCasaAtual(id);
-    removerCasa(id);
-    expect(casaAtual()).toBeNull();
+    const id = criarConjunto("Serra", estadoInicial("moradia"));
+    definirConjuntoAtual(id);
+    removerConjunto(id);
+    expect(conjuntoAtual()).toBeNull();
   });
 
   it("casa que não existe carrega como null em vez de explodir", () => {
-    expect(carregarCasa("c-inventada")).toBeNull();
-    expect(carregarCasa(null)).toBeNull();
+    expect(carregarConjunto("c-inventada")).toBeNull();
+    expect(carregarConjunto(null)).toBeNull();
   });
 });
 
 describe("levar a casa para fora do navegador", () => {
   it("exporta e importa sem perder nada", () => {
-    const id = criarCasa("Serra", estadoInicial("moradia"));
-    const estado = carregarCasa(id);
+    const id = criarConjunto("Serra", estadoInicial("moradia"));
+    const estado = carregarConjunto(id);
     estado.moradores[0].nome = "Marialuzia";
-    salvarCasa(id, estado);
+    salvarConjunto(id, estado);
 
-    const texto = exportarCasa(id);
-    const voltou = importarCasa(texto);
+    const texto = exportarConjunto(id);
+    const voltou = importarConjunto(texto);
 
     expect(voltou).not.toBeNull();
     expect(voltou).not.toBe(id);
-    expect(carregarCasa(voltou).moradores[0].nome).toBe("Marialuzia");
-    expect(listarCasas()).toHaveLength(2);
+    expect(carregarConjunto(voltou).moradores[0].nome).toBe("Marialuzia");
+    expect(listarConjuntos()).toHaveLength(2);
   });
 
   it("arquivo que não é casa não vira casa", () => {
-    expect(importarCasa("{não é json")).toBeNull();
-    expect(importarCasa(JSON.stringify({ qualquer: "coisa" }))).toBeNull();
-    expect(listarCasas()).toHaveLength(0);
+    expect(importarConjunto("{não é json")).toBeNull();
+    expect(importarConjunto(JSON.stringify({ qualquer: "coisa" }))).toBeNull();
+    expect(listarConjuntos()).toHaveLength(0);
   });
 });
 
@@ -136,10 +136,10 @@ describe("a casa única que existia antes (v4 → v5)", () => {
       JSON.stringify({ versao: 4, estado: casaAntiga() }),
     );
 
-    const casas = listarCasas();
+    const casas = listarConjuntos();
     expect(casas).toHaveLength(1);
     expect(casas[0].modo).toBe("moradia");
-    expect(carregarCasa(casas[0].id).moradores[0].nome).toBe("Quem já usava");
+    expect(carregarConjunto(casas[0].id).moradores[0].nome).toBe("Quem já usava");
   });
 
   it("a chave antiga sai do caminho e a casa fica aberta", () => {
@@ -148,9 +148,9 @@ describe("a casa única que existia antes (v4 → v5)", () => {
       JSON.stringify({ versao: 4, estado: casaAntiga() }),
     );
 
-    const casas = listarCasas();
+    const casas = listarConjuntos();
     expect(window.localStorage.getItem("cdr:casa")).toBeNull();
-    expect(casaAtual()).toBe(casas[0].id);
+    expect(conjuntoAtual()).toBe(casas[0].id);
   });
 
   it("a adoção acontece uma vez só", () => {
@@ -159,15 +159,15 @@ describe("a casa única que existia antes (v4 → v5)", () => {
       JSON.stringify({ versao: 4, estado: casaAntiga() }),
     );
 
-    listarCasas();
-    listarCasas();
-    listarCasas();
+    listarConjuntos();
+    listarConjuntos();
+    listarConjuntos();
 
-    expect(listarCasas()).toHaveLength(1);
+    expect(listarConjuntos()).toHaveLength(1);
   });
 
   it("chave antiga corrompida não impede o app de abrir", () => {
     window.localStorage.setItem("cdr:casa", "{lixo");
-    expect(listarCasas()).toEqual([]);
+    expect(listarConjuntos()).toEqual([]);
   });
 });

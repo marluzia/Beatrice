@@ -16,7 +16,11 @@
   --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-  --canto: 3px;
+  /* Cantos arredondados, em três tamanhos: os cartões de escolher (criar
+     conjunto, a lista de conjuntos) são os mais redondos. */
+  --canto: 12px;
+  --canto-grande: 18px;
+  --canto-pequeno: 8px;
   --toque: 44px; 
   --folga: 16px;
 }
@@ -150,47 +154,185 @@ button {
 
 /* ------------------------------------------------------------- navegação --- */
 
-.passos {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 16px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  padding-bottom: 2px;
+/* As etapas: uma linha com nós. O nome fica em cima do nó, e a linha que
+   liga os nós fica escura até a etapa atual. */
+/* As etapas ficam grudadas no topo da tela enquanto a pessoa rola. */
+.topo-fixo {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: 0 -14px 18px;
+  padding: 10px 14px 8px;
+  background: var(--papel-fundo);
+  border-bottom: 1px solid var(--regua);
 }
 
-.passos::-webkit-scrollbar {
+@media (min-width: 640px) {
+  .topo-fixo {
+    margin: 0 -20px 18px;
+    padding: 12px 20px 10px;
+  }
+}
+
+.etapas {
+  margin: 0;
+}
+
+/* As macrosseções da etapa atual, embaixo da linha de nós. */
+.subetapas {
+  display: flex;
+  justify-content: safe center;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.subetapas::-webkit-scrollbar {
   display: none;
 }
 
-.passo-botao {
-  flex: 1 0 auto;
-  scroll-snap-align: start;
-  display: inline-flex;
+.subetapa {
+  display: flex;
+  flex: none;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  min-height: var(--toque);
-  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.subetapa + .subetapa::before {
+  content: "›";
+  color: var(--tinta-fraca);
+}
+
+.subetapa__botao {
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   background: transparent;
   color: var(--tinta-fraca);
-  border: 1px solid var(--regua);
-  border-radius: 2px;
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  transition: background 120ms ease, color 120ms ease;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 
-.passo-botao[aria-current="step"] {
+@media (max-width: 639px) {
+  .subetapas {
+    gap: 2px;
+  }
+
+  .subetapa {
+    gap: 2px;
+  }
+
+  .subetapa__botao {
+    padding: 3px 7px;
+    font-size: 11.5px;
+  }
+}
+
+.subetapa--atual .subetapa__botao {
+  border-color: var(--tinta);
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+.etapas__lista {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.etapa {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* O trecho de linha que liga este nó ao anterior. */
+.etapa + .etapa::before {
+  content: "";
+  position: absolute;
+  left: -50%;
+  right: 50%;
+  bottom: 15px;
+  height: 2px;
+  background: var(--regua);
+}
+
+.etapa--feita + .etapa::before,
+.etapa--feita + .etapa--atual::before {
+  background: var(--tinta);
+}
+
+.etapa__botao {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 2px;
+  background: transparent;
+  border: none;
+  color: var(--tinta-fraca);
+  font: inherit;
+  cursor: pointer;
+}
+
+.etapa__botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.etapa__nome {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.etapa__no {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--regua);
+  border-radius: 50%;
+  background: var(--papel);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.etapa--feita .etapa__no {
+  border-color: var(--tinta);
+  color: var(--tinta);
+}
+
+.etapa--atual .etapa__no {
+  border-color: var(--tinta);
   background: var(--tinta);
   color: var(--papel);
-  border-color: var(--tinta);
 }
 
-.passo-botao .ordem {
-  opacity: 0.55;
+.etapa--atual .etapa__nome {
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .etapa__nome {
+    font-size: 11px;
+  }
 }
 
 /* ----------------------------------------------------------------- ficha --- */
@@ -261,7 +403,7 @@ button {
   padding: 6px 10px;
   background: var(--branco);
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
@@ -316,7 +458,7 @@ button {
   background: var(--tinta);
   color: var(--papel);
   border: 1px solid var(--tinta);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -349,7 +491,7 @@ button {
   background: var(--branco);
   color: var(--tinta);
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 12px;
   text-align: left;
@@ -386,7 +528,7 @@ button {
      não fecham a grade, fica invisível em vez de virar uma célula cinza. */
   background: var(--papel);
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   overflow: hidden;
 }
 
@@ -450,7 +592,7 @@ button {
   padding: 0 12px;
   background: transparent;
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 12px;
   color: var(--tinta);
@@ -533,7 +675,7 @@ button {
   padding: 0 12px;
   background: var(--branco);
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 13px;
   color: var(--ok);
@@ -591,16 +733,17 @@ button {
 }
 
 @media (min-width: 640px) {
+  /* Uma coluna de dias por conta ligada; o passo de moradores diz quantas. */
   .cabeca-tabela {
     display: grid;
-    grid-template-columns: 14px 1fr 110px 110px;
+    grid-template-columns: 14px 1fr repeat(var(--colunas-de-dias, 2), 110px);
     gap: 10px;
     padding-bottom: 6px;
     border-bottom: 1px solid var(--regua);
   }
 
   .morador {
-    grid-template-columns: 14px 1fr 110px 110px;
+    grid-template-columns: 14px 1fr repeat(var(--colunas-de-dias, 2), 110px);
     padding-bottom: 0;
     border-bottom: none;
   }
@@ -721,6 +864,17 @@ button {
 
 .grupo-catalogo:last-child {
   margin-bottom: 0;
+}
+
+/* Os botões de adicionar, dentro da ficha "O que o conjunto gasta": um fio
+   separa o que o conjunto já tem do que ele pode acrescentar. */
+.adicionar-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--regua);
 }
 
 /* ------------------------------------------------------- passo rateio --- */
@@ -947,7 +1101,7 @@ button {
   padding: 0.9rem 1rem;
   background: #fff;
   border: 1px solid var(--regua);
-  border-radius: 3px;
+  border-radius: var(--canto);
   font-family: var(--mono);
   font-size: 0.82rem;
   line-height: 1.65;
@@ -970,7 +1124,7 @@ button {
 .ajuda {
   margin: 10px 0 15px 0;
   border: 1px solid var(--regua);
-  border-radius: 3px;
+  border-radius: var(--canto);
   background: #fff;
 }
 
@@ -1043,7 +1197,7 @@ button {
   margin: 0.2rem 0 0.7rem;
   padding: 0.6rem 0.7rem;
   background: var(--papel-fundo, #e2e6db);
-  border-radius: 3px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 0.78rem;
   line-height: 1.7;
@@ -1076,7 +1230,7 @@ button {
   max-width: 34rem;
   background: var(--papel);
   border: 1px solid var(--regua);
-  border-radius: 3px;
+  border-radius: var(--canto);
   font-size: 0.92rem;
   line-height: 1.6;
   color: var(--tinta-fraca);
@@ -1124,7 +1278,7 @@ button {
   gap: 0.35rem;
   padding: 0.55rem;
   background: var(--papel-fundo);
-  border-radius: 3px;
+  border-radius: var(--canto-pequeno);
 }
 
 .linha-fatura__baixo {
@@ -1194,7 +1348,7 @@ button {
   padding: 0.9rem 1rem;
   background: #fff;
   border: 1px solid var(--regua);
-  border-radius: 3px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 0.82rem;
   color: var(--tinta);
@@ -1297,7 +1451,7 @@ button {
   min-height: 30px;
   background: var(--branco);
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 15px;
   line-height: 1;
@@ -1327,7 +1481,7 @@ button {
   padding: 0;
   background: var(--branco);
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -1376,7 +1530,7 @@ button {
   padding: 0 10px;
   background: var(--branco);
   border: 1px solid var(--regua);
-  border-radius: 2px;
+  border-radius: var(--canto-pequeno);
   font-family: var(--mono);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -1522,7 +1676,7 @@ button {
   color: var(--tinta);
   padding: 0.25rem 0.5rem;
   background: var(--papel-fundo);
-  border-radius: 3px;
+  border-radius: var(--canto-pequeno);
 }
 
 .consumo-somado--vazio {
@@ -1741,7 +1895,7 @@ button {
 
 /* --------------------------------------------------- painel e modos --- */
 
-.cabecalho__casa {
+.cabecalho__conjunto {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1749,14 +1903,14 @@ button {
   text-align: right;
 }
 
-.cabecalho__casa-nome {
+.cabecalho__conjunto-nome {
   margin: 0;
   font-size: 13.5px;
   font-weight: 600;
   line-height: 1.3;
 }
 
-.cabecalho__casa-modo {
+.cabecalho__conjunto-modo {
   margin: 2px 0 0;
   font-family: var(--mono);
   font-size: 11.5px;
@@ -1764,7 +1918,7 @@ button {
 }
 
 @media (max-width: 520px) {
-  .cabecalho__casa {
+  .cabecalho__conjunto {
     flex-basis: 100%;
     order: 3;
     margin-left: 0;
@@ -1801,7 +1955,7 @@ button {
   text-align: left;
   background: var(--branco);
   border: 1px solid var(--regua);
-  border-radius: var(--canto);
+  border-radius: var(--canto-grande);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -1855,26 +2009,26 @@ button {
 
 /* lista de casas ----------------------------------------------------- */
 
-.lista-casas {
+.lista-conjuntos {
   display: grid;
   gap: 10px;
 }
 
-.casa-cartao {
+.conjunto-cartao {
   padding: 14px;
   background: var(--papel);
   border: 1px solid var(--regua);
-  border-radius: var(--canto);
+  border-radius: var(--canto-grande);
 }
 
-.casa-cartao__topo {
+.conjunto-cartao__topo {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
 }
 
-.casa-cartao__nome {
+.conjunto-cartao__nome {
   margin: 0;
   font-family: var(--mono);
   font-size: 15.5px;
@@ -1882,18 +2036,18 @@ button {
   overflow-wrap: anywhere;
 }
 
-.casa-cartao__linha {
+.conjunto-cartao__linha {
   margin: 6px 0 0;
   font-size: 13.5px;
 }
 
-.casa-cartao__quando {
+.conjunto-cartao__quando {
   margin: 2px 0 0;
   font-size: 12.5px;
   color: var(--tinta-fraca);
 }
 
-.casa-cartao__acoes {
+.conjunto-cartao__acoes {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -2213,4 +2367,409 @@ button {
   margin: 0;
   font-size: 13.5px;
   font-weight: 600;
+}
+
+/* ------------------------------------------------------------- ciclos --- */
+
+/* Uma conta criada pelo conjunto: o nome se edita no próprio título. */
+.bloco-fatura__topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bloco-fatura__nome {
+  flex: 1;
+  font-weight: 600;
+}
+
+/* O formulário de conta nova: nome, o que ela mede e o botão, numa linha
+   que quebra no celular. */
+.nova-conta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--regua);
+}
+
+/* -------------------------------------------------------- quem cede --- */
+
+/* Uma caixa por pessoa: o nome e o R simples. A de quem cede troca para o R.
+   com o ponto, e só ela ganha a borda escura. */
+.cedentes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.cedente {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 132px;
+  padding: 10px 14px;
+  border: 1px solid var(--regua);
+  border-left: 4px solid var(--cor-da-pessoa, var(--regua));
+  border-radius: var(--canto);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cedente:disabled {
+  cursor: default;
+}
+
+.cedente--escolhido {
+  border-color: currentColor;
+  border-left-color: var(--cor-da-pessoa, currentColor);
+  font-weight: 600;
+}
+
+.cedente__marca {
+  flex: none;
+}
+
+/* -------------------------------------------------- linha do tempo --- */
+
+.linha-do-tempo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.linha-do-tempo__linha {
+  display: grid;
+  grid-template-columns: minmax(70px, 110px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.linha-do-tempo__nome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.linha-do-tempo__trilho {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--fundo-suave, rgba(0, 0, 0, 0.05));
+}
+
+.linha-do-tempo__barra {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  background: var(--tinta-fraca);
+}
+
+.linha-do-tempo__barra--agua { background: #4a90c2; }
+.linha-do-tempo__barra--luz { background: #d9a400; }
+.linha-do-tempo__barra--periodo { background: var(--tinta, #1d1f1c); }
+
+.linha-do-tempo__linha--periodo {
+  padding-top: 6px;
+  border-top: 1px dashed var(--regua);
+  font-weight: 600;
+}
+
+/* Largura fixa: cada linha é uma grade própria, e os trilhos só ficam na
+   mesma escala se a coluna das datas tiver a mesma largura em todas. */
+.linha-do-tempo__datas {
+  width: 13ch;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--tinta-fraca);
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* No celular a escala precisa de largura: o nome encolhe. */
+@media (max-width: 639px) {
+  .linha-do-tempo__linha {
+    grid-template-columns: 58px 1fr auto;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .linha-do-tempo__nome {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .linha-do-tempo__datas {
+    font-size: 10px;
+  }
+
+}
+
+/* --------------------------------------------------- símbolos de ciclo --- */
+
+.simbolo-ciclo { flex: none; }
+.simbolo-ciclo--agua { color: #4a90c2; }
+.simbolo-ciclo--luz { color: #d9a400; }
+.simbolo-ciclo--outro { color: var(--tinta-fraca); }
+
+/* Os símbolos no topo da célula do dia: quais ciclos cobrem aquele dia. */
+.calendario-ciclos {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  min-height: 9px;
+  line-height: 0;
+}
+
+/* ------------------------------------------------- seletor de pessoas --- */
+
+.seletor-de-pessoas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seletor-de-pessoas__rapidos {
+  display: flex;
+  gap: 6px;
+}
+
+.botao--pequeno {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------- contas (faturas) --- */
+
+.contas-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.conta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bloco-fatura--aberto {
+  padding: 14px;
+  border: 1px solid var(--regua);
+  border-radius: var(--canto);
+}
+
+.bloco-fatura__cabeca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Um campo de consumo de aparelho com o x que tira a conta dele. */
+.campo-com-x {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* As bordas do período: tracejado preto, de cima a baixo das barras. Cada
+   trilho desenha o seu pedaço e passa um pouco do próprio topo e base, para
+   os pedaços se juntarem por cima do espaço entre as linhas. */
+.linha-do-tempo__borda {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 0;
+  border-left: 1.5px dashed #000;
+  transform: translateX(-0.75px);
+  pointer-events: none;
+}
+
+.linha-do-tempo__nome--dica {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--tinta-fraca);
+}
+
+/* Duas bolinhas na própria barra do período: dois controles deslizantes
+   sobrepostos ao trilho, e só as bolinhas recebem o toque. O controle passa
+   meia bolinha de cada lado do trilho, para o centro da bolinha cair
+   exatamente no dia da escala (o navegador nunca deixa a bolinha sair do
+   controle). */
+.linha-do-tempo__trilho--periodo {
+  height: 14px;
+}
+
+.intervalo {
+  --bolinha: 20px;
+  position: absolute;
+  top: 50%;
+  left: calc(var(--bolinha) / -2);
+  right: calc(var(--bolinha) / -2);
+  height: 28px;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.intervalo input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: none;
+}
+
+.intervalo input[type="range"]:focus-visible {
+  outline: none;
+}
+
+.intervalo input[type="range"]::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.intervalo input[type="range"]::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: var(--bolinha);
+  height: var(--bolinha);
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--papel, #fff);
+  border: 4px solid var(--tinta, #1d1f1c);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+}
+
+.intervalo input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--regua);
+}
+
+.intervalo input[type="range"]::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.intervalo input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+  box-sizing: border-box;
+  width: var(--bolinha);
+  height: var(--bolinha);
+  border-radius: 50%;
+  background: var(--papel, #fff);
+  border: 4px solid var(--tinta, #1d1f1c);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+}
+
+/* ----------------------------------------------------- fichário de contas --- */
+
+/* Uma aba por conta ligada, como as abas de um fichário: a aba aberta se
+   funde com a folha embaixo. No celular as abas rolam para o lado. */
+.fichario {
+  margin-top: 16px;
+}
+
+.fichario__abas {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 4px;
+  margin-bottom: -1px;
+}
+
+.fichario__abas::-webkit-scrollbar {
+  display: none;
+}
+
+.fichario__aba {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 1px solid var(--regua);
+  border-bottom: none;
+  border-radius: var(--canto) var(--canto) 0 0;
+  background: var(--fundo-suave, rgba(0, 0, 0, 0.04));
+  color: var(--tinta-fraca);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  position: relative;
+}
+
+.fichario__aba[aria-selected="true"] {
+  background: var(--papel, #fff);
+  color: var(--tinta, inherit);
+  font-weight: 600;
+  z-index: 1;
+}
+
+.fichario__folha {
+  border: 1px solid var(--regua);
+  border-radius: 0 var(--canto) var(--canto) var(--canto);
+  padding: 14px 12px;
+  background: var(--papel, #fff);
+}
+
+/* Dentro do fichário, a fatura não precisa de moldura própria. */
+.fichario__folha .bloco-fatura--aberto {
+  padding: 0;
+  border: none;
+}
+
+.fichario__vazio {
+  padding: 12px;
+  border: 1px dashed var(--regua);
+  border-radius: 0 var(--canto) var(--canto) var(--canto);
+}
+
+/* Linhas da fatura no celular: nome em cima, o resto quebra embaixo. */
+@media (max-width: 639px) {
+  .linha-fatura__baixo {
+    flex-wrap: wrap;
+  }
+  .fichario__folha {
+    padding: 12px 10px;
+  }
+}
+
+/* Cabeçalho do item no celular: o nome numa linha inteira em cima, e o valor
+   e os controles (ajustar, duplicar, remover) numa linha embaixo. */
+@media (max-width: 639px) {
+  .item-topo {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .item-topo .item-nome {
+    flex: 1 1 100%;
+  }
+  .item-topo .item-valor {
+    margin-right: auto;
+  }
 }

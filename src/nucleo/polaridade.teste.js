@@ -7,22 +7,24 @@
 // "todo mundo ficou", temporada vazia quer dizer "ninguém foi".
 
 import { describe, expect, it } from "vitest";
+import { comContasLigadas } from "./teste/conjuntoAntigo.js";
+import { cicloPorId } from "./ciclos.js";
 import { estadoInicial } from "./estadoInicial.js";
-import { calcular, diasContadosNaFatura, polaridadeDaCasa } from "./adaptador.js";
+import { calcular, diasContadosNaFatura, polaridadeDoConjunto } from "./adaptador.js";
 import { conferir, conferirEmCentavos } from "./motor.ts";
 
 const CICLO = { de: "2026-09-01", ate: "2026-10-01" }; // 30 dias
 
 function casa(modo, quantas = 2) {
-  const estado = estadoInicial(modo, quantas);
+  const estado = comContasLigadas(estadoInicial(modo, quantas));
   estado.periodo = { mes: 9, ano: 2026 };
-  estado.faturas.luz.janela = { ...CICLO };
-  estado.faturas.agua.janela = { ...CICLO };
+  cicloPorId(estado, "luz").janela = { ...CICLO };
+  cicloPorId(estado, "agua").janela = { ...CICLO };
   return estado;
 }
 
 const diasEmCasa = (estado, morador) =>
-  diasContadosNaFatura(morador, estado.faturas.luz, estado.periodo, polaridadeDaCasa(estado));
+  diasContadosNaFatura(morador, cicloPorId(estado, "luz"), estado.periodo, polaridadeDoConjunto(estado));
 
 const corrido = (inicio, quantos) => {
   const [ano, mes, dia] = inicio.split("-").map(Number);
@@ -97,11 +99,11 @@ describe("o fechamento de uma casa de temporada", () => {
     estado.moradores[2] = { ...estado.moradores[2], nome: "Célia", presencas: [] };
 
     const ids = estado.moradores.map((m) => m.id);
-    estado.faturas.luz.linhas = [
+    cicloPorId(estado, "luz").linhas = [
       { id: "l1", nome: "Energia", quantidade: "300", valor: "300", comportamento: "consumo" },
       { id: "l2", nome: "Iluminação pública", quantidade: "", valor: "30", comportamento: "igual" },
     ];
-    estado.faturas.agua.linhas = [
+    cicloPorId(estado, "agua").linhas = [
       { id: "a1", nome: "Tarifa água", quantidade: "10", valor: "120", comportamento: "consumo" },
     ];
     estado.itens = estado.itens.map((i) => ({ ...i, participantes: ids }));
@@ -138,7 +140,7 @@ describe("o fechamento de uma casa de temporada", () => {
 
 describe("o fechamento de um evento", () => {
   it("divide despesas em reais sem fatura nenhuma", () => {
-    const estado = estadoInicial("evento", 3);
+    const estado = comContasLigadas(estadoInicial("evento", 3));
     const ids = estado.moradores.map((m) => m.id);
 
     estado.itens = [

@@ -6,16 +6,12 @@
 // que quando ela não fecha o motor reclama, em vez de ajustar em silêncio.
 
 import { describe, expect, it } from "vitest";
-import {
-  calcular,
-  conferir,
-  conferirEmCentavos,
-  pesosDe,
-  rateiosPermitidos,
-  somaDeclarada,
-  type Estado,
-  type Item,
-} from "./motor.ts";
+import { conferir, conferirEmCentavos, pesosDe, rateiosPermitidos, somaDeclarada } from "./motor.ts";
+import type { ItemDeDuasFaturas as Item } from "./teste/duasFaturas.ts";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Estado = any;
+// Casos escritos com duas faturas (luz e água): ver teste/duasFaturas.ts.
+import { calcular } from "./teste/duasFaturas.ts";
 
 const SEM_FATURA = { luzKwh: 0, luzValor: 0, aguaM3: 0, aguaValor: 0 };
 

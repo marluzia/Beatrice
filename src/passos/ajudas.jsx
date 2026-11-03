@@ -36,7 +36,7 @@ export function AjudaContas() {
       </p>
       <p>
         <strong>Parcelamento e juros de dívida antiga</strong> não são consumo
-        de ninguém. Lance como divide igual se a casa combinou dividir, ou
+        de ninguém. Lance como divide igual se o grupo combinou dividir, ou
         deixe de fora se a dívida é anterior a algum morador.
       </p>
       <p>
@@ -52,9 +52,9 @@ export function AjudaMoradores({ polaridade = "ausencia" }) {
     <Ajuda titulo="Ajuda">
       {polaridade === "presenca" ? (
         <p>
-          <strong>Estadia</strong> são os dias em que a pessoa dormiu na
-          propriedade. Marque um a um no calendário. Quem não tem dia marcado
-          conta zero: numa casa de temporada o normal é não estar lá, e o que
+          <strong>Estadia</strong> são os dias em que a pessoa esteve no
+          espaço (ou no evento). Marque um a um no calendário. Quem não tem dia
+          marcado conta zero: numa multipropriedade o normal é não estar lá, e o que
           ninguém usou continua sendo de todos.
         </p>
       ) : (
@@ -68,7 +68,7 @@ export function AjudaMoradores({ polaridade = "ausencia" }) {
       <p>
         <strong>Dias contados</strong> é o peso usado nas
         divisões por tempo. 
-        Quem entra na casa depois passa a participar automaticamente dos itens
+        Quem entra no conjunto depois passa a participar automaticamente dos itens
         que já estavam configurados. Se alguém não deve pagar algum deles, é só
         desmarcar no passo seguinte.
       </p>
@@ -107,8 +107,8 @@ export function AjudaCentavos() {
   return (
     <Ajuda titulo="Leitura">
       <p>
-        A conferência no fim compara as estimativas de despesa das pessoas com o que a
-        casa deve de verdade. 
+        A conferência no fim compara as estimativas de despesa das pessoas com o que o
+        conjunto deve de verdade. 
       </p>
       <p>
         Divisão exata geralmente possui mais casas decimais que o formato monetário, isso causa arredondamentos. Por exemplo, cem reais entre três pessoas:
@@ -127,7 +127,7 @@ export function AjudaCentavos() {
         A CEDER, quando falta ou sobra, avisa exatamente a quantidade que "foge" da conta.
       </p>
       <p>
-        Quem cobre a diferença é decisão da casa, não da calculadora.
+        Quem cobre a diferença é decisão do grupo, não da calculadora.
       </p>
     </Ajuda>
   );

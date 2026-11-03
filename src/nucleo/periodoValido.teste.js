@@ -4,11 +4,19 @@ import {
   LIMITES_DO_CICLO,
   cicloValido,
   dataPlausivel,
-  faltaNaFatura,
-  faltasDoFechamento,
-  fechamentoPronto,
 } from "./calendario.js";
+import * as C from "./calendario.js";
+import { listaDeCiclos } from "./teste/conjuntoAntigo.js";
 import { comMascara, paraISO } from "../componentes/CampoData.jsx";
+
+// Estes casos foram escritos com as faturas como `{ luz, agua }`. As funções
+// do calendário recebem hoje a lista de ciclos; os nomes abaixo fazem a ponte
+// (ver teste/conjuntoAntigo.js) e chamam as funções reais.
+const emLista = (f) => (Array.isArray(f) ? f : listaDeCiclos(f ?? {}));
+const faltaNaFatura = (fatura, nome, hoje) =>
+  C.faltaNaFatura(fatura && { ...fatura, id: nome === "água" || nome === "agua" ? "agua" : "luz" }, hoje);
+const faltasDoFechamento = (f, ...resto) => C.faltasDoFechamento(emLista(f), ...resto);
+const fechamentoPronto = (f, ...resto) => C.fechamentoPronto(emLista(f), ...resto);
 
 const HOJE = new Date(Date.UTC(2026, 8, 15));
 

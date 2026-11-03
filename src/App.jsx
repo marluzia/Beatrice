@@ -3,12 +3,13 @@ import { Alerta, Botao, Cabecalho, Navegacao } from "./componentes/index.js";
 import { faltasDoFechamento } from "./nucleo/calendario.js";
 import { passosDe } from "./nucleo/modos.js";
 import { useCDR } from "./ganchos/useCDR.js";
-import PainelDeCasas from "./passos/PainelDeCasas.jsx";
+import PainelDeConjuntos from "./passos/PainelDeConjuntos.jsx";
 import PassoContas from "./passos/PassoContas.jsx";
 import PassoMoradores from "./passos/PassoMoradores.jsx";
 import PassoItens from "./passos/PassoItens.jsx";
 import PassoCalendario from "./passos/PassoCalendario.jsx";
 import PassoRateio from "./passos/PassoRateio.jsx";
+import { secoesDaEtapa, vizinha } from "./passos/secoes.js";
 
 const TELAS = {
   contas: PassoContas,
@@ -31,17 +32,22 @@ function aoTopo() {
 
 export default function App() {
   const [passo, setPasso] = useState(0);
-  const { estado, resultado, indicePorId, modo, idDaCasa, casas, acoes } = useCDR();
+  // A macrosseção aberta dentro da etapa: uma por vez.
+  const [secao, setSecao] = useState(0);
+  const { estado, resultado, indicePorId, modo, idDoConjunto, conjuntos, acoes } = useCDR();
 
   // Trocar de conjunto recomeça o assistente no primeiro passo.
-  useEffect(() => setPasso(0), [idDaCasa]);
+  useEffect(() => {
+    setPasso(0);
+    setSecao(0);
+  }, [idDoConjunto]);
 
   if (!estado) {
     return (
       <div className="folha">
         <Cabecalho />
         <main>
-          <PainelDeCasas casas={casas} acoes={acoes} />
+          <PainelDeConjuntos conjuntos={conjuntos} acoes={acoes} />
         </main>
         <footer className="rodape">
           <p>CEDER | Finanças Coletivas</p>
@@ -50,45 +56,87 @@ export default function App() {
     );
   }
 
-  const passos = passosDe(modo.chave);
+  const passos = passosDe(modo);
   const titulos = passos.map((p) => p.titulo);
 
-  const faltas = modo.faturas ? faltasDoFechamento(estado.faturas) : [];
+  const faltas = modo.faturas ? faltasDoFechamento(estado.ciclos) : [];
   const preso = faltas.length > 0;
   const indiceDasContas = passos.findIndex((p) => p.chave === "contas");
 
-  const irPara = (i) => {
+  const secoesDe = (i) => secoesDaEtapa(passos[i]?.chave, estado, modo);
+
+  /** Vai para a etapa `i`, na seção `s`. */
+  const irPara = (i, s = 0) => {
     if (preso && indiceDasContas >= 0 && i > indiceDasContas) {
       setPasso(indiceDasContas);
       return;
     }
-    setPasso(Math.max(0, Math.min(passos.length - 1, i)));
+    const alvo = Math.max(0, Math.min(passos.length - 1, i));
+    const quantas = secoesDe(alvo).length;
+    setPasso(alvo);
+    setSecao(Math.max(0, Math.min(quantas - 1, s)));
     aoTopo();
   };
 
-  const nomeDoConjunto = casas.find((c) => c.id === idDaCasa)?.nome;
+  const nomeDoConjunto = conjuntos.find((c) => c.id === idDoConjunto)?.nome;
 
-  const atual = passos[Math.min(passo, passos.length - 1)];
+  const indice = Math.min(passo, passos.length - 1);
+  const atual = passos[indice];
   const Tela = TELAS[atual.chave];
-  const comuns = { estado, resultado, indicePorId, modo, acoes, nomeDoConjunto };
+
+  const secoes = secoesDe(indice);
+  const nDaSecao = Math.min(secao, secoes.length - 1);
+  const ultimaSecao = nDaSecao === secoes.length - 1;
+  const ultimaEtapa = indice === passos.length - 1;
+
+  const irParaSecao = (chave) => {
+    const n = secoes.findIndex((x) => x.chave === chave);
+    if (n >= 0) irPara(indice, n);
+  };
+
+  const quantas = passos.map((_, i) => secoesDe(i).length);
+  const ir = (sentido) => {
+    const alvo = vizinha({ passo: indice, secao: nDaSecao }, sentido, quantas);
+    if (alvo) irPara(alvo.passo, alvo.secao);
+  };
+  const avancar = () => ir(1);
+  const recuar = () => ir(-1);
+  const travaAoAvancar = preso && ultimaSecao && indiceDasContas >= 0 && indice >= indiceDasContas;
+
+  const comuns = {
+    estado,
+    resultado,
+    indicePorId,
+    modo,
+    acoes,
+    nomeDoConjunto,
+    secao: secoes[nDaSecao].chave,
+    irParaSecao,
+  };
 
   return (
     <div className="folha">
       <Cabecalho
-        casa={nomeDoConjunto}
+        conjunto={nomeDoConjunto}
         modo={modo}
         aoSair={() => {
-          acoes.fecharCasa();
+          acoes.fecharConjunto();
           aoTopo();
         }}
       />
 
-      <Navegacao
-        passos={titulos}
-        atual={passo}
-        aoEscolher={irPara}
-        bloqueadosApos={preso && indiceDasContas >= 0 ? indiceDasContas : undefined}
-      />
+      {/* As etapas ficam grudadas no topo, com as seções da etapa atual logo embaixo. */}
+      <div className="topo-fixo">
+        <Navegacao
+          passos={titulos}
+          atual={indice}
+          aoEscolher={(i) => irPara(i)}
+          bloqueadosApos={preso && indiceDasContas >= 0 ? indiceDasContas : undefined}
+          secoes={secoes.length > 1 ? secoes.map((x) => x.titulo) : null}
+          secaoAtual={nDaSecao}
+          aoEscolherSecao={(n) => irPara(indice, n)}
+        />
+      </div>
 
       {preso && (
         <Alerta nivel="erro">
@@ -110,14 +158,13 @@ export default function App() {
       </main>
 
       <div className="barra-acoes">
-        <Botao tipo="fantasma" aoClicar={() => irPara(passo - 1)} desabilitado={passo === 0}>
+        <Botao tipo="fantasma" aoClicar={recuar} desabilitado={indice === 0 && nDaSecao === 0}>
           Voltar
         </Botao>
-        <Botao
-          aoClicar={() => irPara(passo + 1)}
-          desabilitado={passo === passos.length - 1 || preso}
-        >
-          {passo === passos.length - 2 ? `Ver ${passos[passos.length - 1].titulo.toLowerCase()}` : "Continuar"}
+        <Botao aoClicar={avancar} desabilitado={(ultimaEtapa && ultimaSecao) || travaAoAvancar}>
+          {indice === passos.length - 2 && ultimaSecao
+            ? `Ver ${passos[passos.length - 1].titulo.toLowerCase()}`
+            : "Continuar"}
         </Botao>
       </div>
 

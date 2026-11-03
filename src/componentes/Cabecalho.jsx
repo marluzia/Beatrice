@@ -18,7 +18,7 @@ const LEMA_PADRAO =
  * Sem conjunto aberto, o cabeçalho é só a marca. Com um conjunto aberto, ele
  * também diz qual é e oferece a volta para o painel.
  */
-export default function Cabecalho({ casa, modo, aoSair }) {
+export default function Cabecalho({ conjunto, modo, aoSair }) {
   return (
     <header className="cabecalho">
       <div className="marca-bloco">
@@ -28,11 +28,11 @@ export default function Cabecalho({ casa, modo, aoSair }) {
         </p>
       </div>
 
-      {casa ? (
-        <div className="cabecalho__casa">
+      {conjunto ? (
+        <div className="cabecalho__conjunto">
           <div>
-            <p className="cabecalho__casa-nome">{casa}</p>
-            {modo && <p className="cabecalho__casa-modo">{modo.nome}</p>}
+            <p className="cabecalho__conjunto-nome">{conjunto}</p>
+            {modo && <p className="cabecalho__conjunto-modo">{modo.nome}</p>}
           </div>
           <Botao tipo="fantasma" aoClicar={aoSair}>
             Meus conjuntos
