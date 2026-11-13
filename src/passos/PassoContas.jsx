@@ -31,11 +31,13 @@ import {
   faturaAtiva,
   janelaDoFechamento,
   limitesDoCorte,
+  limitesDeHoje,
   janelaPreenchida,
   janelaValida,
   temCicloInvalido,
   ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
+import { hojeISO } from "../nucleo/resumo.js";
 import {
   MAXIMO_DE_CICLOS,
   RECURSOS,
@@ -447,12 +449,12 @@ function SoValor({ fatura, moradores, indicePorId, acoes }) {
 
 const curtoBR = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "");
 
-export default function PassoContas({ estado, acoes, indicePorId = {}, secao }) {
+export default function PassoContas({ estado, acoes, indicePorId = {}, secao, abaInicial = null }) {
   const { mes, ano } = estado.periodo;
   const ciclos = ciclosDe(estado);
 
   // A conta aberta no fichário: uma aba por vez. `null` = fichário fechado.
-  const [aba, setAba] = useState(null);
+  const [aba, setAba] = useState(abaInicial);
   // Os ids que existiam quando "+ Gás ou outras" foi tocado: o que aparecer
   // depois disso é a conta nova, e ela abre sozinha.
   const [antesDaNova, setAntesDaNova] = useState(null);
@@ -625,12 +627,14 @@ export default function PassoContas({ estado, acoes, indicePorId = {}, secao }) 
               <CampoData
                 rotulo="Início"
                 valor={doPeriodo.de}
+                min={limitesDeHoje(hojeISO()).min}
                 aoMudar={(v) => v && v < somarDias(fimDoCorte, 1) && acoes.definirJanelaDeCorte({ de: v, ate: doPeriodo.ate })}
                 etiqueta="Primeiro dia do período de corte"
               />
               <CampoData
                 rotulo="Fim"
                 valor={fimDoCorte}
+                max={limitesDeHoje(hojeISO()).max}
                 aoMudar={(v) => v && v >= doPeriodo.de && acoes.definirJanelaDeCorte({ de: doPeriodo.de, ate: somarDias(v, 1) })}
                 etiqueta="Último dia do período de corte"
               />

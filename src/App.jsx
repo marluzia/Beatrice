@@ -1,197 +1,248 @@
-import { useEffect, useState } from "react";
-import { Alerta, Botao, Cabecalho, Navegacao } from "./componentes/index.js";
-import { faltasDoFechamento } from "./nucleo/calendario.js";
-import { passosDe } from "./nucleo/modos.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCDR } from "./ganchos/useCDR.js";
-import PainelDeConjuntos from "./passos/PainelDeConjuntos.jsx";
-import PassoContas from "./passos/PassoContas.jsx";
-import PassoMoradores from "./passos/PassoMoradores.jsx";
-import PassoItens from "./passos/PassoItens.jsx";
-import PassoCalendario from "./passos/PassoCalendario.jsx";
-import PassoRateio from "./passos/PassoRateio.jsx";
-import { secoesDaEtapa, vizinha } from "./passos/secoes.js";
-
-const TELAS = {
-  contas: PassoContas,
-  moradores: PassoMoradores,
-  itens: PassoItens,
-  calendario: PassoCalendario,
-  rateio: PassoRateio,
-};
+import { Avisos, mostrarAviso } from "./componentes/Interface.jsx";
+import { dadosDoLink, lerLink } from "./nucleo/compartilhar/link.js";
+import BarraInferior from "./componentes/BarraInferior.jsx";
+import { quemSouEu, resumoDoConjunto } from "./nucleo/resumo.js";
+import Inicio from "./telas/Inicio.jsx";
+import ListaDeConjuntos from "./telas/ListaDeConjuntos.jsx";
+import FolhaDeCriar from "./telas/FolhaDeCriar.jsx";
+import NovoConjunto from "./telas/NovoConjunto.jsx";
+import Hub from "./telas/Hub.jsx";
+import Despesas from "./telas/Despesas.jsx";
+import VerDespesas from "./telas/VerDespesas.jsx";
+import Historico from "./telas/Historico.jsx";
+import Saldos from "./telas/Saldos.jsx";
+import FecharContas from "./telas/FecharContas.jsx";
+import Editor from "./telas/Editor.jsx";
+import CalendarioDoConjunto from "./telas/CalendarioDoConjunto.jsx";
+import Lembretes from "./telas/Lembretes.jsx";
+import Registros from "./telas/Registros.jsx";
+import DespesaCiclica from "./telas/DespesaCiclica.jsx";
+import Notificacoes from "./telas/Notificacoes.jsx";
+import Atividade from "./telas/Atividade.jsx";
+import Perfil from "./telas/Perfil.jsx";
+import Configurar from "./telas/Configurar.jsx";
 
 function aoTopo() {
   try {
     const reduz =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: reduz ? "auto" : "smooth" });
+      typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduz ? "auto" : "instant" });
   } catch {
     window.scrollTo(0, 0);
   }
 }
 
+/** As telas de dentro de um conjunto, pela chave da rota. */
+const TELAS_DO_CONJUNTO = {
+  hub: Hub,
+  despesas: Despesas,
+  verDespesas: VerDespesas,
+  historico: Historico,
+  saldos: Saldos,
+  fechar: FecharContas,
+  editar: Editor,
+  calendario: CalendarioDoConjunto,
+  lembretes: Lembretes,
+  registros: Registros,
+  ciclo: DespesaCiclica,
+  configurar: Configurar,
+  notificacoes: Notificacoes,
+};
+
+/**
+ * As seções do conjunto: as que o hub abre direto. Só elas mostram a barra de baixo;
+ * qualquer outra tela (lançar, ver despesas, composição, fechar, configurar…) esconde
+ * a barra para a pessoa ficar só na ação.
+ */
+const SECOES_COM_BARRA = new Set(["hub", "despesas", "verDespesas", "saldos", "calendario", "lembretes", "registros"]);
+
 export default function App() {
-  const [passo, setPasso] = useState(0);
-  // A macrosseção aberta dentro da etapa: uma por vez.
-  const [secao, setSecao] = useState(0);
-  const { estado, resultado, indicePorId, modo, idDoConjunto, conjuntos, acoes } = useCDR();
+  const cdr = useCDR();
+  const { estado, resultado, modo, acoes, conjuntos, panorama, perfil, idDoConjunto } = cdr;
 
-  // Trocar de conjunto recomeça o assistente no primeiro passo.
-  useEffect(() => {
-    setPasso(0);
-    setSecao(0);
-  }, [idDoConjunto]);
+  // A aba de baixo, quando nenhum conjunto está aberto.
+  const [aba, setAba] = useState("inicio");
+  // As telas abertas dentro do conjunto, a última por cima.
+  const [pilha, setPilha] = useState([{ tela: "hub" }]);
+  // Telas que não são de conjunto nenhum: criar, notificações.
+  const [fora, setFora] = useState(null);
+  const [folha, setFolha] = useState(false);
 
-  if (!estado) {
-    return (
-      <div className="folha">
-        <Cabecalho />
-        <main>
-          <PainelDeConjuntos conjuntos={conjuntos} acoes={acoes} />
-        </main>
-        <footer className="rodape">
-          <p>CEDER | Finanças Coletivas</p>
-        </footer>
-      </div>
-    );
-  }
+  const ir = useCallback((tela, params = {}) => {
+    setPilha((p) => [...p, { tela, ...params }]);
+    aoTopo();
+  }, []);
 
-  const passos = passosDe(modo);
-  const titulos = passos.map((p) => p.titulo);
+  /** Troca a tela de cima por outra (sem empilhar). */
+  const trocar = useCallback((tela, params = {}) => {
+    setPilha((p) => [...p.slice(0, -1), { tela, ...params }]);
+    aoTopo();
+  }, []);
 
-  const faltas = modo.faturas ? faltasDoFechamento(estado.ciclos) : [];
-  const preso = faltas.length > 0;
-  const indiceDasContas = passos.findIndex((p) => p.chave === "contas");
+  const sairDoConjunto = useCallback(() => {
+    acoes.fecharConjunto();
+    setPilha([{ tela: "hub" }]);
+    aoTopo();
+  }, [acoes]);
 
-  const secoesDe = (i) => secoesDaEtapa(passos[i]?.chave, estado, modo);
-
-  /** Vai para a etapa `i`, na seção `s`. */
-  const irPara = (i, s = 0) => {
-    if (preso && indiceDasContas >= 0 && i > indiceDasContas) {
-      setPasso(indiceDasContas);
+  const voltar = useCallback(() => {
+    if (pilha.length > 1) {
+      setPilha((p) => p.slice(0, -1));
+      aoTopo();
       return;
     }
-    const alvo = Math.max(0, Math.min(passos.length - 1, i));
-    const quantas = secoesDe(alvo).length;
-    setPasso(alvo);
-    setSecao(Math.max(0, Math.min(quantas - 1, s)));
+    sairDoConjunto();
+  }, [pilha.length, sairDoConjunto]);
+
+  /** Abre um conjunto, já numa tela de dentro dele se `destino` vier. */
+  const abrir = useCallback(
+    (id, destino = null) => {
+      if (id !== idDoConjunto) {
+        // Grava o que estiver pendente no conjunto aberto antes de trocar.
+        if (estado) acoes.fecharConjunto();
+        if (!acoes.abrirConjunto(id)) return;
+      }
+      setPilha(destino ? [{ tela: "hub" }, destino] : [{ tela: "hub" }]);
+      setFora(null);
+      setFolha(false);
+      aoTopo();
+    },
+    [acoes, idDoConjunto, estado],
+  );
+
+  const escolherAba = useCallback(
+    (chave) => {
+      if (estado) acoes.fecharConjunto();
+      setPilha([{ tela: "hub" }]);
+      setFora(null);
+      setFolha(false);
+      setAba(chave);
+      aoTopo();
+    },
+    [acoes, estado],
+  );
+
+  const comecarACriar = useCallback(() => {
+    setFolha(false);
+    if (estado) acoes.fecharConjunto();
+    setFora({ tela: "criar" });
     aoTopo();
-  };
+  }, [acoes, estado]);
+
+  // Um link de conjunto (…#conjunto=…) abre a cópia que veio nele.
+  const ultimoLink = useRef(null);
+  useEffect(() => {
+    const abrirDoLink = async () => {
+      const dados = dadosDoLink(window.location.hash);
+      if (!dados || ultimoLink.current === dados) return;
+      ultimoLink.current = dados;
+      try {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } catch {
+        /* sem history: o # fica, e o ref impede abrir duas vezes */
+      }
+      let id = null;
+      try {
+        id = acoes.importar(await lerLink(dados));
+      } catch {
+        id = null;
+      }
+      if (!id) {
+        mostrarAviso("Não consegui abrir esse link de conjunto. Peça um link novo para quem enviou.");
+        return;
+      }
+      abrir(id);
+      mostrarAviso("Conjunto aberto pelo link. É uma cópia: o que mudar aqui não muda para quem enviou.");
+    };
+    abrirDoLink();
+    window.addEventListener("hashchange", abrirDoLink);
+    return () => window.removeEventListener("hashchange", abrirDoLink);
+  }, [acoes, abrir]);
 
   const nomeDoConjunto = conjuntos.find((c) => c.id === idDoConjunto)?.nome;
 
-  const indice = Math.min(passo, passos.length - 1);
-  const atual = passos[indice];
-  const Tela = TELAS[atual.chave];
+  // O saldo de você no conjunto aberto, ao vivo (o panorama só relê ao gravar).
+  const resumo = useMemo(
+    () => (estado && resultado ? resumoDoConjunto(estado, { perfil, resultado }) : null),
+    [estado, resultado, perfil],
+  );
+  const eu = estado ? quemSouEu(estado, perfil) : null;
 
-  const secoes = secoesDe(indice);
-  const nDaSecao = Math.min(secao, secoes.length - 1);
-  const ultimaSecao = nDaSecao === secoes.length - 1;
-  const ultimaEtapa = indice === passos.length - 1;
-
-  const irParaSecao = (chave) => {
-    const n = secoes.findIndex((x) => x.chave === chave);
-    if (n >= 0) irPara(indice, n);
-  };
-
-  const quantas = passos.map((_, i) => secoesDe(i).length);
-  const ir = (sentido) => {
-    const alvo = vizinha({ passo: indice, secao: nDaSecao }, sentido, quantas);
-    if (alvo) irPara(alvo.passo, alvo.secao);
-  };
-  const avancar = () => ir(1);
-  const recuar = () => ir(-1);
-  const travaAoAvancar = preso && ultimaSecao && indiceDasContas >= 0 && indice >= indiceDasContas;
-
-  const comuns = {
-    estado,
-    resultado,
-    indicePorId,
-    modo,
-    acoes,
+  const app = {
+    ...cdr,
     nomeDoConjunto,
-    secao: secoes[nDaSecao].chave,
-    irParaSecao,
+    resumo,
+    eu,
+    ir,
+    trocar,
+    voltar,
+    abrir,
+    sairDoConjunto,
+    escolherAba,
+    comecarACriar,
+    abrirNotificacoes: () => {
+      if (estado) ir("notificacoes");
+      else setFora({ tela: "notificacoes" });
+      aoTopo();
+    },
   };
 
-  return (
-    <div className="folha">
-      <Cabecalho
-        conjunto={nomeDoConjunto}
-        modo={modo}
-        aoSair={() => {
-          acoes.fecharConjunto();
+  let corpo;
+  let comBarra = true;
+  let abaAtiva = aba;
+
+  if (fora?.tela === "criar") {
+    comBarra = false;
+    corpo = (
+      <NovoConjunto
+        app={app}
+        aoCancelar={() => setFora(null)}
+        aoCriar={(pedido) => {
+          acoes.criarConjuntoNovo(pedido);
+          setPilha([{ tela: "hub" }]);
+          setFora(null);
+          setAba("conjuntos");
           aoTopo();
         }}
       />
+    );
+  } else if (fora?.tela === "notificacoes" && !estado) {
+    comBarra = false;
+    corpo = <Notificacoes app={app} aoVoltar={() => setFora(null)} />;
+  } else if (estado) {
+    const rota = pilha[pilha.length - 1] ?? { tela: "hub" };
+    const Tela = TELAS_DO_CONJUNTO[rota.tela] ?? Hub;
+    comBarra = SECOES_COM_BARRA.has(rota.tela);
+    abaAtiva = "conjuntos";
+    corpo = <Tela key={`${idDoConjunto}-${pilha.length}-${rota.tela}`} app={app} rota={rota} />;
+  } else if (aba === "conjuntos") {
+    corpo = <ListaDeConjuntos app={app} />;
+  } else if (aba === "atividade") {
+    corpo = <Atividade app={app} />;
+  } else if (aba === "perfil") {
+    corpo = <Perfil app={app} />;
+  } else {
+    corpo = <Inicio app={app} />;
+  }
 
-      {/* As etapas ficam grudadas no topo, com as seções da etapa atual logo embaixo. */}
-      <div className="topo-fixo">
-        <Navegacao
-          passos={titulos}
-          atual={indice}
-          aoEscolher={(i) => irPara(i)}
-          bloqueadosApos={preso && indiceDasContas >= 0 ? indiceDasContas : undefined}
-          secoes={secoes.length > 1 ? secoes.map((x) => x.titulo) : null}
-          secaoAtual={nDaSecao}
-          aoEscolherSecao={(n) => irPara(indice, n)}
+  return (
+    <div className={`app ${comBarra ? "app--com-barra" : ""}`}>
+      <main className="app__corpo">{corpo}</main>
+
+      {folha && <FolhaDeCriar app={app} aoFechar={() => setFolha(false)} />}
+
+      {comBarra && (
+        <BarraInferior
+          aba={abaAtiva}
+          aoEscolher={escolherAba}
+          aoCriar={() => setFolha((f) => !f)}
+          criando={folha}
         />
-      </div>
-
-      {preso && (
-        <Alerta nivel="erro">
-          <p>Para seguir, resolva o período das faturas:</p>
-          <ul>
-            {faltas.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-          <p>
-            Se não tiver as datas em mãos, deixe as duas em branco que o
-            fechamento passa a valer o mês inteiro, ou desligue a fatura.
-          </p>
-        </Alerta>
       )}
 
-      <main>
-        <Tela {...comuns} />
-      </main>
-
-      <div className="barra-acoes">
-        <Botao tipo="fantasma" aoClicar={recuar} desabilitado={indice === 0 && nDaSecao === 0}>
-          Voltar
-        </Botao>
-        <Botao aoClicar={avancar} desabilitado={(ultimaEtapa && ultimaSecao) || travaAoAvancar}>
-          {indice === passos.length - 2 && ultimaSecao
-            ? `Ver ${passos[passos.length - 1].titulo.toLowerCase()}`
-            : "Continuar"}
-        </Botao>
-      </div>
-
-      <div className="salvamento">
-        <span>
-          O que você preencheu está salvo neste navegador, neste conjunto.
-          Fechar a aba não apaga. Limpar os dados do site, sim.
-        </span>
-        <Botao
-          tipo="fantasma"
-          aoClicar={() => {
-            const certeza = window.confirm(
-              `Isso zera "${nomeDoConjunto ?? "este conjunto"}" e começa do zero, mantendo o tipo dele. Continuar?`,
-            );
-            if (certeza) {
-              acoes.recomecar();
-              irPara(0);
-            }
-          }}
-        >
-          Zerar este conjunto
-        </Botao>
-      </div>
-
-      <footer className="rodape">
-        <p>CEDER | Finanças Coletivas</p>
-      </footer>
+      <Avisos />
     </div>
   );
 }

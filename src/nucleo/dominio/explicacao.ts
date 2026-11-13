@@ -109,6 +109,17 @@ export const porcentagemNaoFecha = (item: Pick<Item, "nome">, soma: number): Ale
 });
 
 /**
+ * Ajustes que passam do custo: alguém ficaria com parte negativa. A parte
+ * dessa pessoa vira zero e o resto se redistribui; o aviso diz isso.
+ */
+export const ajusteNaoFecha = (item: Pick<Item, "nome">, custo: number): Alerta => ({
+  nivel: "aviso",
+  texto:
+    `Os ajustes de "${item.nome}" passam do que ele custa (R$ ${escrito(custo)}): alguém ficaria com parte negativa. ` +
+    `Essa parte virou zero e o resto foi dividido na proporção do que sobrou. Confira os ajustes.`,
+});
+
+/**
  * Valores em reais que não somam o custo do item. Aqui é erro, não aviso: a
  * pessoa escreveu quanto cada um paga, e esse número não fecha com o que o
  * item custa. Ajustar em silêncio seria inventar uma conta que ninguém pediu.

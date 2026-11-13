@@ -24,6 +24,11 @@ export interface ContextoDaRegra {
    * datas. Só a divisão por presença usa isto, e é o que a torna exata.
    */
   presentes?: PresencaPorDia;
+  /**
+   * O custo inteiro do item, somando todas as contas de onde ele sai. Só o
+   * ajuste usa: o ajuste é em reais, e o resto se divide por igual.
+   */
+  custoTotal?: number;
 }
 
 export type Pesos = Record<MoradorId, number>;
@@ -201,6 +206,19 @@ export const temPresencaExata = (ctx: ContextoDaRegra): boolean =>
   ctx.presentes.length > 0 &&
   ctx.presentes.length === ctx.diasNoCiclo;
 
+/** As partes do ajuste: o resto por igual, mais o ajuste de cada um. */
+export function partesDoAjuste(item: Item, custoTotal: number): Pesos {
+  const ajustes = item.rateio.tipo === "ajuste" ? item.rateio.ajustes : {};
+  const quantos = item.participantes.length;
+  if (quantos === 0) return {};
+  const soma = somar(item.participantes.map((id) => ajustes[id] ?? 0));
+  const base = (custoTotal - soma) / quantos;
+  return cadaUm(item, (id) => base + (ajustes[id] ?? 0));
+}
+
+// A ordem das chaves é a ordem em que a tela oferece as regras: as que se
+// declaram (igual, %, valor, cotas, ajuste) e depois as que se medem (dias,
+// horas, presença, uso).
 export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
   igual: {
     chave: "igual",
@@ -209,11 +227,83 @@ export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
     pesos: ({ item }) => cadaUm(item, () => 1),
   },
 
+  // Cada um declara a sua fatia. Como os pesos são normalizados pela soma,
+  // 30 e 70 dividem igual a 3 e 7   a porcentagem é uma proporção escrita de
+  // um jeito que a casa reconhece. Se não somar 100, o fechamento avisa.
+  porcentagem: {
+    chave: "porcentagem",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: ({ item }) => {
+      const declaradas = item.rateio.tipo === "porcentagem" ? item.rateio.porcentagens : {};
+      return cadaUm(item, (id) => Math.max(0, declaradas[id] ?? 0));
+    },
+    exata: ({ item }) => Math.abs(somaDeclarada(item) - 100) < 0.005,
+  },
+
+  // A única regra em que o número digitado é o valor final, e não uma
+  // proporção. Ela só é exata quando a soma bate com o custo do item: é o
+  // fechamento que confere isso e reclama em vermelho, porque dinheiro
+  // declarado que não fecha é erro de quem lançou, não arredondamento.
+  valor: {
+    chave: "valor",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: ({ item }) => {
+      const declarados = item.rateio.tipo === "valor" ? item.rateio.valores : {};
+      return cadaUm(item, (id) => Math.max(0, declarados[id] ?? 0));
+    },
+  },
+
+  // Cotas: 2 pagam o dobro de 1. Sem número declarado, cada um tem uma cota.
+  cotas: {
+    chave: "cotas",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: ({ item }) => {
+      const cotas = item.rateio.tipo === "cotas" ? item.rateio.cotas : {};
+      return cadaUm(item, (id) => {
+        const c = cotas[id];
+        return typeof c === "number" && Number.isFinite(c) ? Math.max(0, c) : 1;
+      });
+    },
+  },
+
+  // Ajuste: por igual, com um a mais ou a menos em reais para cada um. Os
+  // pesos são as próprias partes em reais (somam o custo), então a alocação
+  // normaliza e cada conta de onde o item sai leva a mesma proporção. Parte
+  // negativa (ajuste maior que o custo) vira zero, e o fechamento avisa.
+  ajuste: {
+    chave: "ajuste",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: ({ item, custoTotal }) => {
+      const partes = partesDoAjuste(item, custoTotal ?? 0);
+      return cadaUm(item, (id) => Math.max(0, partes[id] ?? 0));
+    },
+    exata: ({ item, custoTotal }) =>
+      Object.values(partesDoAjuste(item, custoTotal ?? 0)).every((v) => v >= -0.005),
+  },
+
   dias: {
     chave: "dias",
     oferecida: true,
     serveParaPorUso: false,
     pesos: pelosDias,
+  },
+
+  // Horas é uso com outra unidade: três lavagens ou duas horas e meia de
+  // ar-condicionado produzem peso do mesmo jeito. Elas são regras separadas
+  // porque a tela pede coisas diferentes   inteiro de um lado, decimal do
+  // outro   e porque "R$ por hora de motor" é uma frase que a casa entende.
+  horas: {
+    chave: "horas",
+    oferecida: true,
+    serveParaPorUso: true,
+    pesos: (ctx) => {
+      const horas = usosPorPessoa(ctx.item, ctx.mundo);
+      return cadaUm(ctx.item, (id) => horas[id] ?? 0);
+    },
   },
 
   presenca: {
@@ -249,48 +339,6 @@ export const REGRAS: Record<TipoDeRateio, RegraDeAlocacao> = {
     pesos: (ctx) => {
       const usos = usosPorPessoa(ctx.item, ctx.mundo);
       return cadaUm(ctx.item, (id) => usos[id] ?? 0);
-    },
-  },
-
-  // Horas é uso com outra unidade: três lavagens ou duas horas e meia de
-  // ar-condicionado produzem peso do mesmo jeito. Elas são regras separadas
-  // porque a tela pede coisas diferentes   inteiro de um lado, decimal do
-  // outro   e porque "R$ por hora de motor" é uma frase que a casa entende.
-  horas: {
-    chave: "horas",
-    oferecida: true,
-    serveParaPorUso: true,
-    pesos: (ctx) => {
-      const horas = usosPorPessoa(ctx.item, ctx.mundo);
-      return cadaUm(ctx.item, (id) => horas[id] ?? 0);
-    },
-  },
-
-  // Cada um declara a sua fatia. Como os pesos são normalizados pela soma,
-  // 30 e 70 dividem igual a 3 e 7   a porcentagem é uma proporção escrita de
-  // um jeito que a casa reconhece. Se não somar 100, o fechamento avisa.
-  porcentagem: {
-    chave: "porcentagem",
-    oferecida: true,
-    serveParaPorUso: true,
-    pesos: ({ item }) => {
-      const declaradas = item.rateio.tipo === "porcentagem" ? item.rateio.porcentagens : {};
-      return cadaUm(item, (id) => Math.max(0, declaradas[id] ?? 0));
-    },
-    exata: ({ item }) => Math.abs(somaDeclarada(item) - 100) < 0.005,
-  },
-
-  // A única regra em que o número digitado é o valor final, e não uma
-  // proporção. Ela só é exata quando a soma bate com o custo do item: é o
-  // fechamento que confere isso e reclama em vermelho, porque dinheiro
-  // declarado que não fecha é erro de quem lançou, não arredondamento.
-  valor: {
-    chave: "valor",
-    oferecida: true,
-    serveParaPorUso: true,
-    pesos: ({ item }) => {
-      const declarados = item.rateio.tipo === "valor" ? item.rateio.valores : {};
-      return cadaUm(item, (id) => Math.max(0, declarados[id] ?? 0));
     },
   },
 

@@ -21,7 +21,7 @@
 // `exportarConjunto` e `importarConjunto` existem, e por isso o painel oferece
 // o download.
 
-import { calibragemFixa, PADRAO, presetValido } from "./modos.js";
+import { calibragemFixa, CHAVES_ANTIGAS, PADRAO, presetValido } from "./modos.js";
 import { RECURSOS, REGRAS_DO_CICLO } from "./ciclos.js";
 import { corteValido } from "./calendario.js";
 import { especiesDe } from "./catalogo.js";
@@ -38,7 +38,7 @@ const PREFIXO_CDR = "cdr:casa:";
 /** A chave única de antes da v5, quando só existia uma casa. */
 const CHAVE_ANTIGA = "cdr:casa";
 
-const VERSAO = 11;
+const VERSAO = 12;
 
 function deposito() {
   try {
@@ -166,15 +166,39 @@ function adotarCasaAntiga(guarda) {
   return fichaDe(id, "Meu conjunto", limpo, null);
 }
 
+/**
+ * v11 → v12: a ficha guarda o modo, e dois modos mudaram de chave (a
+ * Multipropriedade era `temporada`; o evento longo virou a Temporada). A
+ * ficha é refeita a partir do estado já migrado de cada conjunto, uma vez.
+ */
+function fichasNaVersaoAtual(guarda, indice) {
+  return {
+    ...indice,
+    conjuntos: indice.conjuntos.map((c) => {
+      const pacote = ler(guarda, PREFIXO + c.id);
+      const estado = pacote ? migrar(pacote.estado, pacote.versao) : null;
+      const modo = typeof estado?.modo === "string" ? estado.modo : CHAVES_ANTIGAS[c.modo] ?? c.modo;
+      return { ...c, modo };
+    }),
+  };
+}
+
 /** O índice, criando-o (e trazendo o que houver nas chaves antigas) se for a primeira vez. */
 function indiceVivo(guarda) {
   const existente = lerIndice(guarda);
-  if (existente) return existente;
+  if (existente) {
+    const versao = ler(guarda, INDICE)?.versao;
+    if (typeof versao === "number" && versao >= 12) return existente;
+    const atualizado = fichasNaVersaoAtual(guarda, existente);
+    guardarIndice(guarda, atualizado);
+    return atualizado;
+  }
 
   const copiado = copiarChavesCdr(guarda);
   if (copiado) {
-    guardarIndice(guarda, copiado);
-    return copiado;
+    const atualizado = fichasNaVersaoAtual(guarda, copiado);
+    guardarIndice(guarda, atualizado);
+    return atualizado;
   }
 
   const indice = indiceVazio();
@@ -608,6 +632,16 @@ function migrar(estado, versao) {
     }, 11);
   }
 
+  // v11 → v12: cinco tipos de conjunto. A Multipropriedade deixa a chave
+  // `temporada` para o tipo novo e vira `multipro`; o evento longo deixa de
+  // ser um interruptor do evento e vira a Temporada, que é o que ele era.
+  // Nenhum número muda: os dois lados de cada troca pedem a mesma conta.
+  if (versao === 11) {
+    const longo = estado.modo === "evento" && Boolean(estado.eventoLongo);
+    const modo = longo ? "temporada" : CHAVES_ANTIGAS[estado.modo] ?? estado.modo;
+    return migrar({ ...estado, modo, eventoLongo: false }, 12);
+  }
+
   return null;
 }
 
@@ -654,6 +688,19 @@ export function sanear(estado) {
         : estado.corte
       : null,
     eventoLongo: Boolean(estado.eventoLongo),
+    // Na Multi, o que o calendário marca; nos outros tipos fica sem efeito.
+    marcacao: estado.marcacao === "presenca" || estado.marcacao === "ausencia" ? estado.marcacao : null,
+    // Campos da v12 que o motor não lê: quem é você, a descrição, desde
+    // quando o conjunto existe, os lembretes e os Pix já confirmados.
+    voce: moradorVivo(estado, estado.voce),
+    admin: moradorVivo(estado, estado.admin),
+    descricao: typeof estado.descricao === "string" ? estado.descricao : "",
+    desde: typeof estado.desde === "string" ? estado.desde : null,
+    lembretes: lembretesLimpos(estado.lembretes),
+    pagamentos: tabela(estado.pagamentos),
+    historicoDeCiclos: Array.isArray(estado.historicoDeCiclos)
+      ? estado.historicoDeCiclos.filter((h) => h && typeof h === "object" && h.valores)
+      : [],
     ciclos: estado.ciclos.filter(Boolean).map((c, i) => ({
       ...c,
       id: typeof c.id === "string" && c.id ? c.id : `c-sem-id-${i}`,
@@ -663,6 +710,7 @@ export function sanear(estado) {
       janela: c.janela && typeof c.janela === "object" ? c.janela : null,
       vencimento: typeof c.vencimento === "string" ? c.vencimento : null,
       pagoPor: typeof c.pagoPor === "string" ? c.pagoPor : null,
+      pagoEm: typeof c.pagoPor === "string" && typeof c.pagoEm === "string" ? c.pagoEm : null,
       linhas: Array.isArray(c.linhas) ? c.linhas.filter(Boolean) : [],
       // Só conta só de valor tem regra própria; sem regra válida, segue a régua.
       ...(RECURSOS[c.recurso]
@@ -675,6 +723,7 @@ export function sanear(estado) {
     moradores: estado.moradores.filter(Boolean).map((m) => ({
       ...m,
       nome: typeof m.nome === "string" ? m.nome : "",
+      convidado: Boolean(m.convidado),
       diasFora: typeof m.diasFora === "string" ? m.diasFora : "",
       ausencias: soDatas(m.ausencias),
       presencas: soDatas(m.presencas),
@@ -703,10 +752,40 @@ export function sanear(estado) {
       consumoPorCiclo: tabela(i.consumoPorCiclo),
       porHoraPorCiclo: tabela(i.porHoraPorCiclo),
       porUsoPorCiclo: tabela(i.porUsoPorCiclo),
+      cotas: tabela(i.cotas),
+      ajustes: tabela(i.ajustes),
       registrosDeUso: Array.isArray(i.registrosDeUso) ? i.registrosDeUso : registrosDeDiasAntigos(i),
       rateios: Array.isArray(i.rateios) ? i.rateios : ["igual", "dias", "uso"],
     })),
   };
+}
+
+/** Um id de morador que ainda mora no conjunto, ou null. */
+function moradorVivo(estado, id) {
+  if (typeof id !== "string") return null;
+  return (estado.moradores ?? []).some((m) => m && m.id === id) ? id : null;
+}
+
+/** Listas e notas: só a forma, nenhum dinheiro. */
+function lembretesLimpos(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista
+    .filter((l) => l && typeof l === "object" && typeof l.id === "string")
+    .map((l) => ({
+      id: l.id,
+      tipo: l.tipo === "lista" ? "lista" : "nota",
+      titulo: typeof l.titulo === "string" ? l.titulo : "",
+      texto: typeof l.texto === "string" ? l.texto : "",
+      itens: Array.isArray(l.itens)
+        ? l.itens
+            .filter((x) => x && typeof x.id === "string")
+            .map((x) => ({ id: x.id, texto: typeof x.texto === "string" ? x.texto : "", feito: Boolean(x.feito) }))
+        : [],
+      autor: typeof l.autor === "string" ? l.autor : null,
+      data: typeof l.data === "string" ? l.data : null,
+      registro: typeof l.registro === "string" ? l.registro : null,
+      criadoEm: typeof l.criadoEm === "string" ? l.criadoEm : null,
+    }));
 }
 
 function pareceUmConjunto(estado) {

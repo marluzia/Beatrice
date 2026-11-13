@@ -11,8 +11,9 @@ import {
   SimboloDoCiclo,
 } from "../componentes/index.js";
 import QuemPagou from "./QuemPagou.jsx";
+import { medeHoras } from "../nucleo/resumo.js";
 import { campoDoConsumo, ciclosDoItem, especiesDe } from "../nucleo/catalogo.js";
-import { nomeOu, reais } from "../nucleo/formato.js";
+import { nomeOu, num, reais } from "../nucleo/formato.js";
 import {
   ciclosDoUso,
   faltaParaItem,
@@ -21,6 +22,7 @@ import {
   rateiosDoItem,
   registrosDe,
   totalDeclaradoPorHora,
+  horasDoAparelho,
 } from "../nucleo/adaptador.js";
 import {
   diasSemSobreposicao,
@@ -43,12 +45,14 @@ import {
 
 const NOMES_DOS_RATEIOS = {
   igual: "igual",
-  dias: "por dias",
-  presenca: "por presença",
-  uso: "por uso",
-  horas: "por horas",
   porcentagem: "%",
-  valor: "R$",
+  valor: "valor",
+  cotas: "cotas",
+  ajuste: "ajuste",
+  dias: "dias",
+  horas: "horas",
+  presenca: "presença",
+  uso: "uso",
 };
 
 const EXPLICACOES_DOS_RATEIOS = {
@@ -62,12 +66,17 @@ const EXPLICACOES_DOS_RATEIOS = {
   porcentagem: "Cada um declara a própria fatia. Deveria somar 100%.",
   valor:
     "Cada um declara quanto paga, em reais. Esta é a única divisão em que o número é o valor final: a soma precisa bater com o custo do item.",
+  cotas: "Cada um tem um número de cotas: quem tem 2 paga o dobro de quem tem 1. Quem fica em branco tem 1 cota.",
+  ajuste:
+    "Divide por igual, e cada um pode ter um ajuste em reais: + para pagar a mais, − para pagar a menos. O que sobra depois dos ajustes se divide por igual.",
 };
 
 /** As divisões em que cada participante escreve o próprio número. */
 const TABELAS = {
   porcentagem: { campo: "porcentagens", sufixo: "%", teclado: "decimal", passo: "qualquer" },
   valor: { campo: "valores", sufixo: "R$", teclado: "decimal", passo: "qualquer" },
+  cotas: { campo: "cotas", sufixo: "cotas", teclado: "decimal", passo: "qualquer" },
+  ajuste: { campo: "ajustes", sufixo: "R$", teclado: "text", passo: "qualquer" },
   uso: { campo: "usosPorPessoa", sufixo: "usos", teclado: "numeric", passo: "inteiro" },
   horas: { campo: "usosPorPessoa", sufixo: "h", teclado: "decimal", passo: "qualquer" },
 };
@@ -149,8 +158,11 @@ export default function CartaoItem({
 
   const eventos = registrosDe(item);
 
-  const [porData, setPorData] = useState(porFatura);
-  const datado = porFatura && (eventos.length > 0 || porData);
+  // A lancha da Multi também registra cada uso com data, como a máquina.
+  const comRegistro = porFatura || Boolean(item.equipamento);
+  const emHoras = medeHoras(item);
+  const [porData, setPorData] = useState(comRegistro);
+  const datado = comRegistro && (eventos.length > 0 || porData);
 
   const totalDeUsos = (item.participantes ?? []).reduce((soma, id) => {
     if (eventos.length > 0) return soma + eventos.reduce((s, e) => s + parteNoRegistro(e, id), 0);
@@ -275,7 +287,7 @@ export default function CartaoItem({
               indicePorId={indicePorId}
               valor={item.pagoPor ?? null}
               aoMudar={(id) => acoes.definirPagador("item", item.id, id)}
-              semNinguem="Ninguém marcado: cada um pagou a própria parte direto. Não gera dívida entre vocês."
+              semNinguem="Ninguém marcado: a despesa fica em aberto. Se cada um pagou a própria parte direto, não gera dívida entre vocês."
               comAlguem="Essa pessoa adiantou pelo grupo: os outros devem a ela no acerto."
             />
           ) : (
@@ -373,7 +385,15 @@ export default function CartaoItem({
                 );
               })}
 
-            {item.especie === "porHora" && (
+            {item.especie === "porHora" && registrosDe(item).length > 0 && (
+              <p className="dica">
+                As horas vêm dos {registrosDe(item).length} registros deste aparelho (
+                {horasDoAparelho(item).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} h), cada uma no ciclo em que
+                caiu. Veja e lance em Registros.
+              </p>
+            )}
+
+            {item.especie === "porHora" && registrosDe(item).length === 0 && (
               <Campo
                 rotulo="Horas ligado no mês"
                 sufixo="h"
@@ -386,7 +406,7 @@ export default function CartaoItem({
 
             {item.especie === "porUso" && item.origemUso === "reais" && (
               <Campo
-                rotulo="Cada uso custa"
+                rotulo={emHoras ? "Cada hora custa" : "Cada uso custa"}
                 sufixo="R$"
                 valor={item.valorPorUso}
                 aoMudar={(v) => set("valorPorUso", v)}
@@ -469,7 +489,7 @@ export default function CartaoItem({
             <div className="grupo">
               <Rotulo>{item.rateio === "horas" ? "Horas de cada um" : "Usos de cada um"}</Rotulo>
 
-              {porFatura && (
+              {comRegistro && (
                 <Segmentado
                   rotuloDoGrupo="Como lançar os usos"
                   opcoes={[
@@ -502,10 +522,10 @@ export default function CartaoItem({
                         <Campo
                           valor={evento.quantidade}
                           aoMudar={(v) => editarEvento(evento.id, "quantidade", v)}
-                          sufixo="usos"
+                          sufixo={emHoras ? "h" : "usos"}
                           largura="campo--minimo"
                           placeholder="1"
-                          rotulo="Quantas vezes"
+                          rotulo={emHoras ? "Quantas horas" : "Quantas vezes"}
                           rotuloSolto
                         />
                         <button
@@ -714,22 +734,33 @@ function QuandoFoi({ item, set }) {
  * é dinheiro sem dono.
  */
 function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
-  const { campo, sufixo } = TABELAS[item.rateio];
+  const { campo, sufixo, teclado } = TABELAS[item.rateio];
   const tabela = item[campo] ?? {};
+  const regra = item.rateio;
 
-  const soma = item.participantes.reduce((t, id) => t + (Number(tabela[id]) || 0), 0);
-  const alvo = item.rateio === "porcentagem" ? 100 : custoTotal;
+  const soma = item.participantes.reduce((t, id) => t + num(tabela[id]), 0);
+  const alvo = regra === "porcentagem" ? 100 : custoTotal;
   const diferenca = alvo - soma;
   const fecha = Math.abs(diferenca) < 0.005;
 
   const escrito = (v) =>
-    item.rateio === "porcentagem"
-      ? `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`
-      : `R$ ${reais(v)}`;
+    regra === "porcentagem" ? `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%` : `R$ ${reais(v)}`;
+
+  // Ajuste: a parte de cada um é o resto por igual mais o ajuste dele.
+  const quantos = item.participantes.length;
+  const base = quantos > 0 ? (custoTotal - soma) / quantos : 0;
+  const parteNoAjuste = (id) => base + num(tabela[id]);
+
+  const rotulo = {
+    porcentagem: "Porcentagem de cada um",
+    valor: "Quanto cada um paga",
+    cotas: "Cotas de cada um",
+    ajuste: "Ajuste de cada um (+ ou −)",
+  }[regra];
 
   return (
     <div className="grupo">
-      <Rotulo>{item.rateio === "porcentagem" ? "Porcentagem de cada um" : "Quanto cada um paga"}</Rotulo>
+      <Rotulo>{rotulo}</Rotulo>
 
       <div className="linha-campos">
         {item.participantes.map((id) => {
@@ -743,18 +774,48 @@ function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
               valor={tabela[id] ?? ""}
               aoMudar={(v) => set(campo, { ...tabela, [id]: v })}
               largura="campo--curto"
-              placeholder="0"
+              placeholder={regra === "cotas" ? "1" : "0"}
               sufixo={sufixo}
+              tipoDeTeclado={teclado}
             />
           );
         })}
       </div>
 
-      {fecha ? (
+      {regra === "cotas" ? (
         <p className="dica">
-          Soma: {escrito(soma)}   fecha com {item.rateio === "porcentagem" ? "100%" : "o custo do item"}.
+          {item.participantes
+            .map((id) => {
+              const m = moradores.find((x) => x.id === id);
+              const c = String(tabela[id] ?? "").trim() === "" ? 1 : Math.max(0, num(tabela[id]));
+              return `${nomeOu(m?.nome, indicePorId[id])} ${c.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`;
+            })
+            .join(" · ")}
+          {"  "}cota(s).
         </p>
-      ) : item.rateio === "valor" ? (
+      ) : regra === "ajuste" ? (
+        item.participantes.some((id) => parteNoAjuste(id) < -0.005) ? (
+          <Alerta nivel="aviso">
+            Os ajustes passam do que o item custa ({escrito(custoTotal)}): alguém ficaria com parte negativa. Essa parte vira
+            zero e o resto se divide na proporção do que sobrou.
+          </Alerta>
+        ) : (
+          <p className="dica">
+            Fica:{" "}
+            {item.participantes
+              .map((id) => {
+                const m = moradores.find((x) => x.id === id);
+                return `${nomeOu(m?.nome, indicePorId[id])} ${escrito(parteNoAjuste(id))}`;
+              })
+              .join(" · ")}
+            .
+          </p>
+        )
+      ) : fecha ? (
+        <p className="dica">
+          Soma: {escrito(soma)}   fecha com {regra === "porcentagem" ? "100%" : "o custo do item"}.
+        </p>
+      ) : regra === "valor" ? (
         <Alerta nivel="erro">
           Os valores somam {escrito(soma)} e o item custa {escrito(alvo)}:{" "}
           {diferenca > 0

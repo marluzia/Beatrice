@@ -263,6 +263,35 @@ export function janelaDoFechamento(ciclos, periodo, corte = null) {
   };
 }
 
+/** O início de um período nunca vai mais de 40 dias antes de hoje. */
+export const DIAS_ANTES_DE_HOJE = 40;
+/** E o fim nunca vai mais de 2 anos depois de hoje. */
+export const ANOS_DEPOIS_DE_HOJE = 2;
+
+/** O mesmo dia, n anos depois (29/02 vira 28/02 num ano que não é bissexto). */
+export function somarAnos(iso, anos) {
+  const p = partesDoDia(iso);
+  if (!p) return iso;
+  const ano = p.ano + anos;
+  const ultimo = new Date(Date.UTC(ano, p.mes, 0)).getUTCDate();
+  return diaISO(ano, p.mes, Math.min(p.dia, ultimo));
+}
+
+/**
+ * Os dias que um período pode usar, contados de hoje: `min` é o primeiro dia
+ * permitido para o início e `max` o último dia permitido para o fim (os dois
+ * incluídos). Vale para o período de corte das casas e para o da temporada.
+ */
+export function limitesDeHoje(hoje) {
+  return { min: somarDias(hoje, -DIAS_ANTES_DE_HOJE), max: somarAnos(hoje, ANOS_DEPOIS_DE_HOJE) };
+}
+
+/** Uma janela (ate exclusivo) trazida para dentro dos limites de hoje, ou null. */
+export function janelaNosLimitesDeHoje(janela, hoje) {
+  const { min, max } = limitesDeHoje(hoje);
+  return corteNosLimites(janela, { de: min, ate: somarDias(max, 1) });
+}
+
 /** Até quantos dias antes do primeiro ciclo, e depois do último, o corte pode ir. */
 export const FOLGA_DO_CORTE = 30;
 

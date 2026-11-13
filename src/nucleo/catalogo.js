@@ -88,12 +88,6 @@ export const CATALOGO = [
         dica: "Galão é consumo de quem está em casa. Por dias costuma cair melhor que igual.",
       },
       {
-        chave: "embarcacao", nome: "Embarcação", especie: "porUso",
-        origemUso: "reais", valorPorUso: "", usos: "",
-        rateio: "horas", rateios: ["horas", "igual", "porcentagem", "uso"],
-        dica: "Combustível, motor, manutenção por tempo de uso. Lance quanto custa a hora e quantas horas cada um navegou. Quem usou pouco não paga pela temporada inteira de quem usou muito.",
-      },
-      {
         chave: "propriedade", nome: "Espaço", especie: "reais", valor: "",
         rateio: "igual", rateios: ["igual", "porcentagem", "dias"],
         dica: "Custo fixo que não depende de uso: condomínio, IPTU, seguro, marina, taxa de administração. Numa multipropriedade, divida por porcentagem e escreva a fração de cada pessoa   é assim que se divide por cota enquanto a regra de cota não existe sozinha.",
@@ -105,6 +99,31 @@ export const CATALOGO = [
     ],
   },
 ];
+
+/**
+ * Os equipamentos da Multi: coisas que não saem de fatura nenhuma, mas que
+ * têm uso registrado   a lancha, o jet ski, o gerador. O custo é em reais,
+ * por hora ou por uso (combustível, motor, manutenção), e cada registro diz
+ * quem usou e quanto. Ficam em Configurar conjunto → Itens, junto dos
+ * aparelhos das faturas.
+ */
+export const CATALOGO_DOS_EQUIPAMENTOS = {
+  grupo: "Equipamentos fora das faturas",
+  itens: [
+    {
+      chave: "embarcacao", nome: "Embarcação", especie: "porUso", equipamento: true, medida: "hora",
+      origemUso: "reais", valorPorUso: "", usos: "",
+      rateio: "horas", rateios: ["horas", "igual", "porcentagem", "uso"],
+      dica: "Combustível, motor, manutenção por tempo de uso. Escreva quanto custa a hora e registre quem navegou e por quantas horas. Quem usou pouco não paga pela temporada inteira de quem usou muito.",
+    },
+    {
+      chave: "equipamento", nome: "Equipamento", especie: "porUso", equipamento: true, medida: "uso",
+      origemUso: "reais", valorPorUso: "", usos: "",
+      rateio: "uso", rateios: ["uso", "horas", "igual", "porcentagem"],
+      dica: "Jet ski, gerador, quadriciclo, caiaque: o que tem custo por uso (ou por hora, se dividir por horas). Escreva quanto custa cada uso e registre quem usou.",
+    },
+  ],
+};
 
 /**
  * O catálogo do evento: as categorias de despesa de um rolê, uma viagem, um
@@ -122,7 +141,7 @@ export const CATALOGO_DO_EVENTO = [
   },
 ];
 
-export const TODOS_OS_ITENS = CATALOGO.flatMap((g) => g.itens);
+export const TODOS_OS_ITENS = [...CATALOGO, CATALOGO_DOS_EQUIPAMENTOS].flatMap((g) => g.itens);
 
 const DO_EVENTO = CATALOGO_DO_EVENTO.flatMap((g) => g.itens);
 
@@ -134,9 +153,11 @@ const DO_EVENTO = CATALOGO_DO_EVENTO.flatMap((g) => g.itens);
  * ficariam na tela sem fazer nada. Num evento, toda despesa é em reais.
  */
 export function catalogoDe(modo) {
-  if (modo?.faturas !== false) return CATALOGO;
-  return CATALOGO_DO_EVENTO;
+  if (modo?.faturas === false) return CATALOGO_DO_EVENTO;
+  return modo?.equipamentos ? COM_EQUIPAMENTOS : CATALOGO;
 }
+
+const COM_EQUIPAMENTOS = [...CATALOGO, CATALOGO_DOS_EQUIPAMENTOS];
 
 /** Este modelo sai do bolso, em vez de sair de dentro de uma fatura? */
 export const ehEmReais = (modelo) =>
@@ -144,6 +165,10 @@ export const ehEmReais = (modelo) =>
 
 export const GRUPO_DA_FATURA = "Sai do ciclo de faturas";
 export const GRUPO_INDEPENDENTE = "Independente do ciclo de faturas";
+export const GRUPO_DOS_EQUIPAMENTOS = CATALOGO_DOS_EQUIPAMENTOS.grupo;
+
+/** Um equipamento da Multi: em reais, com uso registrado, fora das faturas. */
+export const ehEquipamento = (item) => Boolean(item?.equipamento) && ehEmReais(item);
 
 /**
  * Em que categoria este item cai.
@@ -152,7 +177,8 @@ export const GRUPO_INDEPENDENTE = "Independente do ciclo de faturas";
  * fatura" para "sai do bolso" no cartão muda o item de grupo na hora, que é o
  * que a pessoa acabou de dizer que ele é.
  */
-export const grupoDoItem = (item) => (ehEmReais(item) ? GRUPO_INDEPENDENTE : GRUPO_DA_FATURA);
+export const grupoDoItem = (item) =>
+  ehEquipamento(item) ? GRUPO_DOS_EQUIPAMENTOS : ehEmReais(item) ? GRUPO_INDEPENDENTE : GRUPO_DA_FATURA;
 
 /**
  * Os itens do conjunto, agrupados pelas mesmas categorias do catálogo, cada
@@ -218,6 +244,8 @@ export const criarItem = (modelo, participantes = []) => ({
   // Tabelas das regras em que cada um declara o próprio número.
   porcentagens: {},
   valores: {},
+  cotas: {},
+  ajustes: {},
   // Quando a despesa aconteceu, quando ela tem quando. `data` sozinha é um dia
   // só; com `ate`, é um período que começa em `data` e termina em `ate`.
   // As duas são opcionais: sem data, o item vale para o fechamento inteiro.
@@ -229,6 +257,8 @@ export const criarItem = (modelo, participantes = []) => ({
   registrosDeUso: [],
   dica: modelo.dica,
   participantes: [...participantes],
+  // Só nos equipamentos da Multi: a lancha, o gerador. "hora" ou "uso".
+  ...(modelo.equipamento ? { equipamento: true, medida: modelo.medida ?? "uso" } : {}),
 });
 
 /** O campo em que o item guarda o consumo por ciclo, conforme o jeito de medir. */

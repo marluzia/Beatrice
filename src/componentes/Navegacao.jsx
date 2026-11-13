@@ -33,7 +33,13 @@ export default function Navegacao({
                 onClick={() => aoEscolher(i)}
               >
                 <span className="etapa__no" aria-hidden="true">
-                  {i + 1}
+                  {estado === "feita" ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
                 </span>
                 <span className="etapa__nome">{p}</span>
               </button>

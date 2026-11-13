@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  comRateioDoModo,
+  estadoDeCriacao,
   estadoInicial,
   novaLinha,
   novaPessoa,
   novaTarefa,
+  novoLembrete,
   proximoMes,
 } from "../nucleo/estadoInicial.js";
+import { atividadeDe, hojeISO, resumoDoConjunto } from "../nucleo/resumo.js";
+import { comMarcacao } from "../nucleo/marcacao.js";
+import { guardarPerfil, lerPerfil } from "../nucleo/perfil.js";
 import {
   corteNosLimites,
   corteValido,
@@ -13,6 +19,8 @@ import {
   limitesDoCorte,
   mesDaMaiorParte,
   periodoDasFaturas,
+  somarDias,
+  janelaNosLimitesDeHoje,
 } from "../nucleo/calendario.js";
 import { calcular } from "../nucleo/adaptador.js";
 import { criarItem, duplicarItem, modeloPorChave } from "../nucleo/catalogo.js";
@@ -42,6 +50,35 @@ export function useCDR() {
   // depois de criar, renomear ou apagar.
   const [revisao, revisar] = useState(0);
   const conjuntos = useMemo(() => listarConjuntos(), [revisao]);
+
+  // Quem usa este navegador: o nome que acha "você" nos conjuntos.
+  const [perfil, definirPerfilBruto] = useState(() => lerPerfil());
+  const mudarPerfil = useCallback((mudar) => {
+    definirPerfilBruto((p) => {
+      const novo = mudar(p);
+      guardarPerfil(novo);
+      return novo;
+    });
+  }, []);
+
+  // Todos os conjuntos de uma vez, com o saldo de você em cada um: é o que o
+  // Início e a lista de Conjuntos mostram. Relido a cada gravação.
+  const panorama = useMemo(
+    () =>
+      conjuntos
+        .map((ficha) => {
+          const e = carregarConjunto(ficha.id);
+          if (!e) return null;
+          try {
+            const resumo = resumoDoConjunto(e, { perfil });
+            return { ficha, estado: e, resumo, atividade: atividadeDe(e, { resultado: resumo.resultado }) };
+          } catch {
+            return { ficha, estado: e, resumo: null, atividade: [] };
+          }
+        })
+        .filter(Boolean),
+    [conjuntos, perfil],
+  );
 
   // O modo como este conjunto o usa: um evento longo conta dias.
   const modo = modoDoConjunto(estado ?? { modo: PADRAO });
@@ -91,6 +128,19 @@ export function useCDR() {
     return id;
   }, []);
 
+  /**
+   * O conjunto como a tela de criação pede: com nome, descrição, data e as
+   * pessoas pelo nome (a primeira é você).
+   */
+  const criarConjuntoNovo = useCallback(({ nome, ...pedido }) => {
+    const inicial = estadoDeCriacao(pedido);
+    const id = criarConjunto(nome, inicial);
+    setIdDoConjunto(id);
+    definir(inicial);
+    revisar((n) => n + 1);
+    return id;
+  }, []);
+
   const fecharConjunto = useCallback(() => {
     // Grava o que ainda estiver pendente antes de sair para o painel.
     clearTimeout(agendado.current);
@@ -114,6 +164,9 @@ export function useCDR() {
     },
     [idDoConjunto],
   );
+
+  /** Relê todos os conjuntos do navegador (o botão de atualizar do Início). */
+  const recarregar = useCallback(() => revisar((n) => n + 1), []);
 
   const renomear = useCallback((id, nome) => {
     renomearConjunto(id, nome);
@@ -232,7 +285,9 @@ export function useCDR() {
     definir((e) => {
       // O corte não passa de 30 dias antes do primeiro ciclo nem de 30 dias
       // depois do último: o que vier de fora é trazido para a borda.
-      const ajustado = corteNosLimites(janela, limitesDoCorte(e.ciclos, e.periodo));
+      // E nunca começa mais de 40 dias antes de hoje, nem termina mais de 2 anos depois.
+      const dosCiclos = corteNosLimites(janela, limitesDoCorte(e.ciclos, e.periodo));
+      const ajustado = dosCiclos && janelaNosLimitesDeHoje(dosCiclos, hojeISO());
       if (!ajustado) return e;
       return {
         ...e,
@@ -243,6 +298,33 @@ export function useCDR() {
   }, []);
 
   /** Desliga o corte (null) ou liga com o período que já estava valendo. */
+  /**
+   * O período da temporada: do início ao fim, sem os limites do corte das
+   * casas (que não passam de 30 dias dos ciclos   a temporada não tem ciclo).
+   * `fim` é o último dia, incluído.
+   */
+  const definirPeriodoDaTemporada = useCallback((inicio, fim) => {
+    if (!inicio || !fim || fim < inicio) return;
+    definir((e) => {
+      // Início até 40 dias antes de hoje; fim até 2 anos depois.
+      const corte = janelaNosLimitesDeHoje({ de: inicio, ate: somarDias(fim, 1) }, hojeISO());
+      if (!corte || !corteValido(corte)) return e;
+      return { ...e, corte, periodo: { ...e.periodo, ...(mesDaMaiorParte(corte) ?? {}) } };
+    });
+  }, []);
+
+  /**
+   * Uma despesa de antes do período entra na conta deste fechamento ou não.
+   * `tipo` é "avulsa" (um item) ou "ciclica" (uma fatura).
+   */
+  const definirNaConta = useCallback((tipo, id, naConta) => {
+    definir((e) =>
+      tipo === "ciclica"
+        ? { ...e, ciclos: e.ciclos.map((c) => (c.id === id ? { ...c, naConta: Boolean(naConta) } : c)) }
+        : { ...e, itens: e.itens.map((i) => (i.id === id ? { ...i, naConta: Boolean(naConta) } : i)) },
+    );
+  }, []);
+
   const alternarCorte = useCallback((ligar) => {
     definir((e) =>
       ligar
@@ -376,11 +458,21 @@ export function useCDR() {
     }));
   }, []);
 
-  const adicionarItem = useCallback((modelo) => {
+  const adicionarItem = useCallback((modelo, campos = {}) => {
+    const id = novoId("i");
     definir((e) => ({
       ...e,
-      itens: [...e.itens, criarItem(modelo, e.moradores.map((m) => m.id))],
+      itens: [
+        ...e.itens,
+        {
+          ...comRateioDoModo(criarItem(modelo, e.moradores.map((m) => m.id)), modoDoConjunto(e)),
+          id,
+          criadoEm: new Date().toISOString(),
+          ...campos,
+        },
+      ],
     }));
+    return id;
   }, []);
 
   const removerItem = useCallback((id) => {
@@ -480,9 +572,10 @@ export function useCDR() {
     definir((e) => {
       const modelo = modeloPorChave("outra");
       const item = {
-        ...criarItem(modelo, e.moradores.map((m) => m.id)),
+        ...comRateioDoModo(criarItem(modelo, e.moradores.map((m) => m.id)), modoDoConjunto(e)),
         nome: "",
         data: dia,
+        criadoEm: new Date().toISOString(),
       };
       return { ...e, itens: [...e.itens, item] };
     });
@@ -497,7 +590,9 @@ export function useCDR() {
           ? i
           : {
               ...i,
-              rateio: i.rateios?.includes("uso") ? "uso" : i.rateio,
+              // Registrar usos de um aparelho por uso passa a dividir por uso;
+              // num aparelho por hora, os registros dão as horas e a regra fica.
+              rateio: i.especie === "porUso" && i.rateios?.includes("uso") ? "uso" : i.rateio,
               registrosDeUso: [
                 ...(i.registrosDeUso ?? []),
                 { id: novoId("ev"), data: dia, quantidade: "1", participantes: [...i.participantes] },
@@ -526,7 +621,12 @@ export function useCDR() {
   const definirPagador = useCallback((alvo, id, quemPagou) => {
     definir((e) =>
       alvo === "fatura"
-        ? mexerNoCiclo(e, id, (c) => ({ ...c, pagoPor: quemPagou }))
+        ? mexerNoCiclo(e, id, (c) => ({
+            ...c,
+            pagoPor: quemPagou,
+            // Quando foi marcada como paga: é o que a atividade e o calendário mostram.
+            pagoEm: quemPagou ? (c.pagoPor === quemPagou && c.pagoEm ? c.pagoEm : new Date().toISOString()) : null,
+          }))
         : {
             ...e,
             itens: e.itens.map((i) => (i.id === id ? { ...i, pagoPor: quemPagou } : i)),
@@ -566,9 +666,176 @@ export function useCDR() {
     }));
   }, []);
 
+  // ── pessoas pelo nome ────────────────────────────────────────────────────
+
+  /**
+   * Uma pessoa nova, pelo nome. Entra como convidada (sem conta no app) e em
+   * todas as despesas, como quem soma pelo contador.
+   */
+  const adicionarPessoa = useCallback((nome, { convidado = true } = {}) => {
+    definir((e) => {
+      const teto = modoDoConjunto(e).maximoDeMoradores;
+      if (e.moradores.length >= teto) return e;
+      const m = novaPessoa(String(nome ?? "").trim(), convidado);
+      return {
+        ...e,
+        moradores: [...e.moradores, m],
+        itens: e.itens.map((i) => ({ ...i, participantes: [...i.participantes, m.id] })),
+      };
+    });
+  }, []);
+
+  /** Tira uma pessoa e tudo o que apontava para ela (pagador, quem cede, participações). */
+  const removerPessoa = useCallback((id) => {
+    definir((e) => {
+      if (!e.moradores.some((m) => m.id === id)) return e;
+      const fica = (quem) => (quem === id ? null : quem);
+      return {
+        ...e,
+        moradores: e.moradores.filter((m) => m.id !== id),
+        quemCede: fica(e.quemCede),
+        voce: fica(e.voce),
+        admin: fica(e.admin),
+        ciclos: (e.ciclos ?? []).map((c) => ({ ...c, pagoPor: fica(c.pagoPor), pagoEm: c.pagoPor === id ? null : c.pagoEm })),
+        itens: e.itens.map((i) => ({
+          ...i,
+          pagoPor: fica(i.pagoPor),
+          participantes: i.participantes.filter((p) => p !== id),
+          registrosDeUso: (i.registrosDeUso ?? []).map((r) => ({
+            ...r,
+            participantes: (r.participantes ?? []).filter((p) => p !== id),
+          })),
+        })),
+        tarefas: (e.tarefas ?? []).map((t) => ({ ...t, responsaveis: t.responsaveis.filter((r) => r !== id) })),
+      };
+    });
+  }, []);
+
+  /**
+   * Na Multi: o calendário marca a estadia ("presenca") ou os dias fora
+   * ("ausencia"). As marcas de cada um são convertidas, sem mudar os dias.
+   */
+  const definirMarcacao = useCallback((nova) => {
+    definir((e) => comMarcacao(e, nova));
+  }, []);
+
+  /** Quem é você neste conjunto. */
+  const definirVoce = useCallback((id) => {
+    definir((e) => ({ ...e, voce: id || null }));
+  }, []);
+
+  /** Campos do conjunto que o cálculo não lê: descrição, desde quando. */
+  const definirCampoDoConjunto = useCallback((campo, valor) => {
+    if (!["descricao", "desde", "admin"].includes(campo)) return;
+    definir((e) => ({ ...e, [campo]: valor }));
+  }, []);
+
+  // ── lembretes ────────────────────────────────────────────────────────────
+
+  const mexerNoLembrete = (e, id, mudar) => ({
+    ...e,
+    lembretes: (e.lembretes ?? []).map((l) => (l.id === id ? mudar(l) : l)),
+  });
+
+  const adicionarLembrete = useCallback((tipo, campos = {}) => {
+    const novo = novoLembrete(tipo, campos);
+    definir((e) => ({ ...e, lembretes: [...(e.lembretes ?? []), { ...novo, autor: novo.autor ?? e.voce ?? null }] }));
+    return novo.id;
+  }, []);
+
+  const editarLembrete = useCallback((id, campos) => {
+    definir((e) => mexerNoLembrete(e, id, (l) => ({ ...l, ...campos })));
+  }, []);
+
+  const removerLembrete = useCallback((id) => {
+    definir((e) => ({ ...e, lembretes: (e.lembretes ?? []).filter((l) => l.id !== id) }));
+  }, []);
+
+  const adicionarItemNaLista = useCallback((id, texto) => {
+    const limpo = String(texto ?? "").trim();
+    if (!limpo) return;
+    definir((e) =>
+      mexerNoLembrete(e, id, (l) => ({ ...l, itens: [...l.itens, { id: novoId("li"), texto: limpo, feito: false }] })),
+    );
+  }, []);
+
+  const alternarItemDaLista = useCallback((id, idDoItem) => {
+    definir((e) =>
+      mexerNoLembrete(e, id, (l) => ({
+        ...l,
+        itens: l.itens.map((x) => (x.id === idDoItem ? { ...x, feito: !x.feito } : x)),
+      })),
+    );
+  }, []);
+
+  const removerItemDaLista = useCallback((id, idDoItem) => {
+    definir((e) => mexerNoLembrete(e, id, (l) => ({ ...l, itens: l.itens.filter((x) => x.id !== idDoItem) })));
+  }, []);
+
+  // ── acerto ───────────────────────────────────────────────────────────────
+
+  /** Marca (ou desmarca) uma transferência do acerto como feita. */
+  const confirmarPagamento = useCallback((chave, feito = true) => {
+    definir((e) => {
+      const pagamentos = { ...(e.pagamentos ?? {}) };
+      if (feito) pagamentos[chave] = { em: new Date().toISOString() };
+      else delete pagamentos[chave];
+      return { ...e, pagamentos };
+    });
+  }, []);
+
+  /** Um uso com data, já com quantidade e quem usou: a tela Registros. */
+  const lancarRegistro = useCallback((idDoItem, { data, quantidade = "1", participantes } = {}) => {
+    definir((e) => ({
+      ...e,
+      itens: e.itens.map((i) =>
+        i.id !== idDoItem
+          ? i
+          : {
+              ...i,
+              // Registrar usos de um aparelho por uso passa a dividir por uso;
+              // num aparelho por hora, os registros dão as horas e a regra fica.
+              rateio: i.especie === "porUso" && i.rateios?.includes("uso") ? "uso" : i.rateio,
+              registrosDeUso: [
+                ...(i.registrosDeUso ?? []),
+                {
+                  id: novoId("ev"),
+                  data,
+                  quantidade: String(quantidade ?? "1"),
+                  participantes: participantes?.length ? [...participantes] : [...i.participantes],
+                },
+              ],
+            },
+      ),
+    }));
+  }, []);
+
+  // ── perfil ───────────────────────────────────────────────────────────────
+
+  const definirNomeDoPerfil = useCallback((nome) => mudarPerfil((p) => ({ ...p, nome })), [mudarPerfil]);
+  const definirAviso = useCallback(
+    (chave, ligado) => mudarPerfil((p) => ({ ...p, avisos: { ...p.avisos, [chave]: Boolean(ligado) } })),
+    [mudarPerfil],
+  );
+
   /** Zera este conjunto, mantendo o modo e o nome dele. */
   const recomecar = useCallback(() => {
-    definir((e) => estadoInicial(e?.modo ?? PADRAO, undefined, e?.preset ?? undefined));
+    definir((e) => {
+      // Zera os números e mantém quem é quem: as mesmas pessoas, você, a descrição.
+      const novo = estadoInicial(e?.modo ?? PADRAO, e?.moradores?.length, e?.preset ?? undefined);
+      const moradores = (e?.moradores ?? []).map((m) => ({ ...novaPessoa(m.nome, m.convidado), id: m.id }));
+      const ids = moradores.map((m) => m.id);
+      return {
+        ...novo,
+        moradores,
+        itens: novo.itens.map((i) => ({ ...i, participantes: ids })),
+        voce: e?.voce ?? null,
+        admin: e?.admin ?? null,
+        descricao: e?.descricao ?? "",
+        desde: e?.desde ?? null,
+        lembretes: e?.lembretes ?? [],
+      };
+    });
   }, []);
 
   return {
@@ -578,10 +845,14 @@ export function useCDR() {
     modo,
     idDoConjunto,
     conjuntos,
+    perfil,
+    panorama,
     acoes: {
       // conjuntos
       abrirConjunto,
       novoConjunto,
+      criarConjuntoNovo,
+      recarregar,
       fecharConjunto,
       apagarConjunto,
       renomear,
@@ -611,6 +882,8 @@ export function useCDR() {
       definirEventoLongo,
       definirDataDeCorte,
       definirJanelaDeCorte,
+      definirPeriodoDaTemporada,
+      definirNaConta,
       alternarCorte,
       definirValorDoCiclo,
       definirPagador,
@@ -624,6 +897,22 @@ export function useCDR() {
       removerTarefa,
       alternarResponsavel,
       recomecar,
+      // pessoas, lembretes, acerto, perfil
+      adicionarPessoa,
+      removerPessoa,
+      definirVoce,
+      definirMarcacao,
+      definirCampoDoConjunto,
+      adicionarLembrete,
+      editarLembrete,
+      removerLembrete,
+      adicionarItemNaLista,
+      alternarItemDaLista,
+      removerItemDaLista,
+      confirmarPagamento,
+      lancarRegistro,
+      definirNomeDoPerfil,
+      definirAviso,
     },
   };
 }

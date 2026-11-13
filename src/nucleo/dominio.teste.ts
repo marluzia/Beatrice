@@ -273,7 +273,7 @@ describe("Regra de alocação", () => {
   });
 
   it("as sete divisões valem para todo item, qualquer que seja o custo", () => {
-    const sete = ["igual", "dias", "presenca", "uso", "horas", "porcentagem", "valor"];
+    const sete = ["igual", "porcentagem", "valor", "cotas", "ajuste", "dias", "horas", "presenca", "uso"];
     expect(rateiosPermitidos(item({}))).toEqual(sete);
     expect(
       rateiosPermitidos(item({ custo: { tipo: "porUso", unitario: { origem: "reais", valorPorUso: 1 } } })),

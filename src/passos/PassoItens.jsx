@@ -1,8 +1,9 @@
-import { Botao, Ficha, Rotulo, Titulo } from "../componentes/index.js";
+import { Ficha, Rotulo, Titulo } from "../componentes/index.js";
 import { itensPorGrupo } from "../nucleo/catalogo.js";
 import CartaoItem from "./CartaoItem.jsx";
+import { AjudaItens } from "./ajudas.jsx";
 import MensagemDeColeta from "./MensagemDeColeta.jsx";
-import { GRUPO_DA_SECAO, mostra } from "./secoes.js";
+import { GRUPOS_DA_SECAO, mostra } from "./secoes.js";
 
 /**
  * O que o conjunto gasta.
@@ -17,35 +18,22 @@ import { GRUPO_DA_SECAO, mostra } from "./secoes.js";
  * Num evento é um grupo só, com as categorias de despesa.
  */
 export default function PassoItens({ estado, resultado, indicePorId, acoes, modo, secao }) {
-  const evento = modo?.chave === "evento";
-  const grupoDaSecao = GRUPO_DA_SECAO[secao];
+  // Sem faturas (evento, temporada), toda despesa é em reais e é um grupo só.
+  const evento = modo?.faturas === false;
+  const gruposDaSecao = GRUPOS_DA_SECAO[secao] ?? [];
   const grupos = itensPorGrupo(estado.itens, modo, true).filter(
-    (g) => evento || !secao || g.grupo === grupoDaSecao,
+    (g) => evento || !secao || gruposDaSecao.includes(g.grupo),
   );
-  const mostraItens = mostra(secao, "despesas", "fatura", "independente");
+  const mostraItens = mostra(secao, "despesas", "fatura", "independente", "aparelhos");
   const vazio = grupos.every((g) => g.itens.length === 0);
 
   return (
     <div className="coluna">
-      {/* No evento, antes de tudo: o interruptor do evento longo, que liga a
-          divisão por dias e o passo do calendário. */}
-      {evento && mostraItens && (
-        <Ficha>
-          <Titulo nota="Numa viagem ou num acampamento, quem ficou mais dias pode pagar mais. Ligar marca os dias de cada pessoa no calendário e passa as despesas divididas por igual para por dias.">
-            Duração
-          </Titulo>
-          <Botao
-            tipo={modo.eventoLongo ? "primario" : "fantasma"}
-            aoClicar={() => acoes.definirEventoLongo(!modo.eventoLongo)}
-          >
-            {modo.eventoLongo ? "✓ " : ""}Evento longo (se quiser ponderar dias na divisão)
-          </Botao>
-        </Ficha>
-      )}
-
       {mostraItens && (
         <Ficha>
           <Titulo nota="Todo item pode ser renomeado e duplicado depois de adicionado.">
+            {/* A ajuda fala de faturas e uso comum: sem faturas, não se aplica. */}
+            {!evento && <AjudaItens />}
             O que o conjunto gasta
           </Titulo>
 
@@ -92,7 +80,7 @@ export default function PassoItens({ estado, resultado, indicePorId, acoes, modo
             <p className="vazio">
               {evento
                 ? "Nenhuma despesa ainda. Adicione pelas categorias acima."
-                : secao === "fatura"
+                : secao === "fatura" || secao === "aparelhos"
                   ? "Nenhum item que sai da fatura. Sem eles, as faturas inteiras dividem por dias contados."
                   : secao === "independente"
                     ? "Nenhuma despesa por fora das faturas. Toque em Continuar se não houver."

@@ -206,12 +206,14 @@ describe("as sete divisões", () => {
   it("todas aparecem para qualquer item", () => {
     expect(rateiosPermitidos(emReais(1, { tipo: "igual" }))).toEqual([
       "igual",
-      "dias",
-      "presenca",
-      "uso",
-      "horas",
       "porcentagem",
       "valor",
+      "cotas",
+      "ajuste",
+      "dias",
+      "horas",
+      "presenca",
+      "uso",
     ]);
   });
 
@@ -227,6 +229,8 @@ describe("as sete divisões", () => {
       { tipo: "horas", usos: tabela },
       { tipo: "porcentagem", porcentagens: { m0: 20, m1: 30, m2: 50 } },
       { tipo: "valor", valores: { m0: 36, m1: 54, m2: 90 } },
+      { tipo: "cotas", cotas: { m0: 1, m1: 2, m2: 3 } },
+      { tipo: "ajuste", ajustes: { m0: 15, m1: -15, m2: 0 } },
     ];
 
     for (const rateio of rateios) {
@@ -247,5 +251,38 @@ describe("as sete divisões", () => {
     });
 
     expect(Object.values(pesos).every((p) => p >= 0)).toBe(true);
+  });
+});
+
+describe("cotas e ajuste", () => {
+  const parteDe = (r: ReturnType<typeof calcular>, id: string) => r.moradores.find((m) => m.moradorId === id)!.total;
+
+  it("cotas: 2 pagam o dobro de 1, e quem não declarou tem 1", () => {
+    const r = calcular(casa([emReais(120, { tipo: "cotas", cotas: { m0: 2, m1: 1 } })]));
+    expect(parteDe(r, "m0")).toBeCloseTo(60, 6);
+    expect(parteDe(r, "m1")).toBeCloseTo(30, 6);
+    expect(parteDe(r, "m2")).toBeCloseTo(30, 6);
+  });
+
+  it("ajuste: o resto por igual mais o ajuste de cada um", () => {
+    // R$ 90 entre três: m0 paga R$ 15 a mais, m1 R$ 6 a menos.
+    // Resto: 90 − 9 = 81, por igual = 27. Partes: 42, 21, 27.
+    const r = calcular(casa([emReais(90, { tipo: "ajuste", ajustes: { m0: 15, m1: -6 } })]));
+    expect(parteDe(r, "m0")).toBeCloseTo(42, 6);
+    expect(parteDe(r, "m1")).toBeCloseTo(21, 6);
+    expect(parteDe(r, "m2")).toBeCloseTo(27, 6);
+    expect(r.alertas.some((a) => a.texto.includes("ajustes"))).toBe(false);
+  });
+
+  it("sem ajuste nenhum, ajuste é igual", () => {
+    const r = calcular(casa([emReais(90, { tipo: "ajuste", ajustes: {} })]));
+    for (const id of ["m0", "m1", "m2"]) expect(parteDe(r, id)).toBeCloseTo(30, 6);
+  });
+
+  it("ajuste que passa do custo avisa e não deixa parte negativa", () => {
+    const r = calcular(casa([emReais(30, { tipo: "ajuste", ajustes: { m0: 60 } })]));
+    expect(r.moradores.every((m) => m.total >= 0)).toBe(true);
+    expect(conferir(r)).toBe(true);
+    expect(r.alertas.some((a) => a.texto.includes("ajustes"))).toBe(true);
   });
 });

@@ -23,16 +23,16 @@ describe("várias casas no mesmo navegador", () => {
 
   it("guarda cada casa separada, com o próprio modo", () => {
     const serra = criarConjunto("República da Serra", estadoInicial("moradia"));
-    const buzios = criarConjunto("Casa de Búzios", estadoInicial("temporada"));
+    const buzios = criarConjunto("Casa de Búzios", estadoInicial("multipro"));
 
     expect(listarConjuntos()).toHaveLength(2);
     expect(carregarConjunto(serra).modo).toBe("moradia");
-    expect(carregarConjunto(buzios).modo).toBe("temporada");
+    expect(carregarConjunto(buzios).modo).toBe("multipro");
   });
 
   it("salvar uma casa não encosta na outra", () => {
     const serra = criarConjunto("Serra", estadoInicial("moradia"));
-    const buzios = criarConjunto("Búzios", estadoInicial("temporada"));
+    const buzios = criarConjunto("Búzios", estadoInicial("multipro"));
 
     const estado = carregarConjunto(serra);
     estado.moradores[0].nome = "Marialuzia";
@@ -169,5 +169,33 @@ describe("a casa única que existia antes (v4 → v5)", () => {
   it("chave antiga corrompida não impede o app de abrir", () => {
     window.localStorage.setItem("cdr:casa", "{lixo");
     expect(listarConjuntos()).toEqual([]);
+  });
+});
+
+describe("v11 → v12: os cinco tipos", () => {
+  it("a Multipropriedade gravada como `temporada` vira `multipro`", async () => {
+    const { migrarEstado } = await import("./persistencia.js");
+    const velho = { ...estadoInicial("multipro"), modo: "temporada" };
+    expect(migrarEstado(velho, 11).modo).toBe("multipro");
+  });
+
+  it("o evento longo vira Temporada, e o evento curto continua evento", async () => {
+    const { migrarEstado } = await import("./persistencia.js");
+    const longo = { ...estadoInicial("evento"), eventoLongo: true };
+    const curto = { ...estadoInicial("evento"), eventoLongo: false };
+    expect(migrarEstado(longo, 11).modo).toBe("temporada");
+    expect(migrarEstado(longo, 11).eventoLongo).toBe(false);
+    expect(migrarEstado(curto, 11).modo).toBe("evento");
+  });
+
+  it("a ficha do painel acompanha a troca de chave", () => {
+    const velho = { ...estadoInicial("multipro"), modo: "temporada" };
+    window.localStorage.setItem("ceder:conjunto:c-x", JSON.stringify({ versao: 11, estado: velho }));
+    window.localStorage.setItem(
+      "ceder:conjuntos",
+      JSON.stringify({ versao: 11, atual: null, conjuntos: [{ id: "c-x", nome: "Búzios", modo: "temporada" }] }),
+    );
+    expect(listarConjuntos()[0].modo).toBe("multipro");
+    expect(carregarConjunto("c-x").modo).toBe("multipro");
   });
 });

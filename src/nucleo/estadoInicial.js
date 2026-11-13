@@ -1,5 +1,9 @@
 import { novoId } from "./formato.js";
 import { ciclosDeFabrica, novaLinha } from "./ciclos.js";
+import { totalDaFatura } from "./traducao/fatura.js";
+import { somarDias } from "./calendario.js";
+
+const proximoDia = (iso) => somarDias(iso, 1);
 import { criarItem, modeloPorChave } from "./catalogo.js";
 import { modoDe, PADRAO, PRESETS_DA_REPUBLICA, presetValido } from "./modos.js";
 
@@ -7,8 +11,35 @@ import { modoDe, PADRAO, PRESETS_DA_REPUBLICA, presetValido } from "./modos.js";
 // para quem já importava deste arquivo.
 export { novaLinha };
 
-export function novaPessoa() {
-  return { id: novoId("m"), nome: "", diasFora: "", ausencias: [], presencas: [] };
+export function novaPessoa(nome = "", convidado = false) {
+  return { id: novoId("m"), nome, convidado, diasFora: "", ausencias: [], presencas: [] };
+}
+
+/**
+ * Um lembrete: uma lista (mercado da semana) ou uma nota (a senha do wi-fi).
+ * Como a tarefa, não tem dinheiro e não entra em cálculo nenhum.
+ */
+export function novoLembrete(tipo = "nota", campos = {}) {
+  return {
+    id: novoId("lb"),
+    tipo: tipo === "lista" ? "lista" : "nota",
+    titulo: "",
+    texto: "",
+    itens: [],
+    autor: null,
+    data: null,
+    registro: null,
+    criadoEm: new Date().toISOString(),
+    ...campos,
+  };
+}
+
+/** A regra de partida de um item neste modo: na Temporada, o que é por igual vira por dias. */
+export function comRateioDoModo(item, modo) {
+  if (modo?.rateioPadrao !== "dias") return item;
+  if (item.rateio !== "igual") return item;
+  if (Array.isArray(item.rateios) && !item.rateios.includes("dias")) return item;
+  return { ...item, rateio: "dias" };
 }
 
 /**
@@ -69,14 +100,61 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas, chaveDoPrese
     // O dia do mês em que o período fecha. Null = ainda não escolhido: o
     // período segue o primeiro ciclo ligado, como sempre seguiu a luz.
     corte: null,
-    // Só o evento usa: um evento longo conta os dias de cada pessoa.
+    // De antes da v12, quando a Temporada era um interruptor do evento.
     eventoLongo: false,
+    // Só a Multi escolhe: "presenca" (estadia) ou "ausencia" (dias fora).
+    // Null = a marcação do tipo.
+    marcacao: null,
     moradores,
     tarefas: [],
     itens: modo.itens
       .map((chave) => modeloPorChave(chave))
       .filter(Boolean)
-      .map((modelo) => criarItem(modelo, ids)),
+      .map((modelo) => comRateioDoModo(criarItem(modelo, ids), modo)),
+    // Nada daqui entra no cálculo: quem é você neste conjunto, quem o
+    // administra, a descrição, desde quando ele existe, os lembretes, os Pix
+    // do acerto já confirmados e o que cada ciclo custou nos meses passados.
+    voce: null,
+    admin: null,
+    descricao: "",
+    desde: null,
+    lembretes: [],
+    pagamentos: {},
+    historicoDeCiclos: [],
+  };
+}
+
+/**
+ * O conjunto como a tela de criação o pede: com nome para cada pessoa, a
+ * primeira sendo você (e quem administra). As outras entram como convidadas:
+ * fazem parte da divisão sem precisar de conta no app.
+ */
+export function estadoDeCriacao({ modo: chaveDoModo = PADRAO, preset, voce = "", convidados = [], descricao = "", desde = null, ate = null } = {}) {
+  const nomes = [String(voce ?? "").trim(), ...convidados.map((n) => String(n ?? "").trim()).filter(Boolean)];
+  const base = estadoInicial(chaveDoModo, nomes.length, preset);
+  const moradores = base.moradores.map((m, i) => ({ ...m, nome: nomes[i] ?? "", convidado: i > 0 }));
+  const eu = moradores[0]?.id ?? null;
+  const data = typeof desde === "string" && /^\d{4}-\d{2}-\d{2}$/.test(desde) ? desde : null;
+  // Sem faturas (evento, temporada), o mês do conjunto é o da data dele: é
+  // nele que o calendário abre. Com faturas, o período vem dos ciclos.
+  const periodo =
+    data && modoDe(chaveDoModo).faturas === false
+      ? { mes: Number(data.slice(5, 7)), ano: Number(data.slice(0, 4)) }
+      : base.periodo;
+  // A temporada tem período próprio: do início ao fim que a tela pede. Ele
+  // mora no corte (o mesmo campo que o período de corte das casas), e é nele
+  // que as estadias marcadas contam.
+  const fim = typeof ate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ate) ? ate : null;
+  const corte = chaveDoModo === "temporada" && data && fim && fim >= data ? { de: data, ate: proximoDia(fim) } : base.corte;
+  return {
+    ...base,
+    periodo,
+    corte,
+    moradores,
+    voce: eu,
+    admin: eu,
+    descricao: String(descricao ?? "").trim(),
+    desde: data,
   };
 }
 
@@ -97,12 +175,27 @@ export function proximoMes(estado) {
     janela: null,
     vencimento: null,
     pagoPor: null,
+    pagoEm: null,
     linhas: (ciclo.linhas ?? []).map((l) => ({ ...l, quantidade: "", valor: "" })),
   });
+
+  // O que cada ciclo ligado custou fica guardado para o gráfico "Os ciclos".
+  const fechado = {
+    mes,
+    ano,
+    valores: Object.fromEntries(
+      (estado.ciclos ?? [])
+        .filter((c) => c.ativa !== false)
+        .map((c) => [c.id, totalDaFatura(c)]),
+    ),
+  };
 
   return {
     ...estado,
     periodo: { ...estado.periodo, ...seguinte, dias: undefined },
+    historicoDeCiclos: [...(estado.historicoDeCiclos ?? []), fechado].slice(-11),
+    // Os Pix confirmados são do acerto do mês que passou.
+    pagamentos: {},
     ciclos: (estado.ciclos ?? []).map(limparCiclo),
     moradores: estado.moradores.map((m) => ({
       ...m,

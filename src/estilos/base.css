@@ -1,28 +1,55 @@
 
 
 :root {
-  --tinta: #17201c;
-  --tinta-fraca: #5f6862;
-  --papel: #edefe8;
-  --papel-fundo: #e2e6db;
-  --branco: #ffffff;
-  --regua: #c7cdbf;
-  --alerta: #b24232;
-  --alerta-fundo: #f6e4e1;
-  --aviso: #c08a1e;
-  --aviso-fundo: #f3eedc;
-  --ok: #2e7d53;
+  /* A paleta do Figma (App CEDER): papel creme, tinta quase preta e quatro
+     cores de apoio   vermelho (a pagar), verde (a receber), mostarda
+     (destaque, ação) e azul (água, registros). */
+  --fundo: #f1ebdd;
+  --cartao: #faf6ec;
+  --areia: #e6dcc6;
+  --linha: #d6cbb3;
+  --tinta: #1b1a17;
+  --tinta-2: #5e584d;
+  --tinta-3: #9e9788;
 
-  --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
-  --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --vermelho: #b4432f;
+  --vermelho-texto: #a33a28;
+  --vermelho-fundo: #f2d8cf;
+  --verde: #23633f;
+  --verde-texto: #1a5a36;
+  --verde-fundo: #d5e6da;
+  --ouro: #c9962a;
+  --ouro-texto: #6e4e0e;
+  --ouro-fundo: #f3e3bd;
+  --ouro-claro: #f1e1b5;
+  --azul: #3f7fae;
+  --azul-escuro: #2f6a95;
+  --azul-fundo: #d5e3ec;
+  --laranja: #d9772b;
+  --cinza-azul: #dce4e5;
 
-  /* Cantos arredondados, em três tamanhos: os cartões de escolher (criar
-     conjunto, a lista de conjuntos) são os mais redondos. */
-  --canto: 12px;
-  --canto-grande: 18px;
-  --canto-pequeno: 8px;
-  --toque: 44px; 
+  /* Os nomes antigos continuam valendo: as telas de edição usam estes. */
+  --tinta-fraca: var(--tinta-2);
+  --papel: var(--cartao);
+  --papel-fundo: var(--fundo);
+  --branco: var(--cartao);
+  --regua: var(--linha);
+  --alerta: var(--vermelho);
+  --alerta-fundo: var(--vermelho-fundo);
+  --aviso: var(--ouro);
+  --aviso-fundo: var(--ouro-fundo);
+  --ok: var(--verde);
+
+  --serifa: "Newsreader", "Lora", "Iowan Old Style", Georgia, serif;
+  --sans: "Instrument Sans", "Inter", ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+  --canto: 18px;
+  --canto-grande: 24px;
+  --canto-pequeno: 14px;
+  --toque: 44px;
   --folga: 16px;
+  --barra-inferior: 84px;
 }
 
 * {
@@ -35,11 +62,11 @@ html {
 
 body {
   margin: 0;
-  background: var(--papel-fundo);
+  background: var(--fundo);
   color: var(--tinta);
   font-family: var(--sans);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   overflow-wrap: break-word;
 }
@@ -208,13 +235,13 @@ button {
 }
 
 .subetapa__botao {
-  padding: 3px 9px;
-  border: 1px solid transparent;
+  padding: 6px 14px;
+  border: 1.5px solid transparent;
   border-radius: 999px;
   background: transparent;
-  color: var(--tinta-fraca);
+  color: var(--tinta-2);
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -235,6 +262,7 @@ button {
 
 .subetapa--atual .subetapa__botao {
   border-color: var(--tinta);
+  background: var(--cartao);
   color: var(--tinta);
   font-weight: 600;
 }
@@ -258,9 +286,9 @@ button {
   position: absolute;
   left: -50%;
   right: 50%;
-  bottom: 15px;
+  bottom: 23px;
   height: 2px;
-  background: var(--regua);
+  background: var(--linha);
 }
 
 .etapa--feita + .etapa::before,
@@ -295,22 +323,27 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .etapa__no {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--regua);
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--linha);
   border-radius: 50%;
-  background: var(--papel);
-  font-family: var(--mono);
-  font-size: 13px;
+  background: var(--cartao);
+  font-family: var(--sans);
+  font-size: 16px;
   font-weight: 600;
+}
+
+.etapa__no svg {
+  width: 20px;
+  height: 20px;
 }
 
 .etapa--feita .etapa__no {
@@ -338,10 +371,10 @@ button {
 /* ----------------------------------------------------------------- ficha --- */
 
 .ficha {
-  background: var(--papel);
-  border: 1px solid var(--regua);
-  border-radius: var(--canto);
-  padding: 16px 14px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: var(--canto-grande);
+  padding: 18px 16px;
 }
 
 @media (min-width: 640px) {
@@ -351,9 +384,11 @@ button {
 }
 
 .titulo {
-  margin: 0 0 4px;
-  font-family: var(--mono);
-  font-size: 16px;
+  margin: 0 0 6px;
+  font-family: var(--serifa);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.15;
   letter-spacing: -0.01em;
 }
 
@@ -375,8 +410,9 @@ button {
 .rotulo {
   display: block;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--tinta-fraca);
 }
@@ -399,15 +435,20 @@ button {
 .caixa {
   width: 100%;
   min-width: 0;
-  min-height: var(--toque);
-  padding: 6px 10px;
-  background: var(--branco);
-  border: 1px solid var(--regua);
+  min-height: 48px;
+  padding: 8px 14px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
   border-radius: var(--canto-pequeno);
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
   outline-offset: -1px;
+}
+
+.caixa:focus {
+  border-color: var(--tinta);
+  outline: none;
 }
 
 .caixa--texto {
@@ -435,7 +476,7 @@ button {
 
 @media (min-width: 640px) {
   .caixa {
-    min-height: 34px;
+    min-height: 44px;
     font-size: 15px;
   }
 }
@@ -453,17 +494,22 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--toque);
-  padding: 0 18px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
   background: var(--tinta);
-  color: var(--papel);
-  border: 1px solid var(--tinta);
+  color: var(--cartao);
+  border: 1.5px solid var(--tinta);
   border-radius: var(--canto-pequeno);
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: opacity 120ms ease;
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.botao:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .botao:disabled {
@@ -472,9 +518,9 @@ button {
 }
 
 .botao--fantasma {
-  background: transparent;
+  background: var(--cartao);
   color: var(--tinta);
-  border-color: var(--regua);
+  border-color: var(--tinta);
 }
 
 .botao--quadrado {
@@ -486,14 +532,15 @@ button {
 .botao--catalogo {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
-  padding: 0 12px;
-  background: var(--branco);
+  min-height: 42px;
+  padding: 0 14px;
+  background: var(--fundo);
   color: var(--tinta);
-  border: 1px solid var(--regua);
-  border-radius: var(--canto-pequeno);
-  font-family: var(--mono);
-  font-size: 12px;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
   text-align: left;
 }
 
@@ -526,10 +573,12 @@ button {
   width: 100%;
   /* Mesmo fundo dos botões: assim a sobra da última linha, quando as opções
      não fecham a grade, fica invisível em vez de virar uma célula cinza. */
-  background: var(--papel);
-  border: 1px solid var(--regua);
+  background: var(--areia);
+  border: 1px solid var(--areia);
   border-radius: var(--canto-pequeno);
   overflow: hidden;
+  padding: 4px;
+  gap: 4px;
 }
 
 .segmentado button {
@@ -541,16 +590,14 @@ button {
   align-items: center;
   justify-content: center;
   padding: 7px 8px;
-  background: var(--papel);
-  color: var(--tinta-fraca);
+  background: transparent;
+  color: var(--tinta);
   border: none;
-  /* O traço entre os botões: cada um desenha o próprio anel, que preenche o
-     `gap` de 1px ao lado. Borda não serviria   com quebra de linha ela deixa
-     sobra solta no fim de cada linha. */
-  box-shadow: 0 0 0 1px var(--regua);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0;
   line-height: 1.25;
   text-align: center;
   /* A legenda quebra em duas linhas em vez de ser cortada. "por presença" não
@@ -566,7 +613,7 @@ button {
 
 .segmentado button[aria-pressed="true"] {
   background: var(--tinta);
-  color: var(--papel);
+  color: var(--cartao);
 }
 
 @media (max-width: 420px) {
@@ -588,13 +635,13 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 0 14px;
   background: transparent;
-  border: 1px solid var(--regua);
-  border-radius: var(--canto-pequeno);
-  font-family: var(--mono);
-  font-size: 12px;
+  border: 1px solid var(--tinta);
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 14px;
   color: var(--tinta);
   opacity: 0.5;
   transition: opacity 120ms ease;
@@ -606,9 +653,9 @@ button {
 
 .ponto {
   display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
   background: var(--regua);
   flex-shrink: 0;
 }
@@ -616,7 +663,7 @@ button {
 /* ------------------------------------------------------------- alertas --- */
 
 .alerta {
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-radius: var(--canto);
   font-size: 13px;
   line-height: 1.5;
@@ -795,13 +842,14 @@ button {
   background: transparent;
   border: none;
   border-bottom: 1px dashed transparent;
-  font-family: var(--mono);
-  font-size: 16px;
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 600;
 }
 
 @media (min-width: 640px) {
   .item-nome {
-    font-size: 15px;
+    font-size: 16px;
   }
 }
 
@@ -2772,4 +2820,11 @@ button {
   .item-topo .item-valor {
     margin-right: auto;
   }
+}
+
+/* O verde-água das despesas pagas (o anel do total e o status "paga"). */
+:root {
+  --agua: #3a9c8f;
+  --agua-fundo: #d3ebe7;
+  --agua-texto: #1f6b61;
 }

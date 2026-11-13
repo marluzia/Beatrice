@@ -5,7 +5,7 @@
 // Uma etapa sem seção listada aqui é uma seção só. Uma tela que recebe
 // `secao` indefinida mostra tudo de uma vez (é como os testes a montam).
 
-import { GRUPO_DA_FATURA, GRUPO_INDEPENDENTE } from "../nucleo/catalogo.js";
+import { GRUPO_DA_FATURA, GRUPO_INDEPENDENTE, GRUPO_DOS_EQUIPAMENTOS } from "../nucleo/catalogo.js";
 import { presetDe } from "../nucleo/modos.js";
 
 /**
@@ -13,7 +13,8 @@ import { presetDe } from "../nucleo/modos.js";
  * @returns {{ chave: string, titulo: string }[]}
  */
 export function secoesDaEtapa(chave, estado, modo) {
-  const evento = modo?.chave === "evento";
+  // Sem faturas (evento, temporada) as despesas são um grupo só.
+  const evento = modo?.faturas === false;
 
   switch (chave) {
     case "contas":
@@ -64,6 +65,16 @@ export function secoesDaEtapa(chave, estado, modo) {
 export const GRUPO_DA_SECAO = {
   fatura: GRUPO_DA_FATURA,
   independente: GRUPO_INDEPENDENTE,
+};
+
+/**
+ * Os grupos que cada seção mostra. "aparelhos" é Configurar conjunto → Itens:
+ * o que sai das faturas e, na Multi, os equipamentos fora delas.
+ */
+export const GRUPOS_DA_SECAO = {
+  fatura: [GRUPO_DA_FATURA],
+  independente: [GRUPO_INDEPENDENTE],
+  aparelhos: [GRUPO_DA_FATURA, GRUPO_DOS_EQUIPAMENTOS],
 };
 
 /** Esta seção aparece? Sem seção escolhida, tudo aparece. */

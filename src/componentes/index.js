@@ -2,7 +2,6 @@ export { default as SeletorDeDia } from "./SeletorDeDia.jsx";
 export { default as Ajuda } from "./Ajuda.jsx";
 export { default as Alerta } from "./Alerta.jsx";
 export { default as Botao } from "./Botao.jsx";
-export { default as Cabecalho } from "./Cabecalho.jsx";
 export { default as Calendario } from "./Calendario.jsx";
 export { default as Campo } from "./Campo.jsx";
 export { default as CampoData } from "./CampoData.jsx";

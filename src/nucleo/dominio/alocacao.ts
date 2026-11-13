@@ -81,8 +81,10 @@ export function alocar(
   // dias diferentes   e aí a divisão exata dá outro resultado em cada um.
   // Reaproveitar a do mês nesse caso cobraria a luz pelos dias da água.
   const porPresenca = item.rateio.tipo === "presenca";
+  const custoTotal = totalDoBruto(bruto);
 
   const noMes = pesosDe({
+    custoTotal,
     item,
     diasContados: janelas.mes.contados,
     diasNoCiclo: janelas.mes.dias,
@@ -102,6 +104,7 @@ export function alocar(
         reaproveita
           ? noMes
           : pesosDe({
+              custoTotal,
               item,
               diasContados: janela.contados,
               diasNoCiclo: janela.dias,
@@ -112,7 +115,6 @@ export function alocar(
     }),
   );
 
-  const custoTotal = totalDoBruto(bruto);
   const fatias: Fatia[] = [];
   const parcelas: Parcela[] = [];
 

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { comContasLigadas } from "./teste/conjuntoAntigo.js";
 import { rateiosDoItem } from "./adaptador.js";
 import { montarMensagemDeColeta } from "./coleta.js";
-import { estadoInicial } from "./estadoInicial.js";
+import { criarItem, modeloPorChave } from "./catalogo.js";
+import { comRateioDoModo, estadoInicial } from "./estadoInicial.js";
 import { modoDe } from "./modos.js";
 
 const EVENTO = modoDe("evento");
@@ -12,6 +13,9 @@ const evento = () => {
   const e = comContasLigadas(estadoInicial("evento", 3));
   e.periodo = { mes: 6, ano: 2026 };
   e.moradores.forEach((m, i) => { m.nome = ["Ana", "Bruno", "Carla"][i]; });
+  // O evento nasce sem despesas; estas duas são as que a pessoa lançou.
+  const ids = e.moradores.map((m) => m.id);
+  if (e.itens.length === 0) e.itens = [1, 2].map(() => comRateioDoModo(criarItem(modeloPorChave("outra"), ids), EVENTO));
   e.itens.forEach((i, n) => { i.nome = `Despesa ${n + 1}`; i.valor = "60"; });
   return e;
 };

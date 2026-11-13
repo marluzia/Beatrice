@@ -3,14 +3,27 @@
 // ocupando espaço e confundindo quem está lançando um churrasco.
 
 import { describe, expect, it } from "vitest";
-import { CATALOGO, catalogoDe, ehEmReais } from "./catalogo.js";
+import { CATALOGO, CATALOGO_DOS_EQUIPAMENTOS, catalogoDe, ehEmReais, ehEquipamento, grupoDoItem } from "./catalogo.js";
+import { criarItem, modeloPorChave } from "./catalogo.js";
 import { MODOS } from "./modos.js";
 
 describe("o catálogo que cada modo vê", () => {
   it("quem tem fatura vê o catálogo inteiro", () => {
-    for (const chave of ["moradia", "temporada", "familia"]) {
+    for (const chave of ["moradia", "familia"]) {
       expect(catalogoDe(MODOS[chave]), chave).toEqual(CATALOGO);
     }
+  });
+
+  it("a Multi vê também os equipamentos fora das faturas", () => {
+    expect(catalogoDe(MODOS.multipro)).toEqual([...CATALOGO, CATALOGO_DOS_EQUIPAMENTOS]);
+    const nomes = CATALOGO_DOS_EQUIPAMENTOS.itens.map((i) => i.nome);
+    expect(nomes).toEqual(["Embarcação", "Equipamento"]);
+    // A embarcação saiu das avulsas da casa: é equipamento, com registro.
+    expect(CATALOGO.flatMap((g) => g.itens).some((i) => i.chave === "embarcacao")).toBe(false);
+    const lancha = criarItem(modeloPorChave("embarcacao"), ["a"]);
+    expect(ehEquipamento(lancha)).toBe(true);
+    expect(grupoDoItem(lancha)).toBe(CATALOGO_DOS_EQUIPAMENTOS.grupo);
+    expect(lancha.medida).toBe("hora");
   });
 
   it("evento só vê despesa em reais", () => {

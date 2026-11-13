@@ -7,6 +7,7 @@ describe("modos", () => {
   it("cada modo sabe como perguntar a presença", () => {
     expect(polaridadeDe("moradia")).toBe("ausencia");
     expect(polaridadeDe("temporada")).toBe("presenca");
+    expect(polaridadeDe("multipro")).toBe("presenca");
     expect(polaridadeDe("familia")).toBe("ausencia");
     expect(polaridadeDe("evento")).toBe("nenhuma");
   });
@@ -23,8 +24,8 @@ describe("modos", () => {
     }
   });
 
-  it("os três modos cíclicos têm calendário; o evento, só quando é longo", () => {
-    for (const chave of ["moradia", "temporada", "familia"]) {
+  it("todo modo menos o evento tem calendário; evento longo antigo vira temporada", () => {
+    for (const chave of ["moradia", "temporada", "familia", "multipro"]) {
       expect(passosDe(chave).map((p) => p.chave), chave).toContain("calendario");
     }
     expect(passosDe("evento").map((p) => p.chave)).not.toContain("calendario");
@@ -47,8 +48,11 @@ describe("modos", () => {
 
   it("os passos falam a língua do modo", () => {
     // Moradores, cotistas e participantes são todos "pessoas" na tela.
-    expect(passosDe("temporada")[1].titulo).toBe("Pessoas");
-    expect(passosDe("moradia")[1].titulo).toBe("Pessoas");
+    expect(passosDe("multipro")[0].titulo).toBe("Pessoas");
+    expect(passosDe("temporada")[0].titulo).toBe("Pessoas");
+    expect(passosDe("moradia")[0].titulo).toBe("Pessoas");
+    // A ordem do Fechar contas, como no Figma.
+    expect(passosDe("moradia").map((p) => p.chave)).toEqual(["moradores", "contas", "itens", "calendario", "rateio"]);
     expect(passosDe("evento")[0].titulo).toBe("Pessoas");
     expect(passosDe("evento").map((p) => p.titulo)).toEqual(["Pessoas", "Despesas", "Rateio"]);
   });
@@ -146,5 +150,65 @@ describe("próximo mês", () => {
     proximoMes(original);
     expect(cicloPorId(original, "luz").linhas[0].valor).toBe("300");
     expect(original.moradores[0].ausencias).toHaveLength(2);
+  });
+});
+
+describe("os cinco tipos de conjunto", () => {
+  it("aparecem na ordem do mais simples para o mais completo", async () => {
+    const { LISTA_DE_MODOS } = await import("./modos.js");
+    expect(LISTA_DE_MODOS.map((m) => m.chave)).toEqual(["evento", "temporada", "familia", "moradia", "multipro"]);
+  });
+
+  it("evento: sem calendário, sem despesa cíclica, sem dias, sem régua", async () => {
+    const { reguaVisivel } = await import("./modos.js");
+    const m = MODOS.evento;
+    expect(m.faturas).toBe(false);
+    expect(m.presenca).toBe("nenhuma");
+    expect(m.passos).not.toContain("calendario");
+    expect(reguaVisivel(estadoInicial("evento"))).toBe(false);
+  });
+
+  it("temporada: calendário e dias, sem despesa cíclica e sem régua", async () => {
+    const { reguaVisivel } = await import("./modos.js");
+    const m = MODOS.temporada;
+    expect(m.faturas).toBe(false);
+    expect(m.presenca).toBe("presenca");
+    expect(m.passos).toContain("calendario");
+    expect(m.passos).not.toContain("contas");
+    expect(reguaVisivel(estadoInicial("temporada"))).toBe(false);
+    // As despesas nascem divididas por dias.
+    expect(estadoInicial("temporada").itens.every((i) => i.rateio === "dias")).toBe(true);
+  });
+
+  it("familiar: calendário, despesa cíclica e uso comum por igual de partida", () => {
+    const e = estadoInicial("familia");
+    expect(MODOS.familia.nome).toBe("Familiar");
+    expect(MODOS.familia.faturas).toBe(true);
+    expect(MODOS.familia.passos).toContain("calendario");
+    expect(e.calibragem).toBe(1);
+  });
+
+  it("moradia compartilhada: moderado, comunal, temporal ou livre, e sempre dias fora", async () => {
+    const { presetsDe, reguaVisivel } = await import("./modos.js");
+    expect(presetsDe("moradia").map((p) => [p.curto, p.calibragem, p.regua])).toEqual([
+      ["Moderado", 0.5, false],
+      ["Comunal", 1, false],
+      ["Temporal", 0, false],
+      ["Livre", 0, true],
+    ]);
+    expect(reguaVisivel(estadoInicial("moradia"))).toBe(false);
+    expect(reguaVisivel(estadoInicial("moradia", 3, "livre"))).toBe(true);
+    // A marcação não é escolha na república: pedir estadia não muda nada.
+    expect(modoDoConjunto({ modo: "moradia", marcacao: "presenca" }).presenca).toBe("ausencia");
+  });
+
+  it("multi: calculadora completa, régua livre e marcação à escolha", async () => {
+    const { reguaVisivel } = await import("./modos.js");
+    expect(MODOS.multipro.nome).toBe("Multi");
+    expect(MODOS.multipro.faturas).toBe(true);
+    expect(reguaVisivel(estadoInicial("multipro"))).toBe(true);
+    expect(modoDoConjunto({ modo: "multipro" }).presenca).toBe("presenca");
+    expect(modoDoConjunto({ modo: "multipro", marcacao: "ausencia" }).presenca).toBe("ausencia");
+    expect(modoDoConjunto({ modo: "multipro", marcacao: "inventada" }).presenca).toBe("presenca");
   });
 });

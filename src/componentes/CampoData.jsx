@@ -91,7 +91,11 @@ export function paraISO(texto) {
 
 const paraBR = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "");
 
-export default function CampoData({ valor, aoMudar, aoInvalidar, rotulo, etiqueta }) {
+/**
+ * Um campo de data dd/mm/aaaa. `min` e `max` (ISO, incluídos) recusam o que
+ * cair fora: o campo fica vermelho, diz o limite e não manda a data adiante.
+ */
+export default function CampoData({ valor, aoMudar, aoInvalidar, rotulo, etiqueta, min, max }) {
   const [texto, setTexto] = useState(() => paraBR(valor));
 
   useEffect(() => {
@@ -101,13 +105,21 @@ export default function CampoData({ valor, aoMudar, aoInvalidar, rotulo, etiquet
     setTexto(paraBR(valor));
   }, [valor]);
 
-  const invalido = soDigitos(texto).length >= 8 && paraISO(texto) === null;
+  // O limite só reclama do que a pessoa digitou: uma data que já vinha de
+  // antes (o período tirado dos ciclos, por exemplo) aparece como está.
+  const iso = paraISO(texto);
+  const digitado = iso !== valor;
+  const antes = Boolean(digitado && iso && min && iso < min);
+  const depois = Boolean(digitado && iso && max && iso > max);
+  const invalido = (soDigitos(texto).length >= 8 && iso === null) || antes || depois;
 
   const digitar = (bruto) => {
     const visto = comMascara(bruto);
     setTexto(visto);
-    aoMudar(paraISO(visto));
-    aoInvalidar?.(soDigitos(visto).length >= 8 && paraISO(visto) === null);
+    const novo = paraISO(visto);
+    const fora = Boolean(novo && ((min && novo < min) || (max && novo > max)));
+    aoMudar(fora ? null : novo);
+    aoInvalidar?.((soDigitos(visto).length >= 8 && novo === null) || fora);
   };
 
   return (
@@ -124,6 +136,8 @@ export default function CampoData({ valor, aoMudar, aoInvalidar, rotulo, etiquet
         aria-label={etiqueta}
         aria-invalid={invalido || undefined}
       />
+      {antes && <span className="campo-data__limite">A partir de {paraBR(min)}</span>}
+      {depois && <span className="campo-data__limite">Até {paraBR(max)}</span>}
     </label>
   );
 }

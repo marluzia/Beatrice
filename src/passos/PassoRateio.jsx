@@ -14,7 +14,7 @@ import Apoio from "./Apoio.jsx";
 import { AjudaCentavos } from "./ajudas.jsx";
 import { mostra } from "./secoes.js";
 
-export default function PassoRateio({ estado, resultado, indicePorId, acoes, modo, nomeDoConjunto, secao }) {
+export default function PassoRateio({ estado, resultado, indicePorId, acoes, modo, nomeDoConjunto, secao, eu = null, ir }) {
   const [abertos, setAbertos] = useState({});
   const fecha = Math.abs(resultado.diferenca) < 0.005;
 
@@ -212,6 +212,9 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
         modo={modo}
         nomeDoConjunto={nomeDoConjunto}
         travado={cessao.precisaEscolher}
+        acoes={acoes}
+        eu={eu}
+        ir={ir}
       />
       )}
 

@@ -241,7 +241,7 @@ describe("divisões oferecidas", () => {
   // divisão é escolha da casa; restringir por tipo de custo era a calculadora
   // decidindo no lugar dela. Dividir a faxina por dias em casa é estranho em
   // quase toda república e é exatamente certo em alguma.
-  const AS_SETE = ["igual", "dias", "presenca", "uso", "horas", "porcentagem", "valor"];
+  const AS_SETE = ["igual", "porcentagem", "valor", "cotas", "ajuste", "dias", "horas", "presenca", "uso"];
 
   it("oferece as sete divisões, qualquer que seja o tipo de custo", () => {
     const porUso = comCusto({ tipo: "porUso", unitario: { origem: "reais", valorPorUso: 90 } });

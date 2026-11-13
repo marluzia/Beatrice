@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Botao, Campo, Ficha, Pastilha, SimboloDoCiclo, Titulo } from "../componentes/index.js";
+import { Botao, Campo, Ficha, Pastilha, Segmentado, SimboloDoCiclo, Titulo } from "../componentes/index.js";
 import { ciclosLigados, naOrdemDaTela } from "../nucleo/ciclos.js";
 import {
   cicloValido,
   NOMES_CURTOS_DOS_DIAS,
   chaveDoMes,
   dentroDaJanela,
+  janelaDoFechamento,
   janelaTotal,
   mesAnterior,
   mesDoDia,
@@ -14,8 +15,13 @@ import {
   semanasDoMes,
   ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
-import { MESES, corDe, nomeOu } from "../nucleo/formato.js";
+import { MESES, corDe, nomeOu, reais } from "../nucleo/formato.js";
 import { agendaPorDia, ROTULO_DA_NATUREZA } from "../nucleo/agenda.js";
+import { registravel } from "../nucleo/adaptador.js";
+import { diaPorExtenso, hojeISO } from "../nucleo/resumo.js";
+import { totalDaFatura } from "../nucleo/traducao/fatura.js";
+
+const reaisDaConta = (c) => reais(totalDaFatura(c));
 import { mostra } from "./secoes.js";
 
 const diaCurto = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -26,11 +32,16 @@ const diaLongo = (iso) => {
 };
 
 const CORES = {
-  presenca: "var(--tinta)",
-  uso: "var(--ok)",
-  despesa: "var(--aviso)",
-  tarefa: "var(--tinta-fraca)",
+  presenca: "var(--laranja)",
+  uso: "var(--verde)",
+  despesa: "var(--ouro)",
 };
+
+/** O que a legenda chama cada natureza. */
+const NOME_NA_LEGENDA = { uso: "Registro", despesa: "Despesa" };
+
+/** Tarefa não existe mais: o calendário só lança despesa, registro e lembrete. */
+const semTarefa = (lista) => lista.filter((e) => e.natureza !== "tarefa");
 
 /**
  * O calendário do conjunto: um mês, e o que aconteceu em cada dia.
@@ -43,30 +54,51 @@ const CORES = {
  * A lista embaixo é o histórico: o mês em ordem, para a casa conferir o que
  * foi lançado e enxergar o que ficou sem marcação.
  */
-export default function PassoCalendario({ estado, acoes, modo, secao, irParaSecao }) {
-  const limite = modo.faturas ? janelaTotal(estado.ciclos, estado.periodo, estado.corte) : null;
+export default function PassoCalendario({ estado, acoes, modo, secao, irParaSecao, diaAberto, aoAbrirDia, solto = false }) {
+  // Com faturas, o calendário vai dos ciclos; na temporada, do período dela
+  // (as estadias fora dele não contam); no evento, não há limite.
+  const temporada = modo.chave === "temporada";
+  const limite = modo.faturas
+    ? janelaTotal(estado.ciclos, estado.periodo, estado.corte)
+    : temporada
+      ? janelaDoFechamento(estado.ciclos, estado.periodo, estado.corte)
+      : null;
+  const [comLegenda, setComLegenda] = useState(false);
 
-  const inicio = limite?.de ? partesDoDia(limite.de) : null;
+  // Solto (a tela Calendário), abre no mês do dia aberto   hoje   e anda livre
+  // pelos meses; dentro do Fechar contas, fica nos meses que as faturas cobrem.
+  const inicio = solto && diaAberto ? partesDoDia(diaAberto) : limite?.de ? partesDoDia(limite.de) : null;
   const [visivel, setVisivel] = useState(
     inicio ? { mes: inicio.mes, ano: inicio.ano } : { mes: estado.periodo.mes, ano: estado.periodo.ano },
   );
-  const [aberto, setAberto] = useState(null);
+  // O dia aberto pode vir de fora (a tela Calendário controla e põe o botão
+  // "+ Lançar no dia" embaixo); sem isso, fica aqui dentro.
+  const [abertoAqui, setAbertoAqui] = useState(null);
+  const aberto = aoAbrirDia ? diaAberto ?? null : abertoAqui;
+  const setAberto = aoAbrirDia ?? setAbertoAqui;
+  const hoje = hojeISO();
+  const lembretesDoDia = (dia) => (estado.lembretes ?? []).filter((l) => l.data === dia);
+  // As contas que vencem no dia: entram como despesa na marquinha e na lista do dia.
+  const vencimentosDoDia = (dia) => ciclosLigados(estado).filter((c) => c.vencimento === dia);
+  const nomeDaPessoa = (id) => {
+    const i = estado.moradores.findIndex((m) => m.id === id);
+    return i < 0 ? "" : nomeOu(estado.moradores[i].nome, i);
+  };
 
   const porDia = agendaPorDia(estado);
   const semanas = semanasDoMes(visivel.mes, visivel.ano);
 
   const mesAtual = chaveDoMes(visivel);
-  const podeVoltar = !limite || mesAtual > mesDoDia(limite.de);
-  const podeAvancar = !limite || mesAtual < mesDoDia(ultimoDiaDaJanela(limite));
+  const podeVoltar = solto || !limite || mesAtual > mesDoDia(limite.de);
+  const podeAvancar = solto || !limite || mesAtual < mesDoDia(ultimoDiaDaJanela(limite));
 
   const polaridade = modo.presenca;
   const ligados = naOrdemDaTela(ciclosLigados(estado)).filter((c) => cicloValido(c.janela));
   const rotuloPresenca = ROTULO_DA_NATUREZA.presenca[polaridade];
   const campo = polaridade === "presenca" ? "presencas" : "ausencias";
 
-  const itensComUso = estado.itens.filter(
-    (i) => i.especie === "porUso" && i.participantes.length > 0,
-  );
+  // Só aparelhos que consomem kWh ou m³ e se medem por uso ou por hora.
+  const itensComUso = estado.itens.filter((i) => registravel(i, estado) && i.participantes.length > 0);
 
   const tarefaPorId = (id) => (estado.tarefas ?? []).find((t) => t.id === id);
 
@@ -79,19 +111,37 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
   };
 
   return (
-    <div className="coluna">
+    <div className={`coluna ${solto ? "calendario-solto" : ""}`}>
       {mostra(secao, "mes") && (
       <>
       <Ficha>
-        <Titulo
-          nota={
-            polaridade === "nenhuma"
-              ? "Lance aqui o que aconteceu em cada dia do evento."
-              : `Toque num dia para lançar ${rotuloPresenca.toLowerCase()}, uso de aparelho, despesa ou tarefa.`
-          }
-        >
-          O mês do conjunto
-        </Titulo>
+        {!solto && (
+          <Titulo
+            nota={
+              polaridade === "nenhuma"
+                ? "Lance aqui o que aconteceu em cada dia do evento."
+                : `Toque num dia para lançar ${rotuloPresenca.toLowerCase()}, uso de aparelho, despesa ou tarefa.`
+            }
+          >
+            O mês do conjunto
+          </Titulo>
+        )}
+
+        {/* Na Multi o conjunto escolhe o que marcar: a estadia ou os dias fora. */}
+        {modo.marcacaoEscolhida && acoes.definirMarcacao && (
+          <div className="marcacao-do-calendario">
+            <span className="rotulo">Marcar no calendário</span>
+            <Segmentado
+              rotuloDoGrupo="O que o calendário marca"
+              opcoes={[
+                { valor: "presenca", texto: "Estadia" },
+                { valor: "ausencia", texto: "Dias fora" },
+              ]}
+              valor={polaridade}
+              aoMudar={(v) => acoes.definirMarcacao(v)}
+            />
+          </div>
+        )}
 
         <div className="calendario-topo">
           <button
@@ -107,7 +157,7 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
             ‹
           </button>
           <span className="calendario-titulo">
-            {MESES[visivel.mes - 1]} {visivel.ano}
+            {MESES[visivel.mes - 1]} <em>{visivel.ano}</em>
           </span>
           <button
             type="button"
@@ -133,10 +183,10 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
           {semanas.flat().map((dia, i) => {
             if (!dia) return <span key={`v${i}`} className="calendario-vazio" />;
 
-            const doDia = porDia[dia] ?? [];
-            const cobre = !limite || dentroDaJanela(dia, limite);
+            const doDia = semTarefa(porDia[dia] ?? []);
+            const cobre = (solto && !temporada) || !limite || dentroDaJanela(dia, limite);
             const numero = partesDoDia(dia).dia;
-            const naturezas = [...new Set(doDia.map((e) => e.natureza))];
+            const naturezas = [...new Set([...doDia.map((e) => e.natureza), ...(vencimentosDoDia(dia).length ? ["despesa"] : [])])];
             // Os ciclos ligados que cobrem este dia: gota, raio ou círculo no topo.
             const doCiclo = ligados.filter((c) => dentroDaJanela(dia, c.janela));
 
@@ -144,6 +194,8 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
               "calendario-dia",
               "calendario-dia--agenda",
               aberto === dia ? "calendario-dia--aberto" : "",
+              dia === hoje ? "calendario-dia--hoje" : "",
+              lembretesDoDia(dia).length > 0 ? "calendario-dia--lembrete" : "",
               cobre ? "" : "calendario-dia--fora",
             ]
               .filter(Boolean)
@@ -160,7 +212,7 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
                   (doDia.length === 0
                     ? ", sem lançamentos"
                     : `, ${doDia.length} ${doDia.length === 1 ? "lançamento" : "lançamentos"}`) +
-                  (cobre ? "" : ", fora dos ciclos das faturas")
+                  (cobre ? "" : temporada ? ", fora do período da temporada" : ", fora dos ciclos das faturas")
                 }
                 onClick={() => setAberto(aberto === dia ? null : dia)}
               >
@@ -173,7 +225,7 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
                 {naturezas.length > 0 && (
                   <span className="marcas" aria-hidden="true">
                     {naturezas.map((n) => (
-                      <i key={n} className="marca" style={{ background: CORES[n] }} />
+                      <i key={n} className="marca marca--losango" style={{ background: CORES[n] }} />
                     ))}
                   </span>
                 )}
@@ -182,39 +234,85 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
           })}
         </div>
 
-        <div className="legenda-agenda" aria-hidden="true">
-          {ligados.map((c) => (
-            <span key={c.id}>
-              <SimboloDoCiclo ciclo={c} tamanho={10} /> ciclo {c.id === "luz" ? "da luz" : c.id === "agua" ? "da água" : `de ${c.nome}`}
-            </span>
-          ))}
-          {polaridade !== "nenhuma" && (
-            <span>
-              <i className="marca" style={{ background: CORES.presenca }} /> {rotuloPresenca}
-            </span>
-          )}
-          <span>
-            <i className="marca" style={{ background: CORES.uso }} /> Uso
-          </span>
-          <span>
-            <i className="marca" style={{ background: CORES.despesa }} /> Despesa
-          </span>
-          <span>
-            <i className="marca" style={{ background: CORES.tarefa }} /> Tarefa
-          </span>
-        </div>
+        <button type="button" className="legenda-alternar" aria-expanded={comLegenda} onClick={() => setComLegenda((v) => !v)}>
+          {comLegenda ? "Ocultar legenda" : "Mostrar legenda"}
+        </button>
+
+        {comLegenda && (
+          <div className={`legenda-agenda ${ligados.length === 0 ? "legenda-agenda--so-acoes" : ""}`}>
+            {ligados.length > 0 && (
+              <div className="legenda-agenda__coluna">
+                <span className="rotulo">Ciclos</span>
+                {ligados.map((c) => (
+                  <span key={c.id} className="legenda-agenda__ciclo">
+                    <SimboloDoCiclo ciclo={c} tamanho={14} />
+                    <span>
+                      {c.nome || "Conta"}
+                      <small>
+                        {diaCurto(c.janela.de)} a {diaCurto(ultimoDiaDaJanela(c.janela))}
+                      </small>
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="legenda-agenda__coluna">
+              <span className="rotulo">Ações</span>
+              <div className="legenda-agenda__acoes">
+                <span>
+                  <i className="marca marca--losango" style={{ background: CORES.despesa }} /> {NOME_NA_LEGENDA.despesa}
+                </span>
+                {polaridade !== "nenhuma" && (
+                  <span>
+                    <i className="marca marca--losango" style={{ background: CORES.presenca }} /> {rotuloPresenca}
+                  </span>
+                )}
+                <span>
+                  <i className="marca marca--losango" style={{ background: CORES.uso }} /> {NOME_NA_LEGENDA.uso}
+                </span>
+                <span>
+                  <i className="marca marca--canto" /> Lembrete
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </Ficha>
 
       {aberto && (
         <Ficha>
-          <Titulo nota={`O que aconteceu em ${diaLongo(aberto)}.`}>{diaCurto(aberto)}</Titulo>
+          <h3 className="titulo-do-dia">
+            {diaPorExtenso(aberto).semana}, <em>{diaPorExtenso(aberto).resto}</em>
+          </h3>
 
-          {polaridade !== "nenhuma" && estado.moradores.length > 0 && (
+          {vencimentosDoDia(aberto).map((c) => (
+            <div className="vencimento-do-dia" key={c.id}>
+              <i className="marca marca--losango" style={{ background: CORES.despesa }} aria-hidden="true" />
+              <span>
+                <strong>
+                  {c.nome || "Conta"} de {MESES[estado.periodo.mes - 1]} vence
+                </strong>
+                <span>
+                  despesa cíclica ·{" "}
+                  {c.pagoPor
+                    ? `paga por ${nomeDaPessoa(c.pagoPor)}${c.pagoEm ? ` em ${diaCurto(c.pagoEm.slice(0, 10))}` : ""}`
+                    : "ninguém pagou ainda"}
+                </span>
+              </span>
+              <strong>{reaisDaConta(c)}</strong>
+            </div>
+          ))}
+
+          {temporada && limite && !dentroDaJanela(aberto, limite) && (
+            <p className="dica">Fora do período da temporada: estadias marcadas aqui não contam.</p>
+          )}
+
+          {polaridade !== "nenhuma" && estado.moradores.length > 0 && (!temporada || !limite || dentroDaJanela(aberto, limite)) && (
             <>
               <p className="dica">
                 {polaridade === "presenca"
                   ? `Quem esteve ${modo.palavras.noLugar ?? "no espaço"} neste dia:`
-                  : "Quem não dormiu em casa neste dia:"}
+                  : "Quem não dormiu em casa nesta noite:"}
               </p>
               <div className="pastilhas">
                 {estado.moradores.map((m, i) => (
@@ -230,18 +328,42 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
             </>
           )}
 
-          <div className="linha-acoes">
+          <div className="linha-acoes" id="acoes-do-dia">
             <Botao tipo="fantasma" aoClicar={() => acoes.lancarDespesaNoDia(aberto)}>
               + Despesa
             </Botao>
-            <Botao tipo="fantasma" aoClicar={() => acoes.lancarTarefaNoDia(aberto)}>
-              + Tarefa
-            </Botao>
+            {acoes.adicionarLembrete && (
+              <Botao tipo="fantasma" aoClicar={() => acoes.adicionarLembrete("nota", { data: aberto })}>
+                + Lembrete
+              </Botao>
+            )}
           </div>
+
+          {lembretesDoDia(aberto).map((l) => (
+            <div className="lancamento lancamento--lembrete" key={l.id}>
+              <div className="lancamento__topo">
+                <span className="selo selo--modo">Lembrete</span>
+                <button
+                  type="button"
+                  className="linha-fatura__remover"
+                  aria-label="Apagar lembrete"
+                  onClick={() => acoes.removerLembrete(l.id)}
+                >
+                  ×
+                </button>
+              </div>
+              <Campo
+                valor={l.tipo === "lista" ? l.titulo : l.texto}
+                aoMudar={(v) => acoes.editarLembrete(l.id, l.tipo === "lista" ? { titulo: v } : { texto: v })}
+                placeholder="Lavar as toalhas, levar o lixo…"
+                texto
+              />
+            </div>
+          ))}
 
           {itensComUso.length > 0 && (
             <>
-              <p className="dica">Lançar um uso neste dia:</p>
+              <p className="dica">Registrar um uso neste dia:</p>
               <div className="linha-acoes">
                 {itensComUso.map((i) => (
                   <Botao
@@ -257,7 +379,7 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
           )}
 
           <LancamentosDoDia
-            marcacoes={porDia[aberto] ?? []}
+            marcacoes={semTarefa(porDia[aberto] ?? [])}
             estado={estado}
             acoes={acoes}
             polaridade={polaridade}
@@ -269,7 +391,11 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
       )}
 
       {mostra(secao, "historico") && (
-        <Historico porDia={porDia} polaridade={polaridade} aoAbrir={abrirDoHistorico} />
+        <Historico
+          porDia={Object.fromEntries(Object.entries(porDia).map(([d, l]) => [d, semTarefa(l)]).filter(([, l]) => l.length > 0))}
+          polaridade={polaridade}
+          aoAbrir={abrirDoHistorico}
+        />
       )}
     </div>
   );
@@ -377,8 +503,8 @@ function LancamentosDoDia({ marcacoes, estado, acoes, polaridade, tarefaPorId })
               </div>
 
               <p className="nota">
-                A regra de divisão desta despesa fica no passo de Itens, junto
-                com as outras.
+                A divisão desta despesa (igual, %, valor, cotas, ajuste, dias…)
+                se escolhe no cartão dela, em Despesas.
               </p>
             </div>
           );
@@ -388,7 +514,7 @@ function LancamentosDoDia({ marcacoes, estado, acoes, polaridade, tarefaPorId })
           return (
             <div className="lancamento" key={e.id}>
               <div className="lancamento__topo">
-                <span className="selo selo--modo">Uso</span>
+                <span className="selo selo--modo">Registro</span>
                 <button
                   type="button"
                   className="linha-fatura__remover"
@@ -402,8 +528,7 @@ function LancamentosDoDia({ marcacoes, estado, acoes, polaridade, tarefaPorId })
                 <strong>{e.titulo}</strong>   {e.detalhe}
               </p>
               <p className="nota">
-                Quem participou e quantas vezes se ajusta no cartão deste item,
-                no passo de Itens.
+                Quem participou e quantas vezes se ajusta em Registros.
               </p>
             </div>
           );

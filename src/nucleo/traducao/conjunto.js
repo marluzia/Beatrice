@@ -20,6 +20,7 @@ import { faturaParaMotor, janelaDaFatura } from "./fatura.js";
 import { diasForaNaJanela, polaridadeDoConjunto, presentesPorDia } from "./morador.js";
 import { itemParaMotor } from "./item.js";
 import { alertaDeLavagens } from "./uso.js";
+import { estadoDaConta } from "../naConta.js";
 
 export function paraMotor(estado) {
   const { mes, ano } = estado.periodo;
@@ -41,7 +42,7 @@ export function paraMotor(estado) {
       diasFora: diasForaNaJanela(m, doFechamento, polaridade),
       diasForaPorCiclo: porCiclo((janela) => diasForaNaJanela(m, janela, polaridade)),
     })),
-    itens: estado.itens.map((i) => itemParaMotor(i, janelas)),
+    itens: estado.itens.map((i) => itemParaMotor(i, janelas, doFechamento)),
     // Quem estava em casa em cada dia de cada ciclo. Só existe quando todo
     // mundo marcou as datas; sem isso a divisão por presença volta a estimar.
     presencas: {
@@ -74,7 +75,9 @@ export function alertaDoCorte(estado) {
 }
 
 /** O fechamento do conjunto, com os avisos que só a tela sabe dar. */
-export const calcular = (estado) => {
+export const calcular = (estadoCompleto) => {
+  // O que o grupo tirou da conta (de antes do período) não chega ao motor.
+  const estado = estadoDaConta(estadoCompleto);
   const resultado = fecharNoDominio(paraMotor(estado));
   const extras = [...alertaDeLavagens(estado), ...alertaDoCorte(estado)];
   return extras.length ? { ...resultado, alertas: [...resultado.alertas, ...extras] } : resultado;

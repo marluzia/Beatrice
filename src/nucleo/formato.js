@@ -23,8 +23,9 @@ export const MESES = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
+// As cores das pessoas, na ordem: as mesmas dos avatares das telas novas.
 export const PALETA = [
-  "#2E7D53", "#3D6E8C", "#B24232", "#C08A1E", "#6B5B95",
+  "#B4432F", "#2F6A95", "#C9962A", "#23633F", "#6B5B95",
   "#1F7A7A", "#8C6A3D", "#A34F76", "#4A7C2F", "#8A4B7D",
 ];
 

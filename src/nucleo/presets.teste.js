@@ -36,9 +36,11 @@ const usoComumDe = (resultado, nome) =>
   resultado.itens.find((i) => i.id === "__luz").fatias.find((f) =>
     resultado.moradores.find((m) => m.moradorId === f.moradorId)?.nome === nome).total;
 
-describe("os quatro presets da República", () => {
+describe("os presets da República", () => {
   it("só a República tem presets, e na ordem da tela", () => {
     expect(presetsDe("moradia").map((p) => p.chave)).toEqual(["moderada", "comunal", "temporal", "livre"]);
+    expect(presetsDe("moradia").map((p) => p.curto)).toEqual(["Moderado", "Comunal", "Temporal", "Livre"]);
+    expect(presetsDe("multipro")).toEqual([]);
     expect(presetsDe("temporada")).toEqual([]);
     expect(presetsDe("familia")).toEqual([]);
     expect(presetsDe("evento")).toEqual([]);

@@ -31,6 +31,7 @@
 // mostra. Quando a divisão não fecha em dinheiro, o resto vai para quem a casa
 // escolheu   é o `quemCede` do estado, e é a frase da marca virando campo.
 
+import { estadoDaConta } from "./naConta.js";
 import { nomeOu, num } from "./formato.js";
 import { totalDaFatura } from "./traducao/fatura.js";
 import { ciclosLigados, deConta } from "./ciclos.js";
@@ -158,7 +159,9 @@ export function transferenciasDe(saldos) {
  * Recebe o estado (que sabe quem centralizou o quê) e o resultado do motor
  * (que sabe quanto cada um deve de cada coisa). Devolve tudo em centavos.
  */
-export function acertoDe(estado, resultado) {
+export function acertoDe(estadoCompleto, resultado) {
+  // O que ficou de fora da conta não é cobrado de ninguém, nem creditado a quem pagou.
+  const estado = estadoDaConta(estadoCompleto);
   const moradores = estado.moradores ?? [];
   const despesas = despesasPagaveis(estado, resultado);
 

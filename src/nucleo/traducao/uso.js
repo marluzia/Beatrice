@@ -50,6 +50,43 @@ export const usosPorJanela = (item, janela) =>
   );
 
 /**
+ * A quantidade registrada dentro de uma janela: usos num aparelho por uso,
+ * horas num aparelho por hora. Registro sem quantidade vale 1.
+ */
+export const quantidadeNaJanela = (item, janela) =>
+  registrosDe(item)
+    .filter((r) => dentroDaJanela(r.data, janela))
+    .reduce((soma, r) => soma + (num(r.quantidade) > 0 ? num(r.quantidade) : 1), 0);
+
+/**
+ * De quais ciclos medidos (kWh, m³) ligados um aparelho tira consumo quando
+ * se registra um uso dele: a tabela "por uso" ou "por hora" do item. É isto
+ * que decide quem aparece em Registros: só o que consome kWh ou m³ e é medido
+ * por uso ou por hora. Faxina (por uso, em reais) e geladeira (total do mês)
+ * não têm registro.
+ */
+export function ciclosDoRegistro(item, estado) {
+  const tabela =
+    item.especie === "porHora"
+      ? item.porHoraPorCiclo
+      : item.especie === "porUso" && item.origemUso !== "reais"
+        ? item.porUsoPorCiclo
+        : null;
+  if (!tabela) return [];
+  const ids = Object.keys(tabela);
+  return ciclosMedidos(estado).filter((c) => ids.includes(c.id));
+}
+
+/**
+ * Este item aceita registro de uso? Os aparelhos que tiram kWh ou m³ de uma
+ * fatura e, na Multi, os equipamentos fora das faturas (a lancha, o gerador),
+ * cujo registro vale em reais.
+ */
+export const registravel = (item, estado) =>
+  ciclosDoRegistro(item, estado).length > 0 ||
+  (Boolean(item.equipamento) && item.especie === "porUso" && item.origemUso === "reais");
+
+/**
  * Os ciclos ligados de onde um item "por uso" tira consumo: os medidos que o
  * item lista em `porUsoPorCiclo`. A máquina de lavar lista luz e água.
  */

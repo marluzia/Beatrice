@@ -30,7 +30,7 @@ describe("as macrosseções de cada etapa", () => {
 
   it("só a república tem a seção do preset nas pessoas", () => {
     const rep = estadoInicial("moradia", 3);
-    const tem = estadoInicial("temporada", 3);
+    const tem = estadoInicial("multipro", 3);
     expect(secoesDaEtapa("moradores", rep, modoDoConjunto(rep)).map((s) => s.chave)).toEqual(["pessoas", "preset"]);
     expect(secoesDaEtapa("moradores", tem, modoDoConjunto(tem)).map((s) => s.chave)).toEqual(["pessoas"]);
   });

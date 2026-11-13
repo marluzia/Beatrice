@@ -9,7 +9,7 @@ import { faturaAtiva } from "../calendario.js";
 import { cicloPorId, deConta, doCiclo, unidadeDoRecurso } from "../ciclos.js";
 import { ciclosDoItem } from "../catalogo.js";
 import { consumoDaFatura, valorDoConsumo } from "./fatura.js";
-import { temUsoDatado, usosDe, usosPorJanela } from "./uso.js";
+import { quantidadeNaJanela, registrosDe, temUsoDatado, usosDe, usosPorJanela } from "./uso.js";
 
 /** Uma tabela "id do ciclo → texto" vira "id do ciclo → número". */
 const emNumeros = (t) => Object.fromEntries(Object.entries(t ?? {}).map(([c, v]) => [c, num(v)]));
@@ -51,9 +51,21 @@ export function faltaParaItem(item, estado) {
   return faltando;
 }
 
-function custoDoItem(item) {
+function custoDoItem(item, janelas, doFechamento) {
   if (item.especie === "consumo") {
     return { tipo: "consumo", porCiclo: emNumeros(item.consumoPorCiclo) };
+  }
+
+  // Aparelho por hora com registros: as horas vêm dos registros, e cada ciclo
+  // conta só as que caíram dentro dele   como a lavagem que cai fora do ciclo
+  // da água não gasta água nesta fatura. Para o domínio vira consumo pronto.
+  if (item.especie === "porHora" && temUsoDatado(item) && janelas) {
+    const porCiclo = {};
+    for (const [ciclo, porHora] of Object.entries(emNumeros(item.porHoraPorCiclo))) {
+      if (!janelas[ciclo]) continue;
+      porCiclo[ciclo] = porHora * quantidadeNaJanela(item, janelas[ciclo]);
+    }
+    return { tipo: "consumo", porCiclo };
   }
 
   if (item.especie === "porHora") {
@@ -61,9 +73,12 @@ function custoDoItem(item) {
   }
 
   if (item.especie === "porUso") {
+    // Em reais com registros (a lancha da Multi): o total vem do que foi
+    // registrado dentro do período do fechamento.
+    const doPeriodo = item.origemUso === "reais" && temUsoDatado(item) && doFechamento;
     return {
       tipo: "porUso",
-      usosTotais: num(item.usos),
+      usosTotais: doPeriodo ? quantidadeNaJanela(item, doFechamento) : num(item.usos),
       unitario:
         item.origemUso === "reais"
           ? { origem: "reais", valorPorUso: num(item.valorPorUso) }
@@ -80,7 +95,7 @@ const tabelaDe = (item, campo) =>
     (item.participantes ?? []).map((id) => [id, num(item[campo]?.[id])]),
   );
 
-function rateioDoItem(item, janelas) {
+function rateioDoItem(item, janelas, doFechamento) {
   // Porcentagem e valor são tabelas que a pessoa preenche nome a nome.
   if (item.rateio === "porcentagem") {
     return { tipo: "porcentagem", porcentagens: tabelaDe(item, "porcentagens") };
@@ -90,9 +105,33 @@ function rateioDoItem(item, janelas) {
     return { tipo: "valor", valores: tabelaDe(item, "valores") };
   }
 
+  // Cotas: sem número escrito, cada um tem uma (a regra nasce igual a "igual").
+  if (item.rateio === "cotas") {
+    return {
+      tipo: "cotas",
+      cotas: Object.fromEntries(
+        (item.participantes ?? []).map((id) => {
+          const escrito = String(item.cotas?.[id] ?? "").trim();
+          return [id, escrito === "" ? 1 : num(escrito)];
+        }),
+      ),
+    };
+  }
+
+  // Ajuste: reais a mais (ou a menos, com "-") em cima da divisão por igual.
+  if (item.rateio === "ajuste") {
+    return { tipo: "ajuste", ajustes: tabelaDe(item, "ajustes") };
+  }
+
   // Uso e horas compartilham o mesmo campo: a diferença está na tela, que pede
   // inteiro num caso e decimal no outro.
   if (item.rateio !== "uso" && item.rateio !== "horas") return { tipo: item.rateio };
+
+  // Em reais, com registros: vale o que cada um registrou dentro do período.
+  // Não há fatura de onde sair, então não há conta por ciclo.
+  if (item.especie === "porUso" && item.origemUso === "reais" && temUsoDatado(item) && doFechamento) {
+    return { tipo: item.rateio, usos: usosPorJanela(item, doFechamento) };
+  }
 
   return {
     tipo: item.rateio,
@@ -109,13 +148,13 @@ function rateioDoItem(item, janelas) {
   };
 }
 
-export function itemParaMotor(item, janelas) {
+export function itemParaMotor(item, janelas, doFechamento = null) {
   return {
     id: item.id,
     nome: item.nome?.trim() || "Item sem nome",
-    custo: custoDoItem(item),
+    custo: custoDoItem(item, janelas, doFechamento),
     participantes: item.participantes ?? [],
-    rateio: rateioDoItem(item, janelas),
+    rateio: rateioDoItem(item, janelas, doFechamento),
     rateiosDoItem: item.rateios,
   };
 }
@@ -148,6 +187,12 @@ export const totalDeclaradoPorHora = (item) =>
   Object.fromEntries(
     Object.entries(item.porHoraPorCiclo ?? {}).map(([ciclo, v]) => [
       ciclo,
-      consumoDeclaradoPorHora({ porHora: num(v), horas: num(item.horas) }),
+      consumoDeclaradoPorHora({ porHora: num(v), horas: horasDoAparelho(item) }),
     ]),
   );
+
+/** As horas de um aparelho por hora: as dos registros, quando há, ou as declaradas. */
+export const horasDoAparelho = (item) =>
+  temUsoDatado(item)
+    ? registrosDe(item).reduce((s, r) => s + (num(r.quantidade) > 0 ? num(r.quantidade) : 1), 0)
+    : num(item.horas);

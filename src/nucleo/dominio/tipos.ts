@@ -87,6 +87,17 @@ export type Rateio =
    * vermelho em vez de ajustar por baixo do pano.
    */
   | { tipo: "valor"; valores: Record<MoradorId, number> }
+  /**
+   * Cada um tem um número de cotas: quem tem 2 paga o dobro de quem tem 1.
+   * Quem não declarou tem 1, então a regra nasce igual a "igual".
+   */
+  | { tipo: "cotas"; cotas: Record<MoradorId, number> }
+  /**
+   * Como no Splitwise: divide por igual e cada um tem um ajuste em reais, para
+   * mais ou para menos. A parte de cada um é (custo − soma dos ajustes) / n +
+   * o ajuste dele. Sem ajuste nenhum, é "igual".
+   */
+  | { tipo: "ajuste"; ajustes: Record<MoradorId, number> }
   | {
       /**
        * `uso` conta vezes (inteiros: três lavagens); `horas` conta tempo

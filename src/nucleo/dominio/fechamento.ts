@@ -31,7 +31,7 @@ import { diasDoCiclo, diasDoPeriodo } from "./ciclo.ts";
 import { diasContadosEm, somaDosDias } from "./morador.ts";
 import { medirFatura } from "./fatura.ts";
 import { custoDe } from "./custo.ts";
-import { regraExata, somaDeclarada } from "./regras.ts";
+import { partesDoAjuste, regraExata, somaDeclarada } from "./regras.ts";
 import { alocar, medirJanelas } from "./alocacao.ts";
 import type { Janela } from "./alocacao.ts";
 import {
@@ -40,6 +40,7 @@ import {
   consumoPassaDaFatura,
   itensSemNinguem,
   porcentagemNaoFecha,
+  ajusteNaoFecha,
   valorNaoFecha,
   lancarNosTotais,
   ninguemEmCasa,
@@ -140,6 +141,13 @@ export function calcular(estado: Estado): Resultado {
       const soma = somaDeclarada(item);
       const custo = somar(Object.values(custos[i].porCiclo)) + custos[i].reais;
       if (Math.abs(soma - custo) > TOLERANCIA) alertas.push(valorNaoFecha(item, soma, custo));
+      return;
+    }
+
+    if (item.rateio.tipo === "ajuste") {
+      const custo = somar(Object.values(custos[i].porCiclo)) + custos[i].reais;
+      const partes = partesDoAjuste(item, custo);
+      if (Object.values(partes).some((v) => v < -TOLERANCIA)) alertas.push(ajusteNaoFecha(item, custo));
     }
   });
 

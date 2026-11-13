@@ -1,6 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cicloPorId } from "../nucleo/ciclos.js";
+import { somarAnos, somarDias } from "../nucleo/calendario.js";
+import { hojeISO } from "../nucleo/resumo.js";
 import { useCDR } from "./useCDR.js";
 import { modeloPorChave } from "../nucleo/catalogo.js";
 import { cicloDe } from "../nucleo/motor.ts";
@@ -298,9 +300,12 @@ describe("persistência", () => {
     expect(segunda.result.current.estado.moradores).toHaveLength(3);
   });
 
-  it("recomeçar apaga o que estava salvo", () => {
+  it("recomeçar apaga os números e mantém quem é quem", () => {
     const primeira = montar();
     act(() => primeira.result.current.acoes.ajustarQuantidadeDeMoradores(6));
+    const [ana] = primeira.result.current.estado.moradores;
+    act(() => primeira.result.current.acoes.editarMorador(ana.id, "nome", "Ana"));
+    act(() => primeira.result.current.acoes.definirValorDoCiclo("luz", "150"));
     act(() => vi.advanceTimersByTime(600));
     act(() => primeira.result.current.acoes.recomecar());
     act(() => vi.advanceTimersByTime(600));
@@ -308,7 +313,100 @@ describe("persistência", () => {
     const id = primeira.result.current.idDoConjunto;
     const segunda = abrirPainel();
     act(() => segunda.result.current.acoes.abrirConjunto(id));
-    expect(segunda.result.current.estado.moradores).toHaveLength(3);
+    const e = segunda.result.current.estado;
+    // As pessoas ficam, com nome e id; as contas voltam desligadas e em branco.
+    expect(e.moradores).toHaveLength(6);
+    expect(e.moradores[0]).toMatchObject({ id: ana.id, nome: "Ana" });
+    expect(e.ciclos.every((c) => c.ativa === false)).toBe(true);
+    expect(e.itens.every((i) => i.participantes.length === 6)).toBe(true);
+  });
+});
+
+describe("pessoas pelo nome, lembretes e acerto", () => {
+  it("criar com nomes põe você primeiro e os convidados depois", () => {
+    const { result } = abrirPainel();
+    act(() =>
+      result.current.acoes.criarConjuntoNovo({ nome: "Casa", modo: "familia", voce: "Duda", convidados: ["Bia"] }),
+    );
+    const [eu, bia] = result.current.estado.moradores;
+    expect(eu.nome).toBe("Duda");
+    expect(bia).toMatchObject({ nome: "Bia", convidado: true });
+    expect(result.current.estado.voce).toBe(eu.id);
+  });
+
+  it("adicionar e remover pessoa pelo nome mexe nas participações", () => {
+    const { result } = montar();
+    act(() => result.current.acoes.adicionarPessoa("Léo"));
+    const leo = result.current.estado.moradores.at(-1);
+    expect(leo).toMatchObject({ nome: "Léo", convidado: true });
+    expect(result.current.estado.itens.every((i) => i.participantes.includes(leo.id))).toBe(true);
+    act(() => result.current.acoes.removerPessoa(leo.id));
+    expect(result.current.estado.moradores.some((m) => m.id === leo.id)).toBe(false);
+    expect(result.current.estado.itens.some((i) => i.participantes.includes(leo.id))).toBe(false);
+  });
+
+  it("listas e notas não mexem em valor nenhum", () => {
+    const { result } = montar();
+    const antes = result.current.resultado.somaDevida;
+    let id;
+    act(() => {
+      id = result.current.acoes.adicionarLembrete("lista", { titulo: "Mercado" });
+    });
+    act(() => result.current.acoes.adicionarItemNaLista(id, "café"));
+    const [cafe] = result.current.estado.lembretes[0].itens;
+    act(() => result.current.acoes.alternarItemDaLista(id, cafe.id));
+    expect(result.current.estado.lembretes[0].itens[0].feito).toBe(true);
+    expect(result.current.resultado.somaDevida).toBe(antes);
+  });
+
+  it("marcar a conta como paga guarda quando", () => {
+    const { result } = montar();
+    const [quem] = result.current.estado.moradores;
+    act(() => result.current.acoes.definirPagador("fatura", "luz", quem.id));
+    const luz = cicloPorId(result.current.estado, "luz");
+    expect(luz.pagoPor).toBe(quem.id);
+    expect(typeof luz.pagoEm).toBe("string");
+    act(() => result.current.acoes.definirPagador("fatura", "luz", null));
+    expect(cicloPorId(result.current.estado, "luz").pagoEm).toBeNull();
+  });
+
+  it("o período da temporada vai do início ao fim, dentro dos limites de hoje", () => {
+    const hoje = hojeISO();
+    const { result } = abrirPainel();
+    act(() =>
+      result.current.acoes.criarConjuntoNovo({
+        nome: "Paraty",
+        modo: "temporada",
+        voce: "Ana",
+        desde: somarDias(hoje, -5),
+        ate: somarDias(hoje, 4),
+      }),
+    );
+    expect(result.current.estado.corte).toEqual({ de: somarDias(hoje, -5), ate: somarDias(hoje, 5) });
+    act(() => result.current.acoes.definirPeriodoDaTemporada(somarDias(hoje, -10), somarDias(hoje, 80)));
+    expect(result.current.estado.corte).toEqual({ de: somarDias(hoje, -10), ate: somarDias(hoje, 81) });
+    expect(result.current.estado.itens).toHaveLength(0);
+
+    // Início no máximo 40 dias antes de hoje; fim no máximo 2 anos depois.
+    act(() => result.current.acoes.definirPeriodoDaTemporada(somarDias(hoje, -100), somarDias(hoje, 3000)));
+    expect(result.current.estado.corte).toEqual({ de: somarDias(hoje, -40), ate: somarDias(somarAnos(hoje, 2), 1) });
+  });
+
+  it("uma despesa de antes do período pode ficar fora da conta", () => {
+    const hoje = hojeISO();
+    const { result } = abrirPainel();
+    act(() =>
+      result.current.acoes.criarConjuntoNovo({ nome: "Ilha", modo: "temporada", voce: "Ana", convidados: ["Bia"], desde: hoje, ate: somarDias(hoje, 6) }),
+    );
+    let id;
+    act(() => {
+      id = result.current.acoes.adicionarItem(modeloPorChave("outra"), { valor: "300", data: somarDias(hoje, -3) });
+    });
+    expect(result.current.resultado.somaDevida).toBeCloseTo(300, 2);
+    act(() => result.current.acoes.definirNaConta("avulsa", id, false));
+    expect(result.current.resultado.somaDevida).toBeCloseTo(0, 2);
+    act(() => result.current.acoes.definirNaConta("avulsa", id, true));
+    expect(result.current.resultado.somaDevida).toBeCloseTo(300, 2);
   });
 });
 

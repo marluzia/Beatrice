@@ -91,9 +91,9 @@ describe("temporada: marcam-se os dias de estadia", () => {
   });
 });
 
-describe("o fechamento de uma casa de temporada", () => {
+describe("o fechamento de uma multipropriedade", () => {
   const fechada = () => {
-    const estado = casa("temporada", 3);
+    const estado = casa("multipro", 3);
     estado.moradores[0] = { ...estado.moradores[0], nome: "Ana", presencas: corrido("2026-09-05", 10) };
     estado.moradores[1] = { ...estado.moradores[1], nome: "Bruno", presencas: corrido("2026-09-20", 4) };
     estado.moradores[2] = { ...estado.moradores[2], nome: "Célia", presencas: [] };
