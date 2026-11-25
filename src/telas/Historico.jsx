@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Chips, dinheiro, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
-import { atividadeDe, curta, hojeISO, STATUS_DA_DESPESA, todasAsDespesas } from "../nucleo/resumo.js";
-import { destinoDaDespesa } from "./Despesas.jsx";
+import { AbasDePasta, Chips, dinheiro, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { atividadeDe, curta, hojeISO, nomeDe, STATUS_DA_DESPESA, todasAsDespesas } from "../nucleo/resumo.js";
+import { destinoDaDespesa } from "./linhasDeDespesa.jsx";
 import { sobrescritoDaTela } from "./Hub.jsx";
 
 const FILTROS = [
@@ -9,6 +9,7 @@ const FILTROS = [
   { valor: "despesa", rotulo: "Despesas" },
   { valor: "lembrete", rotulo: "Lembretes" },
   { valor: "registro", rotulo: "Registros" },
+  { valor: "edicao", rotulo: "Edições" },
 ];
 
 const FILTROS_DE_STATUS = [
@@ -56,7 +57,22 @@ export function historicoDoConjunto(estado, resultado, hoje = hojeISO()) {
     lista.push({ grupo: "pix", tipo: "pix", id: `pix-${a.quando}`, titulo: a.texto, detalhe: "acerto", quando: a.quando, valor: a.valor });
   }
 
-  const ordem = { despesa: 0, registro: 1, lembrete: 2, pix: 3 };
+  // Editar também é lançar: cada edição entra com quem editou e o que mudou.
+  for (const ed of estado.edicoes ?? []) {
+    lista.push({
+      grupo: "edicao",
+      tipo: "edicao",
+      id: ed.id,
+      titulo: `Edição de ${ed.nome?.trim() || "um lançamento"}`,
+      detalhe: [ed.lancadoPor ? nomeDe(estado, ed.lancadoPor) : null, (ed.mudancas ?? []).map((m) => m.campo.toLowerCase()).join(", ")]
+        .filter(Boolean)
+        .join(" · "),
+      quando: ed.lancadoEm ?? "",
+      valor: 0,
+    });
+  }
+
+  const ordem = { despesa: 0, registro: 1, lembrete: 2, edicao: 3, pix: 4 };
   return lista.sort((a, b) => String(b.quando).localeCompare(String(a.quando)) || ordem[a.grupo] - ordem[b.grupo]);
 }
 
@@ -75,7 +91,8 @@ export default function Historico({ app, rota }) {
   );
 
   const destino = (h) => {
-    if (h.grupo === "lembrete") return ["lembretes", {}];
+    if (h.grupo === "lembrete") return ["lancamento", { tipo: "lembrete", id: h.id }];
+    if (h.grupo === "edicao") return ["lancamento", { tipo: "edicao", id: h.id }];
     if (h.grupo === "pix") return ["saldos", {}];
     return destinoDaDespesa(h);
   };
@@ -86,54 +103,58 @@ export default function Historico({ app, rota }) {
       <Sobrescrito partes={sobrescritoDaTela(app)} />
       <h1 className="titulo-tela titulo-tela--grande">Histórico</h1>
 
-      <Chips opcoes={FILTROS} valor={filtro} aoMudar={setFiltro} />
-      {filtro === "despesa" && (
-        <div className="chips-secundarios">
-          <Chips opcoes={FILTROS_DE_STATUS} valor={status} aoMudar={setStatus} />
-        </div>
-      )}
+      <div className="pasta--compacta">
+      <AbasDePasta opcoes={FILTROS} valor={filtro} aoMudar={setFiltro} rotulo="O que ver">
+        {filtro === "despesa" && (
+          <div className="chips-secundarios">
+            <Chips opcoes={FILTROS_DE_STATUS} valor={status} aoMudar={setStatus} />
+          </div>
+        )}
 
-      {lista.length === 0 ? (
-        <p className="vazio-suave">
-          {tudo.length === 0
-            ? "Nada aconteceu ainda neste conjunto."
-            : filtro === "despesa" && status !== "todos"
-              ? `Nenhuma despesa ${FILTROS_DE_STATUS.find((f) => f.valor === status).rotulo.toLowerCase().replace(/s$/, "")}.`
-              : "Nada deste tipo ainda."}
-        </p>
-      ) : (
-        <div className="cartao-lista">
-          {lista.map((h) => {
-            const s = h.status ? STATUS_DA_DESPESA[h.status] : null;
-            return (
-              <button
-                key={`${h.grupo}-${h.id}`}
-                type="button"
-                className={`linha-historia ${h.naConta === false ? "linha-historia--fora" : ""}`}
-                onClick={() => ir(...destino(h))}
-              >
-                <span className="linha-historia__data">{h.quando ? curta(String(h.quando).slice(0, 10)) : "—"}</span>
-                <span className="linha-historia__textos">
-                  <strong>{h.titulo}</strong>
-                  <span>
-                    {h.grupo === "registro" && <span className="tipo-despesa tipo-despesa--registrada">registro</span>}
-                    {h.grupo === "lembrete" && <span className="tipo-despesa tipo-despesa--lembrete">lembrete</span>}
-                    {h.grupo === "despesa" && (
-                      <span className={`tipo-despesa tipo-despesa--${h.tipo}`}>{h.tipo === "ciclica" ? "cíclica" : "avulsa"}</span>
-                    )}{" "}
-                    {h.detalhe}
-                    {h.naConta === false ? " · fora da conta" : ""}
+        {lista.length === 0 ? (
+          <p className="vazio-suave vazio-suave--na-pasta">
+            {tudo.length === 0
+              ? "Nada aconteceu ainda neste conjunto."
+              : filtro === "despesa" && status !== "todos"
+                ? `Nenhuma despesa ${FILTROS_DE_STATUS.find((f) => f.valor === status).rotulo.toLowerCase().replace(/s$/, "")}.`
+                : "Nada deste tipo ainda."}
+          </p>
+        ) : (
+          <div className="cartao-lista">
+            {lista.map((h) => {
+              const s = h.status ? STATUS_DA_DESPESA[h.status] : null;
+              return (
+                <button
+                  key={`${h.grupo}-${h.id}`}
+                  type="button"
+                  className={`linha-historia ${h.naConta === false ? "linha-historia--fora" : ""}`}
+                  onClick={() => ir(...destino(h))}
+                >
+                  <span className="linha-historia__data">{h.quando ? curta(String(h.quando).slice(0, 10)) : "—"}</span>
+                  <span className="linha-historia__textos">
+                    <strong>{h.titulo}</strong>
+                    <span>
+                      {h.grupo === "registro" && <span className="tipo-despesa tipo-despesa--registrada">registro</span>}
+                      {h.grupo === "lembrete" && <span className="tipo-despesa tipo-despesa--lembrete">lembrete</span>}
+                      {h.grupo === "edicao" && <span className="tipo-despesa tipo-despesa--edicao">edição</span>}
+                      {h.grupo === "despesa" && (
+                        <span className={`tipo-despesa tipo-despesa--${h.tipo}`}>{h.tipo === "ciclica" ? "cíclica" : "avulsa"}</span>
+                      )}{" "}
+                      {h.detalhe}
+                      {h.naConta === false ? " · fora da conta" : ""}
+                    </span>
                   </span>
-                </span>
-                <span className="linha-historia__fim">
-                  {h.valor > 0 && <strong>{dinheiro(h.valor, { simbolo: false })}</strong>}
-                  {s && <span className={`status-despesa status-despesa--${s.tom}`}>{s.rotulo}</span>}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+                  <span className="linha-historia__fim">
+                    {h.valor > 0 && <strong>{dinheiro(h.valor, { simbolo: false })}</strong>}
+                    {s && <span className={`status-despesa status-despesa--${s.tom}`}>{s.rotulo}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </AbasDePasta>
+      </div>
     </div>
   );
 }

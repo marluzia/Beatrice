@@ -19,13 +19,37 @@ export const registrosDe = (item) => (Array.isArray(item.registrosDeUso) ? item.
 
 export const temUsoDatado = (item) => registrosDe(item).length > 0;
 
-/** A parte de uma pessoa num uso: a quantidade dividida entre quem participou. */
+/**
+ * O peso de cada pessoa num registro, pelo "como divide" dele: igual (1 para
+ * cada), percentual ou cotas (o número que cada um tem). Sem número nenhum,
+ * volta a ser igual.
+ */
+export function pesosDoRegistro(registro) {
+  const participantes = registro?.participantes ?? [];
+  const tipo = registro?.divisao?.tipo;
+  const escritos = registro?.divisao?.pesos ?? {};
+  const pesos = Object.fromEntries(
+    participantes.map((id) => {
+      if (tipo === "porcentagem") return [id, Math.max(0, num(escritos[id]))];
+      if (tipo === "cotas") {
+        const t = String(escritos[id] ?? "").trim();
+        return [id, t === "" ? 1 : Math.max(0, num(t))];
+      }
+      return [id, 1];
+    }),
+  );
+  const soma = Object.values(pesos).reduce((s, v) => s + v, 0);
+  return soma > 0 ? { pesos, soma } : { pesos: Object.fromEntries(participantes.map((id) => [id, 1])), soma: participantes.length };
+}
+
+/** A parte de uma pessoa num uso: a quantidade dividida entre quem participou, pelo "como divide" do registro. */
 export function parteNoRegistro(registro, id) {
   const participantes = registro?.participantes ?? [];
   if (!participantes.includes(id)) return 0;
 
   const quantidade = num(registro.quantidade);
-  return (quantidade > 0 ? quantidade : 1) / participantes.length;
+  const { pesos, soma } = pesosDoRegistro(registro);
+  return ((quantidade > 0 ? quantidade : 1) * (pesos[id] ?? 0)) / soma;
 }
 
 /** Os usos de uma pessoa no item, com data ou sem. */

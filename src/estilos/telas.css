@@ -54,27 +54,28 @@
 
 .marca-ceder {
   margin: 0;
-  font-family: var(--serifa);
+  font-family: var(--sans);
   font-weight: 700;
-  font-size: 32px;
-  letter-spacing: 0.01em;
+  font-size: 30px;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
 .titulo-tela {
   margin: 0;
-  font-family: var(--serifa);
-  font-weight: 400;
-  font-size: 30px;
-  line-height: 1.08;
-  letter-spacing: -0.015em;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
 }
 
+/* Sem serifa, o fim dos títulos não tem mais itálico: é o mesmo texto. */
 .titulo-tela em,
 .titulo-secao__texto em,
 .titulo-do-dia em,
 .calendario-titulo em {
-  font-style: italic;
+  font-style: normal;
 }
 
 .titulo-tela--grande {
@@ -96,10 +97,11 @@
 
 .titulo-assistente {
   margin: 0;
-  font-family: var(--serifa);
-  font-weight: 400;
-  font-size: 25px;
-  line-height: 1.1;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .sobrescrito {
@@ -169,11 +171,11 @@
 
 .titulo-secao__texto {
   margin: 0;
-  font-family: var(--serifa);
-  font-weight: 400;
-  font-size: 26px;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 23px;
   line-height: 1.15;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .titulo-secao__texto--solto {
@@ -733,10 +735,11 @@
 }
 
 .cartao-recente__textos strong {
-  font-family: var(--serifa);
-  font-size: 20px;
-  font-weight: 400;
-  line-height: 1.15;
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .cartao-recente__textos .sobrescrito {
@@ -856,11 +859,36 @@
   color: var(--tinta-2);
 }
 
+.barra-inferior__aba {
+  min-width: 0;
+}
+
 .barra-inferior__aba span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+/* Telas estreitas: o nome inteiro cabe tirando um pouco do espaço entre as letras. */
+@media (max-width: 380px) {
+  .barra-inferior {
+    padding-inline: 2px;
+  }
+
+  .barra-inferior__aba span {
+    letter-spacing: 0.06em;
+  }
+}
+
+@media (max-width: 330px) {
+  .barra-inferior__aba span {
+    letter-spacing: 0;
+  }
 }
 
 .barra-inferior__aba--ativa {
@@ -1021,10 +1049,11 @@ button.criar-cartao {
 }
 
 .criar-cartao__textos > strong {
-  font-family: var(--serifa);
-  font-size: 24px;
-  font-weight: 400;
-  line-height: 1.1;
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
 }
 
 .criar-cartao__textos > span {
@@ -1547,8 +1576,10 @@ button.cartao-anel__nota {
   font-size: 14px;
 }
 
+/* O toggle do painel: até quatro abas numa linha; numa tela muito estreita, a que não cabe desce. */
 .abas {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 5px;
   background: var(--areia);
@@ -1556,13 +1587,16 @@ button.cartao-anel__nota {
 }
 
 .abas__aba {
-  flex: 1;
+  /* partes iguais enquanto couber; abaixo do texto, não encolhe: muda de linha */
+  flex: 1 1 0;
+  min-width: max-content;
   min-height: 46px;
-  padding: 0 10px;
+  padding: 0 6px;
   background: none;
   border: none;
   border-radius: 13px;
-  font-size: 16.5px;
+  font-size: 14.5px;
+  white-space: nowrap;
   font-weight: 500;
   color: var(--tinta);
 }
@@ -2069,7 +2103,6 @@ button.cartao-anel__nota {
   gap: 12px;
 }
 
-.tela--editor .ficha,
 .tela--assistente .ficha {
   border-radius: 20px;
 }
@@ -2313,9 +2346,10 @@ button.cartao-anel__nota {
 
 .titulo-do-dia {
   margin: 0 0 4px;
-  font-family: var(--serifa);
-  font-weight: 400;
-  font-size: 26px;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.02em;
 }
 
 .marca--losango {
@@ -2350,9 +2384,10 @@ button.cartao-anel__nota {
 }
 
 .calendario-topo .calendario-titulo {
-  font-family: var(--serifa);
-  font-size: 26px;
-  letter-spacing: -0.01em;
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   text-transform: none;
   color: var(--tinta);
 }
@@ -2377,7 +2412,7 @@ button.cartao-anel__nota {
 }
 
 .calendario-topo .calendario-titulo em {
-  font-style: italic;
+  font-style: normal;
 }
 
 .vencimento-do-dia {
@@ -2594,8 +2629,10 @@ button.cartao-anel__nota {
   padding: 0;
   background: none;
   border: none;
-  font-family: var(--serifa);
-  font-size: 23px;
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--tinta);
   text-align: left;
 }
@@ -2685,10 +2722,9 @@ button.cartao-anel__nota {
 }
 
 .nota-papel__texto {
-  font-family: var(--serifa);
-  font-style: italic;
-  font-size: 20px;
-  line-height: 1.4;
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.45;
 }
 
 .nota-papel__texto--campo {
@@ -2806,6 +2842,11 @@ button.cartao-anel__nota {
   flex-direction: column;
   gap: 14px;
   border: 1.5px solid var(--tinta);
+}
+
+/* Dentro da pasta, o formulário já tem a moldura dela. */
+.formulario-registro--na-pasta {
+  border: none;
 }
 
 /* ------------------------------------------------------------ despesa cíclica --- */
@@ -3495,7 +3536,8 @@ button.cartao-anel__nota {
 }
 
 .qr-moldura__nome {
-  font-family: var(--serifa, Georgia, serif);
+  font-family: var(--sans);
+  font-weight: 600;
   font-size: 18px;
   color: var(--tinta);
 }
@@ -3553,9 +3595,10 @@ button.cartao-anel__nota {
 }
 
 .periodo-cabecalho strong {
-  font-family: var(--serifa);
-  font-size: 22px;
-  font-weight: 400;
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--tinta);
 }
 
@@ -3623,7 +3666,12 @@ button.cartao-anel__nota {
 
 /* Histórico do conjunto. */
 .chips-secundarios {
-  margin-top: -4px;
+  margin: -2px 0 0;
+}
+
+.chips-secundarios .chips {
+  margin: 0;
+  padding: 0;
 }
 
 .chips-secundarios .chip {
@@ -3705,4 +3753,976 @@ button.cartao-anel__nota {
 .linha-despesa--fora > span > strong {
   color: var(--tinta-2);
   text-decoration: line-through;
+}
+
+/* Um campo que só mostra: a moeda e a data de criação do conjunto. */
+.caixa--fixa {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  background: var(--areia);
+  color: var(--tinta-2);
+  cursor: default;
+}
+
+.ajuda-campo--colada {
+  margin-top: -8px;
+}
+
+/* A seta do fim da linha, separada do texto por uma barra. */
+.seta-com-barra {
+  display: flex;
+  flex: none;
+  align-items: center;
+  align-self: stretch;
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--linha);
+  color: var(--tinta-2);
+}
+
+/* O menu dos três pontos, no topo do conjunto: Compartilhar e Histórico. */
+.menu-pontos__fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.menu-pontos {
+  position: absolute;
+  top: 52px;
+  right: max(14px, calc((100vw - 560px) / 2 + 14px));
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(27, 26, 23, 0.16);
+}
+
+.menu-pontos__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  color: var(--tinta);
+  text-align: left;
+}
+
+.menu-pontos__item:hover,
+.menu-pontos__item:focus-visible {
+  background: var(--areia);
+}
+
+.menu-pontos__item + .menu-pontos__item {
+  border-top: 1px solid var(--linha);
+  border-radius: 0 0 10px 10px;
+}
+
+.criar-cartao--escuro .seta-com-barra {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: inherit;
+}
+
+/* Abas de pasta de arquivo: a escolhida se emenda com o conteúdo. */
+.pasta {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+
+/*
+ * As abas nunca se espremem nem rolam: cada uma tem o tamanho do próprio
+ * nome. Quando não cabem numa linha, o componente as divide em fileiras, uma
+ * em cima da outra.
+ */
+.pasta__abas {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.pasta__fileira {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  column-gap: 3px;
+}
+
+.pasta__aba {
+  flex: none;
+  max-width: 100%;
+  min-height: 38px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 12px;
+  background: var(--areia);
+  border: 1px solid var(--linha);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  font-size: 14px;
+  color: var(--tinta-2);
+  transform: translateY(2px);
+}
+
+.pasta__aba {
+  transition:
+    background-color 260ms ease,
+    color 260ms ease,
+    min-height 260ms ease;
+}
+
+.pasta__aba--ativa {
+  min-height: 42px;
+  background: var(--cartao);
+  font-weight: 600;
+  color: var(--tinta);
+  /* cobre a borda de cima do conteúdo, para a aba e a pasta serem uma peça só */
+  transform: translateY(1px);
+}
+
+.pasta__conteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+}
+
+.pasta__conteudo--primeira {
+  border-top-left-radius: 0;
+}
+
+/*
+ * Duas camadas de folhas: as abas de trás ficam em cima de uma folha (areia),
+ * que desce por trás da fileira da frente até o conteúdo. Cada aba de trás é
+ * uma peça só com essa folha; a da frente escolhida, com o conteúdo.
+ */
+.pasta--em-camadas .pasta__fileira--atras {
+  z-index: 1;
+}
+
+.pasta--em-camadas .pasta__fileira--frente {
+  z-index: 0;
+  padding-top: 6px;
+}
+
+.pasta--em-camadas .pasta__fileira--frente::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--areia);
+  border: 1px solid var(--linha);
+  border-bottom: none;
+  border-radius: 0 12px 0 0;
+  box-shadow: 0 -1px 0 rgba(27, 26, 23, 0.03);
+  content: "";
+}
+
+/* Enquanto as abas trocam de fileira, as que vêm para a frente passam por cima. */
+.pasta--em-camadas .pasta__abas--animando .pasta__fileira--frente {
+  z-index: 2;
+}
+
+.pasta--em-camadas .pasta__fileira--atras .pasta__aba {
+  background: var(--areia);
+  color: var(--tinta-2);
+}
+
+.pasta--em-camadas .pasta__fileira--frente .pasta__aba:not(.pasta__aba--ativa) {
+  background: color-mix(in srgb, var(--areia) 45%, var(--cartao));
+}
+
+/* A folha de trás encosta no conteúdo: os cantos de cima ficam retos. */
+.pasta--em-camadas .pasta__conteudo {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pasta__aba {
+    transition: none;
+  }
+}
+
+/* Uma lista dentro da pasta não precisa de moldura própria. */
+.pasta__conteudo > .cartao-lista {
+  margin: 0 -14px;
+  border: none;
+  border-top: 1px solid var(--linha);
+  border-radius: 0;
+  background: transparent;
+}
+
+.pasta__conteudo > .cartao-lista:first-child {
+  margin-top: -14px;
+  border-top: none;
+}
+
+.pasta__conteudo > .cartao-lista:last-child {
+  margin-bottom: -14px;
+}
+
+.vazio-suave--na-pasta {
+  margin: 4px 0;
+}
+
+.rotulo-secao--na-pasta {
+  margin: 0;
+}
+
+/* Abrir ou duplicar uma despesa. */
+.linha-opcao {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--tinta);
+}
+
+.linha-opcao > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.linha-opcao > span > span {
+  font-size: 13.5px;
+  color: var(--tinta-2);
+}
+
+.linha-opcao:disabled {
+  opacity: 0.55;
+}
+
+/* Lançar despesas: importar arquivo, foto, à mão. */
+.jeitos-de-lancar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.jeito-de-lancar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 132px;
+  padding: 14px 12px;
+  background: var(--fundo);
+  border: 1px solid var(--linha);
+  border-radius: 16px;
+  text-align: left;
+  color: var(--tinta);
+}
+
+.jeito-de-lancar strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.jeito-de-lancar span {
+  font-size: 12.5px;
+  color: var(--tinta-2);
+}
+
+.jeito-de-lancar--escuro {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: var(--cartao);
+}
+
+.jeito-de-lancar--escuro span {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Lançar à mão: as categorias e o aviso de sucesso. */
+.categorias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.categorias .botao--catalogo[aria-checked="true"] {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: var(--cartao);
+}
+
+.formulario--classico {
+  margin-top: 6px;
+}
+
+.sucesso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  background: var(--agua-fundo);
+  border: 1px solid var(--agua);
+  border-radius: 14px;
+  color: var(--agua-texto);
+  font-size: 15px;
+}
+
+.sucesso .link-sublinhado {
+  color: inherit;
+  font-weight: 600;
+}
+
+/* Início: no lugar de "Meu saldo", a moeda do saldo. */
+.seletor-moeda {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.seletor-moeda select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 4px 26px 4px 0;
+  background: transparent;
+  border: none;
+  font-family: var(--sans);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.seletor-moeda svg {
+  position: absolute;
+  right: 2px;
+  pointer-events: none;
+  color: var(--tinta-2);
+}
+
+/* Busca geral: cinco abas cabem numa tela de celular. */
+.pasta--compacta .pasta__fileira {
+  column-gap: 2px;
+}
+
+.pasta--compacta .pasta__aba {
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+/* Um pontinho vermelho na aba quando há o que ver (os atrasos). */
+.pasta__ponto {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  background: var(--vermelho);
+  border-radius: 50%;
+  vertical-align: 2px;
+}
+
+.linha-achado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  color: var(--tinta);
+}
+
+.linha-achado__textos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.linha-achado__textos > span {
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+/* Valor em dinheiro: o símbolo da moeda dentro da caixa. */
+.caixa-com-moeda {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 14px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+}
+
+.caixa-com-moeda:focus-within {
+  border-color: var(--tinta);
+}
+
+.caixa-com-moeda__simbolo {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--tinta-2);
+}
+
+.caixa-com-moeda input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--sans);
+  font-size: 17px;
+  color: var(--tinta);
+}
+
+/*
+ * A barra de dentro de um conjunto: as seções usam as classes da barra do app
+ * (mesma fonte, folga e ícone), em quantas colunas houver seções.
+ */
+.barra-do-conjunto {
+  grid-template-columns: repeat(var(--secoes, 4), minmax(0, 1fr));
+}
+
+.barra-do-conjunto__secao {
+  position: relative;
+}
+
+.barra-do-conjunto__secao--ativa::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 36px;
+  height: 3px;
+  background: var(--tinta);
+  border-radius: 0 0 3px 3px;
+  transform: translateX(-50%);
+  content: "";
+}
+
+.barra-do-conjunto__secao--apagada {
+  opacity: 0.45;
+}
+
+/* Lembretes e Registros dentro do painel do conjunto, numa aba. */
+.aba-do-painel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.acao-da-aba {
+  margin-top: 4px;
+}
+
+.acao-da-aba .botao {
+  width: 100%;
+}
+
+/* Análise: barras horizontais com nome e valor. */
+.cartao-analise {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.linha-barra {
+  display: grid;
+  grid-template-columns: minmax(72px, 30%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.linha-barra__nome {
+  overflow: hidden;
+  font-size: 14.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linha-barra__trilho {
+  display: block;
+  height: 10px;
+  background: var(--areia);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.linha-barra__trilho > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.linha-barra__valor {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hoje, no Início: os cartões do dia dentro da pasta. */
+.pasta__conteudo > .pilha .cartao-evento {
+  background: var(--fundo);
+}
+
+/* Um lançamento sozinho: os selos, o valor e a ficha com quem lançou e quando. */
+.selos-do-lancamento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+.valor-do-lancamento {
+  display: block;
+  font-family: var(--sans);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.ficha {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 16px;
+}
+
+.ficha__linha {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.ficha__linha + .ficha__linha {
+  border-top: 1px solid var(--linha);
+}
+
+.ficha__rotulo {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  padding-top: 2px;
+}
+
+.ficha__dado {
+  font-size: 15.5px;
+  color: var(--tinta);
+}
+
+.fichas-da-lista--soltas {
+  padding: 4px 0;
+}
+
+.nota-papel--so-leitura {
+  margin: 0;
+  padding: 18px;
+  white-space: pre-wrap;
+}
+
+.cartao--edicao {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.tipo-despesa--nota {
+  background: rgba(201, 150, 42, 0.18);
+  color: #7a5a12 !important;
+}
+
+.caixa--area {
+  min-height: 110px;
+  padding: 12px 14px;
+  resize: vertical;
+  font-family: var(--sans);
+  line-height: 1.4;
+}
+
+/* O calendário do conjunto: cada lançamento do dia é uma linha que abre o lançamento. */
+.linha-do-dia {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--fundo);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  text-align: left;
+  color: var(--tinta);
+}
+
+.linha-do-dia {
+  margin-bottom: 4px;
+}
+
+.linha-do-dia + .linha-do-dia {
+  margin-top: 4px;
+}
+
+.linha-do-dia__textos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.linha-do-dia__textos > span {
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.linha-do-dia__valor {
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+
+/*
+ * "O que vamos criar?": a seta e a barra ficam numa coluna à direita do
+ * cartão inteiro. A barra tem a mesma distância do topo e da base do cartão,
+ * e o "em [conjunto]" termina antes dela.
+ */
+.criar-cartao--com-seta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  padding: 16px 0 16px 16px;
+}
+
+.criar-cartao__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding-right: 12px;
+}
+
+.criar-cartao__seta {
+  display: flex;
+  align-items: stretch;
+  padding: 0 14px 0 0;
+  background: none;
+  border: none;
+  color: inherit;
+}
+
+.criar-cartao__seta .seta-com-barra {
+  margin: 0;
+}
+
+.criar-cartao__seta:disabled {
+  opacity: 0.4;
+}
+
+/*
+ * O nome em negrito, invisível e sem altura: a aba já nasce na largura que
+ * terá quando for escolhida, e nada pula ao trocar.
+ */
+.pasta__aba[data-rotulo] {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pasta__aba[data-rotulo]::after {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 600;
+  content: attr(data-rotulo);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Só enquanto o componente mede: cada aba em negrito, como fica a escolhida. */
+.pasta__abas--medindo .pasta__aba {
+  font-weight: 600;
+}
+
+.dica--na-lista {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+}
+
+.ponto-atividade--edicao {
+  background: var(--tinta-2);
+}
+
+.tipo-despesa--edicao {
+  background: rgba(27, 26, 23, 0.08);
+  color: var(--tinta-2) !important;
+}
+
+/* Uma edição: cada campo com o antes riscado e o depois. */
+.mudanca {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--linha);
+}
+
+.mudanca:last-child {
+  border-bottom: none;
+}
+
+.mudanca__valores {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.mudanca__antes {
+  color: var(--tinta-2);
+  text-decoration: line-through;
+}
+
+.mudanca__seta {
+  color: var(--tinta-2);
+}
+
+.mudanca__depois {
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.edicoes-do-lancamento {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Apagar, no fim de uma tela de editar: discreto e vermelho. */
+.apagar-lancamento {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vermelho-texto);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Configurar → Itens: um grupo por vez, a lista e os botões de adicionar. */
+.itens-do-conjunto {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.grupo-de-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* O tipo de item: campo que é lista e aceita texto, com Adicionar à direita. */
+.adicionar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.adicionar-item__linha {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.adicionar-item__campo {
+  flex: 1;
+  min-width: 0;
+}
+
+.adicionar-item__botao {
+  flex: none;
+  width: auto;
+  padding-inline: 18px;
+}
+
+.grupo-de-itens .rotulo-secao {
+  margin: 0;
+}
+
+/* ------------------------------------------------------ caixa que é lista --- */
+
+/* Tocar abre a lista; escrever filtra. A seta à direita só abre e fecha. */
+.caixa-lista {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.caixa-lista__campo {
+  padding-right: 44px;
+}
+
+.caixa-lista__seta {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--tinta-2);
+  transition: transform 200ms ease;
+}
+
+.caixa-lista--aberta .caixa-lista__seta {
+  transform: rotate(180deg);
+}
+
+.caixa-lista__opcoes {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 264px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--cartao);
+  border: 1px solid var(--tinta);
+  border-radius: var(--canto-pequeno);
+  box-shadow: 0 12px 28px rgba(27, 26, 23, 0.14);
+  animation: aparecer 140ms ease-out;
+}
+
+.caixa-lista__opcao {
+  padding: 11px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.caixa-lista__opcao--marcada {
+  background: var(--areia);
+}
+
+/* ------------------------------------------- como divide: teclado de calculadora --- */
+
+.teclado-divisao {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  background: var(--areia);
+  border: 1px solid var(--linha);
+  border-radius: var(--canto);
+}
+
+.teclado-divisao__tecla {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 62px;
+  padding: 8px 4px 7px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 var(--linha);
+  color: var(--tinta);
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.teclado-divisao__tecla:active {
+  box-shadow: 0 0 0 var(--linha);
+  transform: translateY(3px);
+}
+
+.teclado-divisao__simbolo {
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.teclado-divisao__nome {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+
+/* A tecla escolhida acende como o "=" da calculadora: preta, com a sombra mostarda. */
+.teclado-divisao__tecla--ativa {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  box-shadow: 0 3px 0 var(--ouro);
+  color: var(--cartao);
+}
+
+.teclado-divisao__tecla--ativa .teclado-divisao__nome {
+  color: var(--cartao);
+  opacity: 0.8;
+}
+
+.teclado-divisao__tecla--ativa:active {
+  box-shadow: 0 0 0 var(--ouro);
+}
+
+@media (max-width: 340px) {
+  .teclado-divisao {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teclado-divisao__tecla,
+  .caixa-lista__seta {
+    transition: none;
+  }
 }

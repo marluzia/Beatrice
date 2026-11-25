@@ -44,7 +44,7 @@ describe("exportar e importar devolve a mesma casa", () => {
   it("o arquivo é JSON com cabeçalho reconhecível", () => {
     const pacote = JSON.parse(exportarConjunto(criarConjunto("Serra", casa())));
     expect(pacote.ceder).toBe("conjunto");
-    expect(pacote.versao).toBe(12);
+    expect(pacote.versao).toBe(13);
     expect(pacote.nome).toBe("Serra");
   });
 

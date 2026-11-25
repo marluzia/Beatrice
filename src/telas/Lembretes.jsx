@@ -6,7 +6,7 @@ import { nomeDe } from "../nucleo/resumo.js";
 const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const diaEMes = (iso) => (iso ? `${Number(iso.slice(8, 10))} ${MESES_CURTOS[Number(iso.slice(5, 7)) - 1]}` : "");
 
-function Lista({ lembrete, acoes, abertoDeInicio }) {
+export function Lista({ lembrete, acoes, abertoDeInicio }) {
   const [todos, setTodos] = useState(false);
   const [novo, setNovo] = useState("");
   const [editando, setEditando] = useState(abertoDeInicio);
@@ -88,7 +88,7 @@ function Lista({ lembrete, acoes, abertoDeInicio }) {
   );
 }
 
-function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
+export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
   const [editando, setEditando] = useState(abertoDeInicio);
   const area = useRef(null);
   useEffect(() => {
@@ -170,7 +170,11 @@ function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
 }
 
 /** Lembretes: listas (com itens para riscar) e notas (papel amarelo). Nada aqui mexe em dinheiro. */
-export default function Lembretes({ app, rota }) {
+/**
+ * Lembretes: listas e notas do grupo. `embutido` é a aba Lembretes do painel
+ * do conjunto: sem topo nem título, e o botão de criar no fim da aba.
+ */
+export default function Lembretes({ app, rota, embutido = false }) {
   const { estado, acoes, voltar, nomeDoConjunto, abrirNotificacoes } = app;
   const [filtro, setFiltro] = useState("tudo");
   const [escolhendo, setEscolhendo] = useState(false);
@@ -196,10 +200,14 @@ export default function Lembretes({ app, rota }) {
   };
 
   return (
-    <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} acoes={[{ icone: "sino", rotulo: "Notificações", aoClicar: abrirNotificacoes }]} />
-      <Sobrescrito>{nomeDoConjunto}</Sobrescrito>
-      <h1 className="titulo-tela titulo-tela--grande">Lembretes</h1>
+    <div className={embutido ? "aba-do-painel" : "tela tela--com-rodape"}>
+      {!embutido && (
+        <>
+          <TopoDaTela aoVoltar={voltar} acoes={[{ icone: "sino", rotulo: "Notificações", aoClicar: abrirNotificacoes }]} />
+          <Sobrescrito>{nomeDoConjunto}</Sobrescrito>
+          <h1 className="titulo-tela titulo-tela--grande">Lembretes</h1>
+        </>
+      )}
 
       <Abas
         rotulo="Filtrar lembretes"
@@ -240,7 +248,7 @@ export default function Lembretes({ app, rota }) {
         </>
       )}
 
-      <div className="rodape-fixo rodape-fixo--sobre-barra">
+      <div className={embutido ? "acao-da-aba" : "rodape-fixo rodape-fixo--sobre-barra"}>
         {escolhendo ? (
           <div className="linha-dupla">
             <button type="button" className="botao botao--fantasma" onClick={() => criar("lista")}>

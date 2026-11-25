@@ -52,8 +52,8 @@ comum. Evento e Temporada nascem **sem nenhuma despesa** (`itens: []`): cada
 uma é lançada com o nome dela.
 
 A Temporada não tem ciclos, mas tem **período** (`estado.corte`, `{ de, ate }`
-com `ate` exclusivo), escolhido na criação e mudado na aba Período do painel ou
-em Configurar (`definirPeriodoDaTemporada`). As estadias marcadas dentro dele dão o
+com `ate` exclusivo). Ela nasce com uma semana a partir de hoje, e o período se
+ajusta na aba Período do painel (`definirPeriodoDaTemporada`). As estadias marcadas dentro dele dão o
 peso de cada um nas divisões por dias e por presença; fora dele, não contam.
 
 ### Os presets da República
@@ -76,20 +76,109 @@ República salva antes dos presets abre como Livre, com a régua que tinha. Tudo
 
 ### As telas
 
-O design segue o Figma "App CEDER". As telas novas moram em `src/telas/`, a
+O design segue o Figma "App CEDER", sem fontes serifadas: títulos e números
+usam a mesma sans do texto (`--sans`, Instrument Sans), e o fim dos títulos
+(`<em>`) não tem mais itálico. As telas novas moram em `src/telas/`, a
 moldura e a barra de baixo em `App.jsx` e `componentes/BarraInferior.jsx`, as
 peças pequenas em `componentes/Interface.jsx`, `Icone.jsx` e `IconeDoTipo.jsx`,
 e o estilo em `estilos/telas.css` (os tokens de cor e tipo ficam no topo de
 `estilos/base.css`).
 
+**Criar** pede só **Nome, Moeda e Pessoas** (depois do tipo). A data do conjunto
+é a de criação (`desde`), e ela e a moeda aparecem em Configurar sem poder mudar.
+
+**A moeda** (`estado.moeda`, `nucleo/moedas.js`): real, dólar, euro, libra,
+pesos argentino, uruguaio, mexicano e colombiano, sol peruano, dólares canadense
+e australiano e franco suíço   todas de duas casas decimais, que é como o motor
+arredonda. O cálculo não muda com a moeda; muda o símbolo. Dentro de um
+conjunto, o App chama `definirMoedaAtual` e todo `dinheiro()` e todo texto que
+escrevia "R$" escreve o símbolo dele; os avisos do motor passam por
+`trocarSimbolo`. Fora de um conjunto (Início, Atividade, busca), cada valor
+leva a moeda do seu conjunto. No Início, no lugar de "Meu saldo", um seletor de
+moeda: o saldo soma o que você paga e recebe nos conjuntos daquela moeda (só se
+soma dinheiro da mesma moeda). Conjuntos de antes da v13 são em real.
+
+**Início**: o saldo (por moeda), a ação rápida e Hoje. A lupa abre a **busca
+geral** (`telas/Busca.jsx`), com abas de pasta: Conjuntos, Despesas, Itens,
+Lembretes, Pessoas. Não há mais "Conjuntos recentes".
+
+**Filtros de busca em abas de pasta** (`AbasDePasta`): Ver despesas, Ver
+lembretes, Histórico, a busca geral, o Avulsa | Cíclica de Lançar despesas e o
+Lista | Nota de Lançar lembretes. A aba escolhida se emenda com o conteúdo.
+Uma aba sozinha fica do tamanho do nome; com mais de uma, todas ficam da
+largura da maior (medida em negrito, como fica a escolhida, e guardada em
+`--largura-da-aba`). Quando a linha enche, as que sobram descem para a linha
+de baixo.
+
+**O "+"** ("O que vamos criar?") não mostra subcategorias: cada cartão tem só o
+"em [conjunto]" e leva à tela certa. As setas "›" das linhas ficam separadas do
+texto por uma barra (`SetaComBarra`). Nos cartões do "+", a seta e a barra
+ocupam uma coluna própria da altura do cartão (a barra fica à mesma distância
+do topo e da base), e o seletor "em [conjunto]" termina antes da barra.
+
+**O topo do conjunto** tem dois ícones: os três pontos (Compartilhar e
+Histórico) e a engrenagem (Configurar conjunto).
+
+**Lançar despesas** (`telas/Despesas.jsx`): a pasta Avulsa | Cíclica e três
+jeitos: Importar arquivo e Foto (ainda "em breve") e Lançar manualmente, que
+abre **Nova avulsa** ou **Nova cíclica** (`telas/LancarDespesa.jsx`): título,
+categorias e o formulário clássico (quem pagou, valor, como divide, quem paga,
+quando foi). A cíclica escreve a fatura do ciclo de uma vez (`lancarCiclica`);
+"+ Outra conta" cria um ciclo novo. Lançar nunca mostra o que já foi lançado:
+depois de lançar aparece só "Sucesso. Confira em Ver despesas". Em **Ver
+despesas**, tocar numa despesa abre **Abrir** ou **Duplicar** (a cíclica não se
+duplica; um registro duplica com a data de hoje).
+
+**Lembretes** tem o mesmo jeito: a aba Lembretes do painel mostra **Lançar
+lembretes** e **Ver lembretes**. Lançar (`telas/LancarLembrete.jsx`) tem a
+pasta Lista | Nota; depois de lançar aparece só "Sucesso. Confira em Ver
+lembretes". Ver (`telas/VerLembretes.jsx`) tem busca, a pasta Todos | Listas |
+Notas e, ao tocar, Abrir ou Duplicar.
+
+**Um lançamento sozinho** (`telas/Lancamento.jsx`, a rota `lancamento` com
+`tipo` avulsa, cíclica, registro ou lembrete): fora das seções "Ver", tocar em
+qualquer lançamento (Recente, Histórico, Hoje, atrasos, notificações, busca
+geral, Atividade, o dia do calendário, Registros) abre só ele, com os dados,
+**Lançado por** e **Lançado em**. No topo, o lápis no papel (editar) para quem
+tem direito e o ícone de duplicar. Quem lançou e o admin editam
+(`podeEditar`, `nucleo/autoria.js`); o que foi lançado antes de existir autoria
+qualquer um edita; sem saber quem é você, só edita num conjunto sem admin.
+Duplicar faz um lançamento de quem duplicou, com a hora de agora. A cíclica não
+se duplica (é a fatura do ciclo). Riscar um item de lista é de qualquer um.
+Cada lançamento guarda `lancadoPor` e `lancadoEm` (os antigos leem `autor` e
+`criadoEm`).
+
+**Editar despesa** (`telas/EditarLancamento.jsx`, a rota `editarLancamento`):
+o lápis abre o mesmo formulário de lançar, já preenchido   na avulsa,
+categoria, nome, quem pagou, valor, como divide, quem paga e quando foi; na
+cíclica, a fatura da conta (a conta não se troca). Registro e lembrete têm o
+seu Editar registro e Editar lembrete, no mesmo jeito. Nada muda até **Salvar
+edição**; no fim da tela fica "Apagar". Avulsa que não é em dinheiro (faxina por
+uso, equipamento) abre o cartão do item mexendo num rascunho.
+
+**A edição é um lançamento** (`estado.edicoes`): salvar guarda quem editou,
+quando, o que foi editado e o que mudou, campo a campo, com o antes e o depois
+já em texto (`salvarEdicaoDa…` no `useCDR`). Quem lançou o original continua
+o mesmo. A edição entra na atividade ("Duda editou a despesa Streaming"), no
+Histórico (aba Edições) e embaixo do lançamento editado; tocar nela abre a
+edição sozinha (a rota `lancamento` com `tipo: "edicao"`). Editar sem mudar
+nada não lança nada. As mudanças feitas dentro de Fechar contas são o
+assistente e não viram edição.
+
+**"O que o conjunto gasta"** (o `PassoItens`, com todas as despesas e o
+catálogo) só aparece em **Fechar contas**. Configurar → Itens é uma lista dos
+aparelhos (e, na Multi, dos equipamentos), com os botões de adicionar; cada um
+abre **Editar item** (`telas/EditarItem.jsx`), o cartão daquele item sozinho.
+Ali o que muda vale na hora: é configuração, não lançamento.
+
 Dentro de um conjunto: o **painel** (total, meu saldo, **Recente** com a última
 atividade e "mostrar mais" para o histórico, contas atrasadas, próximo
-vencimento, as abas **Despesas | Pessoas | Período**, Calendário, Lembretes,
-Registros e o gráfico dos ciclos), **Lançar despesas** (avulsas e cíclicas; os
-botões de criar no rodapé, Avulsa antes de Cíclica), **Ver despesas** (uma
+vencimento e o toggle **Despesas | Lembretes | Registros | Período**   o
+evento tem só Despesas e Lembretes; a temporada, Despesas, Lembretes e
+Período), **Lançar despesas**, **Ver despesas** (uma
 linha própria do painel, logo abaixo de Lançar despesas: busca e filtro
 Avulsas / Cíclicas / Registradas, com o status de cada uma, da mais recente
-para a mais antiga, `todasAsDespesas`), **Histórico** (o relógio do topo:
+para a mais antiga, `todasAsDespesas`), **Histórico** (nos três pontos do topo:
 filtros Despesas, Lembretes e Registros; nas despesas, filtro por status),
 **Saldos** (a parte de cada um em
 aparelhos, uso comum, taxas e avulsas), **Fechar contas** (o assistente de
@@ -97,8 +186,8 @@ sempre: Pessoas, Contas, Itens, Calendário, Rateio), a **despesa cíclica por
 dentro**, **Calendário**, **Lembretes**, **Registros**, **Notificações** e
 **Configurar conjunto** (Dados gerais | Itens; Itens é onde se cadastram os
 aparelhos que saem da fatura e recebem registros   evento e temporada não têm
-essa parte). As telas de edição antigas (`passos/`) continuam sendo
-os editores, dentro da moldura nova.
+essa parte). As telas antigas de `passos/` continuam sendo os editores de
+Fechar contas.
 
 **O anel do total** mostra o balanço das despesas que estão na conta: o que
 está em aberto em amarelo e o que já foi pago em verde-água
@@ -120,11 +209,27 @@ ou no ciclo). `estadoDaConta` (`nucleo/naConta.js`) tira o que ficou de fora
 antes do motor e do acerto; a escolha só vale enquanto a despesa continua antes
 do período. Sem escolha, tudo entra, como sempre.
 
-A barra de baixo só aparece nas **seções** do conjunto (o painel e o que ele
-abre direto: Lançar despesas, Ver despesas, Saldos, Calendário, Lembretes,
-Registros). Toda tela de
-ação (lançar, Ver despesas, a despesa cíclica por dentro, Fechar contas,
-Configurar, Notificações) esconde a barra (`SECOES_COM_BARRA` em `App.jsx`).
+**A barra de baixo do conjunto** (`componentes/BarraDoConjunto.jsx`) toma o
+lugar da barra do app enquanto se navega por um conjunto: na cor da barra
+padrão, com
+**Calendário**, **Pessoas** e **Análise** (círculos concêntricos), todas com
+ícone. Ela aparece no painel e nessas três seções; para sair do conjunto, a
+seta do topo. No evento, Calendário avisa que evento não conta dias. Lançar
+despesas, Ver despesas, Ver saldos e toda tela de ação (lançar à mão, a
+despesa cíclica por dentro, Fechar contas, Configurar, Histórico) não têm
+barra nenhuma (`COM_BARRA_DO_CONJUNTO` em `App.jsx`). Não há mais os botões
+de Calendário, Lembretes e Registros no painel: Lembretes e Registros são
+abas do toggle (`ABAS_DO_PAINEL`; ir para eles, de qualquer lugar, abre o
+painel com a aba certa), e o calendário está na barra. **Pessoas**
+(`telas/Pessoas.jsx`) tem os membros, adicionar convidado, "Sou eu" e admin.
+**Análise** (`telas/Analise.jsx`) mostra o em aberto e o pago, a parte de cada
+um, os ciclos e para onde foi.
+
+**Abas de pasta responsivas**: nenhuma aba se espreme nem rola. As que não
+cabem descem para a linha de baixo. O Hoje do
+Início também usa abas de pasta (com um ponto vermelho em Atrasos quando há
+conta atrasada). O toggle do painel faz o mesmo: partes iguais enquanto cabe,
+e a que não cabe desce.
 
 No calendário a legenda começa oculta ("Mostrar legenda"), em duas colunas,
 Ciclos e Ações; o botão do rodapé é "+ Lançar no dia N"; dia fora e estadia
@@ -174,11 +279,15 @@ Nenhum entra no cálculo:
 | `voce` | o id da pessoa que é você neste conjunto (sem ele, vale o nome do Perfil) |
 | `marcacao` | só na Multi: `"presenca"` (estadia) ou `"ausencia"` (dias fora) |
 | `admin` | quem organiza |
-| `descricao`, `desde` | o que a tela de criação pergunta |
+| `descricao` | escrita em Configurar |
+| `desde` | o dia em que o conjunto foi criado (não se edita) |
+| `moeda` | o código da moeda (`BRL`, `USD`, `EUR`…), escolhido ao criar e fixo |
 | `lembretes` | listas (`itens` para riscar) e notas, com data opcional (aparecem no calendário) |
 | `pagamentos` | os Pix do acerto marcados como feitos, pela chave `de>para:centavos` |
 | `historicoDeCiclos` | quanto cada ciclo custou nos fechamentos anteriores (o gráfico "Os ciclos") |
 | `ciclo.pagoEm`, `item.criadoEm`, `morador.convidado` | datas para a atividade e a marca de convidado |
+| `lancadoPor`, `lancadoEm` | em cada despesa, ciclo, registro e lembrete: quem lançou e quando (decide quem pode editar) |
+| `edicoes` | as edições lançadas: `ref` (o que foi editado), `nome`, `mudancas` (campo, antes, depois), `lancadoPor`, `lancadoEm` |
 
 O perfil (seu nome e quando avisar) fica em `ceder:perfil`, fora dos conjuntos.
 

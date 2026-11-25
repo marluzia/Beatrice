@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { dadosDoRelatorio } from "../nucleo/relatorio.js";
 import { reais } from "../nucleo/formato.js";
 import MarcaR from "../componentes/MarcaR.jsx";
@@ -63,13 +64,13 @@ export default function RelatorioImpresso({ estado, resultado }) {
                 <p className="impresso-resumo">
                   {f.medido ? (
                     <>
-                      {numero(f.consumo)} {f.unidade} · total R$ {reais(f.total)} · acompanha o
-                      consumo R$ {reais(f.consumoEmReais)} · preço efetivo R${" "}
+                      {numero(f.consumo)} {f.unidade} · total {simboloDe()} {reais(f.total)} · acompanha o
+                      consumo {simboloDe()} {reais(f.consumoEmReais)} · preço efetivo {simboloDe()}{" "}
                       {numero(f.tarifa, 6)} por {f.unidade}
                     </>
                   ) : (
                     <>
-                      total R$ {reais(f.total)} · vai para o uso comum R${" "}
+                      total {simboloDe()} {reais(f.total)} · vai para o uso comum {simboloDe()}{" "}
                       {reais(f.consumoEmReais)}
                     </>
                   )}
@@ -88,7 +89,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
                       <tr key={i}>
                         <td>{l.nome}</td>
                         <td className="num">{l.quantidade}</td>
-                        <td className="num">R$ {reais(l.valor)}</td>
+                        <td className="num">{simboloDe()} {reais(l.valor)}</td>
                         <td>{l.comportamento}</td>
                       </tr>
                     ))}
@@ -118,7 +119,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
                 {/* Os kWh e m³ de cada aparelho: é com eles que a casa confere
                     o relatório contra a etiqueta e contra a fatura. */}
                 <td className="num">{i.consumo || " "}</td>
-                <td className="num">R$ {reais(i.custoTotal)}</td>
+                <td className="num">{simboloDe()} {reais(i.custoTotal)}</td>
                 <td>{i.rateio}</td>
               </tr>
             ))}
@@ -129,7 +130,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
       {d.pessoas.map((p) => (
         <section className="impresso-pessoa" key={p.nome}>
           <h2>
-            {p.nome} <span className="impresso-total">R$ {reais(p.total)}</span>
+            {p.nome} <span className="impresso-total">{simboloDe()} {reais(p.total)}</span>
           </h2>
 
           {p.pendencias.length > 0 && (
@@ -171,7 +172,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
                 <tr key={i}>
                   <td>{t.item}</td>
                   <td className="num">{porcento(t.proporcao)}</td>
-                  <td className="num">R$ {reais(t.total)}</td>
+                  <td className="num">{simboloDe()} {reais(t.total)}</td>
                   <td>{t.detalhe}</td>
                 </tr>
               ))}
@@ -179,9 +180,9 @@ export default function RelatorioImpresso({ estado, resultado }) {
             <tfoot>
               <tr>
                 <td colSpan="2">
-                  {[...p.porCiclo.map((c) => `${c.nome} R$ ${reais(c.valor)}`), `Reais R$ ${reais(p.reais)}`].join(" · ")}
+                  {[...p.porCiclo.map((c) => `${c.nome} ${simboloDe()} ${reais(c.valor)}`), `Reais ${simboloDe()} ${reais(p.reais)}`].join(" · ")}
                 </td>
-                <td className="num">R$ {reais(p.total)}</td>
+                <td className="num">{simboloDe()} {reais(p.total)}</td>
                 <td />
               </tr>
             </tfoot>
@@ -205,7 +206,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
             {d.pagamentos.map((p, i) => (
               <tr key={i}>
                 <td>{p.nome}</td>
-                <td className="num">R$ {reais(p.valor)}</td>
+                <td className="num">{simboloDe()} {reais(p.valor)}</td>
                 <td>{p.quemPagou ?? "cada um pagou a sua parte"}</td>
               </tr>
             ))}
@@ -241,13 +242,13 @@ export default function RelatorioImpresso({ estado, resultado }) {
                 {d.acerto.saldos.map((s, i) => (
                   <tr key={i}>
                     <td>{s.nome}</td>
-                    <td className="num">R$ {reais(s.adiantou)}</td>
-                    <td className="num">R$ {reais(s.parte)}</td>
+                    <td className="num">{simboloDe()} {reais(s.adiantou)}</td>
+                    <td className="num">{simboloDe()} {reais(s.parte)}</td>
                     <td className="num">
                       {s.saldo > 0
-                        ? `recebe R$ ${reais(s.saldo)}`
+                        ? `recebe ${simboloDe()} ${reais(s.saldo)}`
                         : s.saldo < 0
-                          ? `paga R$ ${reais(-s.saldo)}`
+                          ? `paga ${simboloDe()} ${reais(-s.saldo)}`
                           : "quite"}
                     </td>
                   </tr>
@@ -261,7 +262,7 @@ export default function RelatorioImpresso({ estado, resultado }) {
               <ul className="impresso-transferencias">
                 {d.acerto.transferencias.map((t, i) => (
                   <li key={i}>
-                    {t.de} → {t.para}: <strong>R$ {reais(t.valor)}</strong>
+                    {t.de} → {t.para}: <strong>{simboloDe()} {reais(t.valor)}</strong>
                   </li>
                 ))}
               </ul>
@@ -283,15 +284,15 @@ export default function RelatorioImpresso({ estado, resultado }) {
           <tbody>
             <tr>
               <td>Soma das faturas e despesas</td>
-              <td className="num">R$ {reais(d.conferencia.somaDevida)}</td>
+              <td className="num">{simboloDe()} {reais(d.conferencia.somaDevida)}</td>
             </tr>
             <tr>
               <td>Soma cobrada das pessoas</td>
-              <td className="num">R$ {reais(d.conferencia.somaCobrada)}</td>
+              <td className="num">{simboloDe()} {reais(d.conferencia.somaCobrada)}</td>
             </tr>
             <tr>
               <td>Diferença</td>
-              <td className="num">R$ {reais(d.conferencia.diferenca)}</td>
+              <td className="num">{simboloDe()} {reais(d.conferencia.diferenca)}</td>
             </tr>
           </tbody>
         </table>

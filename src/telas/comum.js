@@ -1,10 +1,11 @@
 // O que mais de uma tela nova precisa saber sobre os conjuntos salvos.
 
+import { MOEDA_PADRAO, moedaValida } from "../nucleo/moedas.js";
 import { atrasosDe, curta, eventosDoDia, hojeISO, nomeDe, quandoFoi } from "../nucleo/resumo.js";
 import { modoDe, presetDe } from "../nucleo/modos.js";
 
-/** O último lançamento de dinheiro: despesa, conta paga, Pix. Lembrete não conta. */
-export const ultimoLancamento = (p) => (p.atividade ?? []).find((a) => a.tipo !== "lembrete") ?? null;
+/** O último lançamento de dinheiro: despesa, conta paga, Pix. Lembrete e edição não contam. */
+export const ultimoLancamento = (p) => (p.atividade ?? []).find((a) => a.tipo !== "lembrete" && a.tipo !== "edicao") ?? null;
 
 /** O momento mais recente em que algo foi lançado num conjunto. */
 export const momentoDe = (p) => ultimoLancamento(p)?.quando ?? p.ficha.criadaEm ?? p.ficha.salvaEm ?? "";
@@ -48,8 +49,14 @@ export function partesDoTipo(estado) {
   const modo = modoDe(estado.modo);
   const preset = presetDe(estado);
   const n = estado.moradores.length;
-  return [modo.nome, preset?.curto, `${n} ${n === 1 ? "pessoa" : "pessoas"}`];
+  return [modo.nome, preset?.curto, `${n} ${n === 1 ? "pessoa" : "pessoas"}`, codigoSeNaoForReal(estado)];
 }
+
+/** "USD", "EUR"… no sobrescrito; em real, nada (o R$ já diz). */
+export const codigoSeNaoForReal = (estado) => {
+  const codigo = moedaValida(estado?.moeda);
+  return codigo === MOEDA_PADRAO ? null : codigo;
+};
 
 /**
  * O que acontece hoje em todos os conjuntos: vencimentos, despesas lançadas
@@ -116,8 +123,10 @@ export function detalheDoEvento(ev) {
 
 /** Para onde um evento do dia leva, dentro do conjunto dele. */
 export function destinoDoEvento(ev) {
-  if (ev.tipo === "vencimento" || ev.tipo === "atraso") return { tela: "ciclo", id: ev.ciclo };
-  if (ev.tipo === "registro") return { tela: "registros" };
-  if (ev.tipo === "lembrete") return { tela: "lembretes" };
+  // Cada evento do dia abre o lançamento dele, sozinho.
+  if (ev.tipo === "vencimento" || ev.tipo === "atraso") return { tela: "lancamento", tipo: "ciclica", id: ev.ciclo };
+  if (ev.tipo === "registro") return { tela: "lancamento", tipo: "registro", item: ev.item, id: ev.registro };
+  if (ev.tipo === "lembrete") return { tela: "lancamento", tipo: "lembrete", id: ev.lembrete };
+  if (ev.item) return { tela: "lancamento", tipo: "avulsa", id: ev.item };
   return { tela: "despesas" };
 }

@@ -1,3 +1,5 @@
+import { simboloDe } from "../nucleo/moedas.js";
+import { podeEditar } from "../nucleo/autoria.js";
 import Icone from "../componentes/Icone.jsx";
 import { dinheiro, SeloPilula, TopoDaTela } from "../componentes/Interface.jsx";
 import { janelaDaFatura, linhasPorComportamento } from "../nucleo/adaptador.js";
@@ -152,7 +154,7 @@ export default function DespesaCiclica({ app, rota }) {
         )}
         {quantidade > 0 && (
           <SeloPilula tom="areia">
-            {reais(quantidade).replace(",00", "")} {unidade} · R$ {reais(tarifa)} por {unidade}
+            {reais(quantidade).replace(",00", "")} {unidade} · {simboloDe()} {reais(tarifa)} por {unidade}
           </SeloPilula>
         )}
       </div>
@@ -190,9 +192,15 @@ export default function DespesaCiclica({ app, rota }) {
             </dd>
           </div>
         </dl>
-        <button type="button" className="link-forte link-forte--direita" onClick={() => ir("editar", { qual: "ciclicas", aba: ciclo.id })}>
-          Editar esta conta ›
-        </button>
+        {podeEditar(estado, ciclo, eu) && (
+          <button
+            type="button"
+            className="link-forte link-forte--direita"
+            onClick={() => ir("editarLancamento", { tipo: "ciclica", id: ciclo.id })}
+          >
+            Editar esta despesa ›
+          </button>
+        )}
       </section>
 
       <h2 className="titulo-secao__texto titulo-secao__texto--solto">
@@ -280,7 +288,7 @@ export default function DespesaCiclica({ app, rota }) {
               <span>
                 <strong>{t.nome.replace(/^Taxa:?\s*/i, "")}</strong>
                 <span>
-                  taxa fixa · igual entre os {t.fatias.length} · R$ {reais(t.custoTotal / Math.max(1, t.fatias.length))} cada
+                  taxa fixa · igual entre os {t.fatias.length} · {simboloDe()} {reais(t.custoTotal / Math.max(1, t.fatias.length))} cada
                 </span>
               </span>
               <strong>{dinheiro(t.custoTotal)}</strong>

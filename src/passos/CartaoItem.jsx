@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { useState } from "react";
 import {
   Alerta,
@@ -11,6 +12,8 @@ import {
   SimboloDoCiclo,
 } from "../componentes/index.js";
 import QuemPagou from "./QuemPagou.jsx";
+import TecladoDeDivisao from "../componentes/TecladoDeDivisao.jsx";
+import { precosDe, temPrecos, UNIDADES_DE_PRECO } from "../nucleo/precos.js";
 import { medeHoras } from "../nucleo/resumo.js";
 import { campoDoConsumo, ciclosDoItem, especiesDe } from "../nucleo/catalogo.js";
 import { nomeOu, num, reais } from "../nucleo/formato.js";
@@ -43,19 +46,7 @@ import {
   trocaDeFormato,
 } from "../nucleo/quandoFoi.js";
 
-const NOMES_DOS_RATEIOS = {
-  igual: "igual",
-  porcentagem: "%",
-  valor: "valor",
-  cotas: "cotas",
-  ajuste: "ajuste",
-  dias: "dias",
-  horas: "horas",
-  presenca: "presença",
-  uso: "uso",
-};
-
-const EXPLICACOES_DOS_RATEIOS = {
+export const EXPLICACOES_DOS_RATEIOS = {
   igual: "Todo mundo marcado paga a mesma fatia, não importa quanto usou nem quanto tempo ficou.",
   dias: "Cada um paga na proporção dos dias que passou em casa.",
   presenca:
@@ -74,9 +65,9 @@ const EXPLICACOES_DOS_RATEIOS = {
 /** As divisões em que cada participante escreve o próprio número. */
 const TABELAS = {
   porcentagem: { campo: "porcentagens", sufixo: "%", teclado: "decimal", passo: "qualquer" },
-  valor: { campo: "valores", sufixo: "R$", teclado: "decimal", passo: "qualquer" },
+  valor: { campo: "valores", sufixo: "moeda", teclado: "decimal", passo: "qualquer" },
   cotas: { campo: "cotas", sufixo: "cotas", teclado: "decimal", passo: "qualquer" },
-  ajuste: { campo: "ajustes", sufixo: "R$", teclado: "text", passo: "qualquer" },
+  ajuste: { campo: "ajustes", sufixo: "moeda", teclado: "text", passo: "qualquer" },
   uso: { campo: "usosPorPessoa", sufixo: "usos", teclado: "numeric", passo: "inteiro" },
   horas: { campo: "usosPorPessoa", sufixo: "h", teclado: "decimal", passo: "qualquer" },
 };
@@ -125,10 +116,14 @@ export default function CartaoItem({
   corte = null,
   acoes,
   modo,
+  sozinho = false,
+  soConfiguracao = false,
 }) {
   // O pedaço do estado que este cartão consulta: os ciclos e o período.
   const estado = { ciclos, periodo, corte, itens: [item], moradores };
-  const [aberto, setAberto] = useState(false);
+  // Sozinho (numa tela de editar um item só), o cartão já abre ajustando e
+  // não tem duplicar nem remover: isso fica na própria tela.
+  const [aberto, setAberto] = useState(sozinho);
 
   const calculado = resultado.itens.find((x) => x.id === item.id);
   const set = (campo, valor) => acoes.editarItem(item.id, campo, valor);
@@ -229,6 +224,130 @@ export default function CartaoItem({
 
   const participantes = moradores.filter((m) => item.participantes.includes(m.id));
   const totaisPorHora = item.especie === "porHora" ? totalDeclaradoPorHora(item) : {};
+  // O que conta horas ou usos: esses números saem dos registros, não do cartão.
+  const medeOUso = item.especie === "porHora" || item.especie === "porUso";
+
+  const blocoQuemPagou = saiDoBolso ? (
+    <QuemPagou
+      pessoas={moradores}
+      indicePorId={indicePorId}
+      valor={item.pagoPor ?? null}
+      aoMudar={(id) => acoes.definirPagador("item", item.id, id)}
+      semNinguem="Ninguém marcado: a despesa fica em aberto. Se cada um pagou a própria parte direto, não gera dívida entre vocês."
+      comAlguem="Essa pessoa adiantou pelo grupo: os outros devem a ela no acerto."
+    />
+  ) : (
+    <div className="grupo">
+      <Rotulo>Quem pagou</Rotulo>
+      <p className="item-pagador-herdado">
+        {contas.length === 0
+          ? "Sai da fatura de quem pagou a conta."
+          : contas
+              .map((ciclo) => {
+                const i = moradores.findIndex((m) => m.id === ciclo.pagoPor);
+                return `conta ${deConta(ciclo)}: ${
+                  i < 0 ? "ninguém marcado ainda" : nomeOu(moradores[i].nome, i)
+                }`;
+              })
+              .join(" · ")}
+      </p>
+    </div>
+  );
+
+  const blocoDasContas = (
+    <div className="grupo">
+      <Rotulo>Puxa de quais contas</Rotulo>
+      {medidos.length === 0 ? (
+        <p className="dica">Nenhuma conta medida ligada. Ligue luz, água ou outra em Faturas.</p>
+      ) : (
+        <div className="linha-acoes">
+          {medidos.filter((c) => item.ciclosLivres || c.id in tabela).map((c) => {
+            const dentro = c.id in tabela;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                className={`botao botao--catalogo ${dentro ? "botao--ligado" : ""}`}
+                aria-pressed={dentro}
+                disabled={!item.ciclosLivres}
+                onClick={() => alternarCiclo(c.id)}
+              >
+                <SimboloDoCiclo ciclo={c} tamanho={11} /> {c.nome}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {Object.keys(tabela).length === 0 && medidos.length > 0 && (
+        <p className="dica dica--alerta">Escolha de qual conta este aparelho puxa.</p>
+      )}
+    </div>
+  );
+
+  // Os preços do avulso: as unidades ligadas (mês, dia, hora, uso) e o valor de cada.
+  const comPrecos = temPrecos(item);
+  const precos = comPrecos ? precosDe(item) : {};
+  const guardarPrecos = (novos) => {
+    set("precos", novos);
+    // O primeiro preço ligado também fica nos campos antigos, que outras telas ainda leem.
+    const [primeira] = Object.keys(novos);
+    set("valorPorUso", primeira ? novos[primeira] : "");
+    if (primeira === "hora" || primeira === "uso") set("medida", primeira);
+  };
+  const alternarPreco = (chave) => {
+    const ligada = chave in precos;
+    const novos = Object.fromEntries(
+      UNIDADES_DE_PRECO.filter((u) => (u.chave === chave ? !ligada : u.chave in precos)).map((u) => [
+        u.chave,
+        precos[u.chave] ?? "",
+      ]),
+    );
+    guardarPrecos(novos);
+  };
+  const blocoDosPrecos = (
+    <div className="grupo">
+      <Rotulo>Unidade de consumo</Rotulo>
+      <div className="linha-acoes" role="group" aria-label="Unidade de consumo">
+        {UNIDADES_DE_PRECO.map((u) => {
+          const ligada = u.chave in precos;
+          return (
+            <button
+              key={u.chave}
+              type="button"
+              className={`botao botao--catalogo ${ligada ? "botao--ligado" : ""}`}
+              aria-pressed={ligada}
+              onClick={() => alternarPreco(u.chave)}
+            >
+              {u.nome}
+            </button>
+          );
+        })}
+      </div>
+      {Object.keys(precos).length === 0 ? (
+        <p className="dica dica--alerta">Ligue pelo menos uma unidade: mês, dia, hora ou uso.</p>
+      ) : (
+        <>
+          <div className="linha-campos">
+            {UNIDADES_DE_PRECO.filter((u) => u.chave in precos).map((u) => (
+              <Campo
+                key={u.chave}
+                rotulo={u.custa}
+                sufixo={simboloDe()}
+                valor={precos[u.chave] ?? ""}
+                aoMudar={(v) => guardarPrecos({ ...precos, [u.chave]: v })}
+                largura="campo--curto"
+                placeholder="0,00"
+              />
+            ))}
+          </div>
+          <p className="dica">
+            Para quem aluga: ligue as unidades em que cobra. Cada registro diz em qual delas foi, e vale o preço vezes a
+            quantidade.
+          </p>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="cartao-item">
@@ -241,7 +360,7 @@ export default function CartaoItem({
           onChange={(e) => set("nome", e.target.value)}
         />
         <span className="item-valor">
-          {calculado ? `R$ ${reais(calculado.custoTotal)}` : " "}
+          {calculado ? `${simboloDe()} ${reais(calculado.custoTotal)}` : " "}
         </span>
         <button
           type="button"
@@ -252,23 +371,27 @@ export default function CartaoItem({
         >
           {aberto && !bloqueado ? "fechar" : "ajustar"}
         </button>
-        <button
-          type="button"
-          className="item-acao"
-          aria-label={`Duplicar ${item.nome}`}
-          title="Duplicar"
-          onClick={() => acoes.duplicarItem?.(item.id)}
-        >
-          duplicar
-        </button>
-        <button
-          type="button"
-          className="item-acao item-acao--remover"
-          aria-label={`Remover ${item.nome}`}
-          onClick={() => acoes.removerItem(item.id)}
-        >
-          ×
-        </button>
+        {!sozinho && (
+          <>
+            <button
+              type="button"
+              className="item-acao"
+              aria-label={`Duplicar ${item.nome}`}
+              title="Duplicar"
+              onClick={() => acoes.duplicarItem?.(item.id)}
+            >
+              duplicar
+            </button>
+            <button
+              type="button"
+              className="item-acao item-acao--remover"
+              aria-label={`Remover ${item.nome}`}
+              onClick={() => acoes.removerItem(item.id)}
+            >
+              ×
+            </button>
+          </>
+        )}
       </div>
 
       {bloqueado && (
@@ -279,39 +402,34 @@ export default function CartaoItem({
 
       {aberto && !bloqueado && (
         <div className="item-corpo">
+          {/* Avulso (equipamento fora das faturas): primeiro a unidade de
+              consumo, com o preço de cada unidade ligada. */}
+          {comPrecos && blocoDosPrecos}
+
           {/* Quem pagou vem primeiro, logo abaixo do nome da despesa: é a
               pergunta que decide se existe acerto ou não. */}
-          {saiDoBolso ? (
-            <QuemPagou
-              pessoas={moradores}
-              indicePorId={indicePorId}
-              valor={item.pagoPor ?? null}
-              aoMudar={(id) => acoes.definirPagador("item", item.id, id)}
-              semNinguem="Ninguém marcado: a despesa fica em aberto. Se cada um pagou a própria parte direto, não gera dívida entre vocês."
-              comAlguem="Essa pessoa adiantou pelo grupo: os outros devem a ela no acerto."
-            />
-          ) : (
+          {/* No item avulso, quem pagou é de cada registro (em Lançar registros). */}
+          {!(soConfiguracao && comPrecos) && blocoQuemPagou}
+
+          {/* Na configuração de um item cíclico: de quais contas ele puxa e a
+              unidade de consumo, antes das configurações de cada conta. */}
+          {soConfiguracao && campo && blocoDasContas}
+          {soConfiguracao && campo && (
             <div className="grupo">
-              <Rotulo>Quem pagou</Rotulo>
-              <p className="item-pagador-herdado">
-                {contas.length === 0
-                  ? "Sai da fatura de quem pagou a conta."
-                  : contas
-                      .map((ciclo) => {
-                        const i = moradores.findIndex((m) => m.id === ciclo.pagoPor);
-                        return `conta ${deConta(ciclo)}: ${
-                          i < 0 ? "ninguém marcado ainda" : nomeOu(moradores[i].nome, i)
-                        }`;
-                      })
-                      .join(" · ")}
-              </p>
+              <Rotulo>Unidade de consumo</Rotulo>
+              <Segmentado
+                rotuloDoGrupo="Unidade de consumo"
+                opcoes={["consumo", "porHora", "porUso"].map((e) => ({ valor: e, texto: NOMES_DAS_ESPECIES[e] }))}
+                valor={item.especie}
+                aoMudar={trocarEspecie}
+              />
             </div>
           )}
 
           {dica && <p className="dica">{dica}</p>}
 
           {/* Como medir: total do mês, por hora ou por uso, conforme o item. */}
-          {podeTrocarEspecie && (
+          {!soConfiguracao && podeTrocarEspecie && (
             <Segmentado
               rotuloDoGrupo="Como medir"
               opcoes={especies.map((e) => ({ valor: e, texto: NOMES_DAS_ESPECIES[e] }))}
@@ -322,34 +440,7 @@ export default function CartaoItem({
 
           {/* De quais contas o aparelho puxa. Livre: a pessoa escolhe e tira
               com o x. Fixo (a geladeira é luz): não há escolha. */}
-          {campo && item.ciclosLivres && (
-            <div className="grupo">
-              <Rotulo>Puxa de quais contas</Rotulo>
-              {medidos.length === 0 ? (
-                <p className="dica">Nenhuma conta medida ligada. Ligue luz, água ou outra em Faturas.</p>
-              ) : (
-                <div className="linha-acoes">
-                  {medidos.map((c) => {
-                    const dentro = c.id in tabela;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={`botao botao--catalogo ${dentro ? "botao--ligado" : ""}`}
-                        aria-pressed={dentro}
-                        onClick={() => alternarCiclo(c.id)}
-                      >
-                        <SimboloDoCiclo ciclo={c} tamanho={11} /> {c.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {Object.keys(tabela).length === 0 && medidos.length > 0 && (
-                <p className="dica dica--alerta">Escolha de qual conta este aparelho puxa.</p>
-              )}
-            </div>
-          )}
+          {!soConfiguracao && campo && item.ciclosLivres && blocoDasContas}
 
           <div className="linha-campos">
             {campo &&
@@ -393,7 +484,16 @@ export default function CartaoItem({
               </p>
             )}
 
-            {item.especie === "porHora" && registrosDe(item).length === 0 && (
+            {soConfiguracao && medeOUso && registrosDe(item).length === 0 && (
+              <p className="dica">
+                {emHoras || item.especie === "porHora"
+                  ? "As horas ligadas vêm dos registros: cada registro diz o dia, quantas horas e quem usou."
+                  : "Os usos vêm dos registros: cada registro diz o dia, quantas vezes e quem usou."}{" "}
+                Lance em Registros, no painel do conjunto.
+              </p>
+            )}
+
+            {!soConfiguracao && item.especie === "porHora" && registrosDe(item).length === 0 && (
               <Campo
                 rotulo="Horas ligado no mês"
                 sufixo="h"
@@ -404,10 +504,10 @@ export default function CartaoItem({
               />
             )}
 
-            {item.especie === "porUso" && item.origemUso === "reais" && (
+            {!comPrecos && item.especie === "porUso" && item.origemUso === "reais" && (
               <Campo
                 rotulo={emHoras ? "Cada hora custa" : "Cada uso custa"}
-                sufixo="R$"
+                sufixo={simboloDe()}
                 valor={item.valorPorUso}
                 aoMudar={(v) => set("valorPorUso", v)}
                 largura="campo--curto"
@@ -415,7 +515,7 @@ export default function CartaoItem({
               />
             )}
 
-            {item.especie === "porUso" && item.rateio !== "uso" && item.rateio !== "horas" && (
+            {!soConfiguracao && !(comPrecos && item.precos) && item.especie === "porUso" && item.rateio !== "uso" && item.rateio !== "horas" && (
               <Campo
                 rotulo="Usos no mês"
                 valor={item.usos}
@@ -429,7 +529,7 @@ export default function CartaoItem({
             {item.especie === "reais" && (
               <Campo
                 rotulo="Valor"
-                sufixo="R$"
+                sufixo={simboloDe()}
                 valor={item.valor}
                 aoMudar={(v) => set("valor", v)}
                 largura="campo--curto"
@@ -450,19 +550,19 @@ export default function CartaoItem({
               </p>
             )}
 
+          {/* Na configuração (Itens), o item é só a caracterização: como divide
+              e quem paga são de cada registro, em Lançar registros. */}
+          {!soConfiguracao && (
           <div className="grupo">
             <Rotulo>Como divide</Rotulo>
-            <Segmentado
-              rotuloDoGrupo="Como divide"
-              opcoes={rateios.map((r) => ({ valor: r, texto: NOMES_DOS_RATEIOS[r] }))}
-              valor={item.rateio}
-              aoMudar={(v) => set("rateio", v)}
-            />
+            <TecladoDeDivisao opcoes={rateios} valor={item.rateio} aoMudar={(v) => set("rateio", v)} />
             {EXPLICACOES_DOS_RATEIOS[item.rateio] && (
               <p className="dica">{EXPLICACOES_DOS_RATEIOS[item.rateio]}</p>
             )}
           </div>
+          )}
 
+          {!soConfiguracao && (
           <div className="grupo">
             <Rotulo>Quem paga</Rotulo>
             <SeletorDePessoas
@@ -473,8 +573,9 @@ export default function CartaoItem({
               aoMudar={(ids) => acoes.definirParticipantes(item.id, ids)}
             />
           </div>
+          )}
 
-          {TABELAS[item.rateio] && item.rateio !== "uso" && item.rateio !== "horas" &&
+          {!soConfiguracao && TABELAS[item.rateio] && item.rateio !== "uso" && item.rateio !== "horas" &&
             item.participantes.length > 0 && (
               <TabelaDeclarada
                 item={item}
@@ -485,7 +586,7 @@ export default function CartaoItem({
               />
             )}
 
-          {(item.rateio === "uso" || item.rateio === "horas") && item.participantes.length > 0 && (
+          {!soConfiguracao && (item.rateio === "uso" || item.rateio === "horas") && item.participantes.length > 0 && (
             <div className="grupo">
               <Rotulo>{item.rateio === "horas" ? "Horas de cada um" : "Usos de cada um"}</Rotulo>
 
@@ -632,7 +733,7 @@ export default function CartaoItem({
 
           {/* Quando foi é sempre a última seção. Com usos lançados por data,
               cada uso já diz quando foi, e a data do item não se aplica. */}
-          {eventos.length > 0 ? (
+          {soConfiguracao ? null : eventos.length > 0 ? (
             <div className="grupo">
               <Rotulo>Quando foi</Rotulo>
               <p className="dica">
@@ -733,8 +834,9 @@ function QuandoFoi({ item, set }) {
  * é o valor final, não uma proporção, e um item que não soma o próprio custo
  * é dinheiro sem dono.
  */
-function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
-  const { campo, sufixo, teclado } = TABELAS[item.rateio];
+export function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
+  const { campo, sufixo: tipoDoSufixo, teclado } = TABELAS[item.rateio];
+  const sufixo = tipoDoSufixo === "moeda" ? simboloDe() : tipoDoSufixo;
   const tabela = item[campo] ?? {};
   const regra = item.rateio;
 
@@ -744,7 +846,7 @@ function TabelaDeclarada({ item, moradores, indicePorId, custoTotal, set }) {
   const fecha = Math.abs(diferenca) < 0.005;
 
   const escrito = (v) =>
-    regra === "porcentagem" ? `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%` : `R$ ${reais(v)}`;
+    regra === "porcentagem" ? `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%` : `${simboloDe()} ${reais(v)}`;
 
   // Ajuste: a parte de cada um é o resto por igual mais o ajuste dele.
   const quantos = item.participantes.length;

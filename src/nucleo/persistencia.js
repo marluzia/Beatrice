@@ -21,6 +21,7 @@
 // `exportarConjunto` e `importarConjunto` existem, e por isso o painel oferece
 // o download.
 
+import { moedaValida } from "./moedas.js";
 import { calibragemFixa, CHAVES_ANTIGAS, PADRAO, presetValido } from "./modos.js";
 import { RECURSOS, REGRAS_DO_CICLO } from "./ciclos.js";
 import { corteValido } from "./calendario.js";
@@ -38,7 +39,7 @@ const PREFIXO_CDR = "cdr:casa:";
 /** A chave única de antes da v5, quando só existia uma casa. */
 const CHAVE_ANTIGA = "cdr:casa";
 
-const VERSAO = 12;
+const VERSAO = 13;
 
 function deposito() {
   try {
@@ -642,6 +643,11 @@ function migrar(estado, versao) {
     return migrar({ ...estado, modo, eventoLongo: false }, 12);
   }
 
+  // v12 → v13: cada conjunto tem moeda. Tudo o que existia era em real.
+  if (versao === 12) {
+    return migrar({ ...estado, moeda: moedaValida(estado.moeda) }, 13);
+  }
+
   return null;
 }
 
@@ -696,7 +702,10 @@ export function sanear(estado) {
     admin: moradorVivo(estado, estado.admin),
     descricao: typeof estado.descricao === "string" ? estado.descricao : "",
     desde: typeof estado.desde === "string" ? estado.desde : null,
+    // v13: a moeda do conjunto. Quem veio antes dela era em real.
+    moeda: moedaValida(estado.moeda),
     lembretes: lembretesLimpos(estado.lembretes),
+    edicoes: edicoesLimpas(estado.edicoes),
     pagamentos: tabela(estado.pagamentos),
     historicoDeCiclos: Array.isArray(estado.historicoDeCiclos)
       ? estado.historicoDeCiclos.filter((h) => h && typeof h === "object" && h.valores)
@@ -766,6 +775,33 @@ function moradorVivo(estado, id) {
   return (estado.moradores ?? []).some((m) => m && m.id === id) ? id : null;
 }
 
+/**
+ * As edições lançadas: o que foi editado, por quem, quando e o que mudou
+ * (antes e depois, em texto). Nenhuma entra no cálculo.
+ */
+function edicoesLimpas(lista) {
+  if (!Array.isArray(lista)) return [];
+  const texto = (v) => (typeof v === "string" ? v : v == null ? "" : String(v));
+  return lista
+    .filter((ed) => ed && typeof ed === "object" && typeof ed.id === "string" && ed.ref && typeof ed.ref.tipo === "string")
+    .map((ed) => ({
+      id: ed.id,
+      ref: {
+        tipo: ed.ref.tipo,
+        id: typeof ed.ref.id === "string" ? ed.ref.id : null,
+        ...(typeof ed.ref.item === "string" ? { item: ed.ref.item } : {}),
+      },
+      nome: texto(ed.nome),
+      mudancas: Array.isArray(ed.mudancas)
+        ? ed.mudancas
+            .filter((m) => m && typeof m === "object")
+            .map((m) => ({ campo: texto(m.campo), antes: texto(m.antes), depois: texto(m.depois) }))
+        : [],
+      lancadoPor: typeof ed.lancadoPor === "string" ? ed.lancadoPor : null,
+      lancadoEm: typeof ed.lancadoEm === "string" ? ed.lancadoEm : null,
+    }));
+}
+
 /** Listas e notas: só a forma, nenhum dinheiro. */
 function lembretesLimpos(lista) {
   if (!Array.isArray(lista)) return [];
@@ -782,6 +818,9 @@ function lembretesLimpos(lista) {
             .map((x) => ({ id: x.id, texto: typeof x.texto === "string" ? x.texto : "", feito: Boolean(x.feito) }))
         : [],
       autor: typeof l.autor === "string" ? l.autor : null,
+      // Quem lançou e quando (os lembretes antigos só tinham autor e criadoEm).
+      lancadoPor: typeof l.lancadoPor === "string" ? l.lancadoPor : typeof l.autor === "string" ? l.autor : null,
+      lancadoEm: typeof l.lancadoEm === "string" ? l.lancadoEm : typeof l.criadoEm === "string" ? l.criadoEm : null,
       data: typeof l.data === "string" ? l.data : null,
       registro: typeof l.registro === "string" ? l.registro : null,
       criadoEm: typeof l.criadoEm === "string" ? l.criadoEm : null,

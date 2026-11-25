@@ -1,35 +1,151 @@
-import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
-import { Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { useId, useState } from "react";
+import { AbasDePasta, LinhaDeMenu, mostrarAviso, SetaComBarra, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
 import { nomeDeArquivo } from "../nucleo/arquivo.js";
 import EscolhaDePreset from "../passos/EscolhaDePreset.jsx";
-import PassoItens from "../passos/PassoItens.jsx";
+import CaixaComLista from "../componentes/CaixaComLista.jsx";
+import { GRUPO_DA_FATURA, GRUPO_DOS_EQUIPAMENTOS, itensPorGrupo } from "../nucleo/catalogo.js";
+import { registrosDe } from "../nucleo/adaptador.js";
+import { GRUPOS_DA_SECAO } from "../passos/secoes.js";
 import { presetDe, presetsDe } from "../nucleo/modos.js";
-import { janelaDoFechamento, limitesDeHoje, ultimoDiaDaJanela } from "../nucleo/calendario.js";
-import { hojeISO, nomeDe } from "../nucleo/resumo.js";
+import { nomeDaMoeda } from "../nucleo/moedas.js";
+import { nomeDe } from "../nucleo/resumo.js";
 
-/** As duas partes de Configurar: o que é o conjunto e o que nele consome kWh ou m³. */
-function AlternadorDeParte({ valor, aoMudar }) {
-  const partes = [
-    { valor: "dados", nome: "Dados gerais", ilustracao: <IconeDoTipo tipo="dadosGerais" tamanho={56} /> },
-    { valor: "itens", nome: "Itens", ilustracao: <IconeDoTipo tipo="itens" tamanho={56} /> },
-  ];
+/** "01/08/2026" */
+const diaPorExtensoCurto = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+const COMO_MEDE = {
+  porUso: "por uso",
+  porHora: "por hora",
+  consumo: "consumo no mês",
+  reais: "em dinheiro",
+};
+
+/** As duas fichas da seção Itens: o que sai das faturas e o que corre por fora delas. */
+const FICHAS_DOS_ITENS = [
+  {
+    valor: "ciclicos",
+    rotulo: "Cíclicos",
+    grupo: GRUPO_DA_FATURA,
+    sobre: "Saem das faturas de luz e água. Escolha o tipo e diga quanto ele gasta por hora, por uso ou no mês.",
+    generico: "livre",
+  },
+  {
+    valor: "avulsos",
+    rotulo: "Avulsos",
+    grupo: GRUPO_DOS_EQUIPAMENTOS,
+    sobre: "Fora das faturas: quanto custa a hora ou cada uso, em dinheiro.",
+    generico: "equipamento",
+  },
+];
+
+const normal = (t) =>
+  String(t ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+/**
+ * O tipo de item, num campo que é lista e também aceita texto, com Adicionar
+ * ao lado. Um nome da lista adiciona aquele tipo; um nome novo vira um item
+ * do tipo genérico da ficha (Outro aparelho, Equipamento) com esse nome.
+ */
+function AdicionarItem({ modelos, generico, grupo, aoAdicionar }) {
+  const [texto, setTexto] = useState("");
+  const lista = useId();
+  const limpo = texto.trim();
+  const adicionar = () => {
+    if (!limpo) return;
+    const igual = modelos.find((m) => normal(m.nome) === normal(limpo));
+    if (igual) aoAdicionar(igual, null);
+    else {
+      const base = modelos.find((m) => m.chave === generico) ?? modelos[modelos.length - 1];
+      aoAdicionar(base, limpo);
+    }
+    setTexto("");
+  };
   return (
-    <div className="alternador-ilustrado" role="tablist" aria-label="Parte da configuração">
-      {partes.map(({ valor: v, nome, ilustracao }) => (
-        <button
-          key={v}
-          type="button"
-          role="tab"
-          aria-selected={valor === v}
-          className={`alternador-ilustrado__opcao ${valor === v ? "alternador-ilustrado__opcao--ativa" : ""}`}
-          onClick={() => aoMudar(v)}
-        >
-          {ilustracao}
-          <span>{nome}</span>
+    <div className="adicionar-item">
+      <label className="rotulo" htmlFor={`${lista}-campo`}>
+        Tipo de item
+      </label>
+      <div className="adicionar-item__linha">
+        <CaixaComLista
+          id={`${lista}-campo`}
+          opcoes={modelos.map((m) => m.nome)}
+          valor={texto}
+          aoMudar={setTexto}
+          aoConfirmar={adicionar}
+          placeholder="Escolha ou escreva"
+          rotulo={`Tipo de item em ${grupo}`}
+        />
+        <button type="button" className="botao adicionar-item__botao" onClick={adicionar} disabled={!limpo}>
+          Adicionar
         </button>
-      ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Os itens do conjunto, numa pasta Cíclicos | Avulsos. No topo de cada ficha,
+ * os tipos de item para adicionar (geladeira, máquina, embarcação…); embaixo,
+ * os que já existem, cada um abrindo a tela dele (Editar item). As horas e os
+ * usos não se escrevem aqui: vêm dos registros.
+ */
+export function ItensDoConjunto({ app }) {
+  const { estado, modo, acoes, ir } = app;
+  const abrirItem = (id, novo = false) => ir("editarItem", { id, ...(novo ? { novo: true } : {}) });
+  const grupos = itensPorGrupo(estado.itens, modo, true).filter((g) => GRUPOS_DA_SECAO.aparelhos.includes(g.grupo));
+  const fichas = FICHAS_DOS_ITENS.filter((f) => grupos.some((g) => g.grupo === f.grupo));
+  const [aba, setAba] = useState(fichas[0]?.valor ?? "ciclicos");
+  const ficha = fichas.find((f) => f.valor === aba) ?? fichas[0];
+  const g = grupos.find((x) => x.grupo === ficha?.grupo);
+  if (!g) return null;
+
+  return (
+    <div className="itens-do-conjunto">
+      <AbasDePasta opcoes={fichas} valor={ficha.valor} aoMudar={setAba} rotulo="Tipo de item">
+        <section className="grupo-de-itens" aria-label={g.grupo}>
+          <p className="texto-apoio texto-apoio--colado">{ficha.sobre}</p>
+          <AdicionarItem
+            key={ficha.valor}
+            modelos={g.modelos}
+            generico={ficha.generico}
+            grupo={g.grupo}
+            aoAdicionar={(modelo, nome) => {
+              acoes.adicionarItem(modelo, nome ? { nome } : {});
+              mostrarAviso(`${nome || modelo.nome} adicionado em ${ficha.rotulo}. Toque nele para configurar.`);
+            }}
+          />
+          <h2 className="rotulo-secao rotulo-secao--na-pasta">{g.grupo}</h2>
+          {g.itens.length > 0 ? (
+            <div className="cartao-lista">
+              {g.itens.map((i) => {
+                const registros = registrosDe(i).length;
+                return (
+                  <LinhaDeMenu
+                    key={i.id}
+                    icone="registro"
+                    titulo={i.nome?.trim() || "Item"}
+                    subtitulo={[
+                      COMO_MEDE[i.especie] ?? i.especie,
+                      registros ? `${registros} ${registros === 1 ? "registro" : "registros"}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    aoClicar={() => abrirItem(i.id)}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <p className="vazio-suave vazio-suave--na-pasta">Nenhum ainda. Escolha um tipo acima.</p>
+          )}
+        </section>
+      </AbasDePasta>
     </div>
   );
 }
@@ -50,17 +166,11 @@ function baixar(nome, texto) {
 }
 
 /** Configurar conjunto: nome, descrição, data, tipo, uso comum, você, e as ações do conjunto. */
-export default function Configurar({ app, rota }) {
-  const { estado, resultado, indicePorId, modo, acoes, idDoConjunto, nomeDoConjunto, eu, voltar, abrir } = app;
+export default function Configurar({ app }) {
+  const { estado, modo, acoes, idDoConjunto, nomeDoConjunto, eu, voltar, abrir } = app;
   const preset = presetDe(estado);
   const presets = presetsDe(estado.modo);
-  // Evento e temporada não têm faturas, então não têm itens que saem delas.
-  const comItens = modo.faturas !== false;
-  const [parte, setParte] = useState(comItens && rota?.parte === "itens" ? "itens" : "dados");
   const temporada = modo.chave === "temporada";
-  const janela = temporada ? janelaDoFechamento(estado.ciclos, estado.periodo, estado.corte) : null;
-  const fimDaTemporada = janela ? ultimoDiaDaJanela(janela) : null;
-  const limites = limitesDeHoje(hojeISO());
 
   return (
     <div className="tela">
@@ -70,30 +180,6 @@ export default function Configurar({ app, rota }) {
         Configurar <em>conjunto</em>
       </h1>
 
-      {comItens && <AlternadorDeParte valor={parte} aoMudar={setParte} />}
-
-      {parte === "itens" ? (
-        <>
-          <p className="texto-apoio">
-            Itens e aparelhos que consomem kWh ou m³ e saem das faturas: geladeira, máquina de lavar, ar-condicionado,
-            chuveiro.
-            {modo.equipamentos
-              ? " E os equipamentos que não saem de fatura nenhuma, como embarcações, jet ski e gerador, com custo por hora ou por uso."
-              : ""}{" "}
-            São eles que recebem os registros de uso.
-          </p>
-          <div className="embutido">
-            <PassoItens
-              estado={estado}
-              resultado={resultado}
-              indicePorId={indicePorId}
-              modo={modo}
-              acoes={acoes}
-              secao="aparelhos"
-            />
-          </div>
-        </>
-      ) : (
       <>
       <div className="formulario">
         <label className="campo-novo">
@@ -113,49 +199,25 @@ export default function Configurar({ app, rota }) {
             onChange={(e) => acoes.definirCampoDoConjunto("descricao", e.target.value)}
           />
         </label>
-        {temporada ? (
+        {/* Moeda e data nasceram com o conjunto: aparecem, mas não se editam. */}
+        <div className="linha-campos linha-campos--duas">
           <div className="campo-novo">
-            <span className="rotulo">Período</span>
-            <div className="linha-campos linha-campos--duas">
-              <input
-                className="caixa caixa--texto"
-                type="date"
-                aria-label="Início da temporada"
-                value={janela.de}
-                min={limites.min}
-                max={limites.max}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v && v >= limites.min && v <= limites.max)
-                    acoes.definirPeriodoDaTemporada(v, v > fimDaTemporada ? v : fimDaTemporada);
-                }}
-              />
-              <input
-                className="caixa caixa--texto"
-                type="date"
-                aria-label="Fim da temporada"
-                value={fimDaTemporada}
-                min={janela.de}
-                max={limites.max}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v && v >= janela.de && v <= limites.max) acoes.definirPeriodoDaTemporada(janela.de, v);
-                }}
-              />
-            </div>
-            <span className="ajuda-campo">As estadias marcadas dentro do período pesam nas divisões por dias e por presença.</span>
+            <span className="rotulo">Moeda</span>
+            <span className="caixa caixa--texto caixa--fixa" aria-label="Moeda do conjunto">
+              {nomeDaMoeda(estado.moeda)}
+            </span>
           </div>
-        ) : (
-          <label className="campo-novo">
-            <span className="rotulo">Data</span>
-            <input
-              className="caixa caixa--texto"
-              type="date"
-              value={estado.desde ?? ""}
-              onChange={(e) => acoes.definirCampoDoConjunto("desde", e.target.value || null)}
-            />
-          </label>
-        )}
+          <div className="campo-novo">
+            <span className="rotulo">Criado em</span>
+            <span className="caixa caixa--texto caixa--fixa" aria-label="Data de criação">
+              {estado.desde ? diaPorExtensoCurto(estado.desde) : "—"}
+            </span>
+          </div>
+        </div>
+        <span className="ajuda-campo ajuda-campo--colada">
+          A moeda e a data de criação vêm de quando o conjunto foi criado e não mudam.
+          {temporada ? " O período da temporada fica no painel, na aba Período." : ""}
+        </span>
         <label className="campo-novo">
           <span className="rotulo">Quem é você aqui</span>
           <select className="caixa caixa--texto" value={eu ?? ""} onChange={(e) => acoes.definirVoce(e.target.value)}>
@@ -243,7 +305,7 @@ export default function Configurar({ app, rota }) {
             <strong>Próximo mês</strong>
             <span>Abre o fechamento seguinte com as mesmas pessoas e itens</span>
           </span>
-          <Icone nome="seta" tamanho={18} />
+          <SetaComBarra />
         </button>
         )}
         <button
@@ -290,7 +352,6 @@ export default function Configurar({ app, rota }) {
         </button>
       </div>
       </>
-      )}
     </div>
   );
 }

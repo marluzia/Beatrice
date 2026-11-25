@@ -1,7 +1,7 @@
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
-import { centavosEmDinheiro, dinheiro, TituloDeSecao, tomDoSaldo } from "../componentes/Interface.jsx";
+import { centavosEmDinheiro, dinheiro, TituloDeSecao, tomDoSaldo, TopoDaTela } from "../componentes/Interface.jsx";
 import { curta, hojeISO, quandoFoi } from "../nucleo/resumo.js";
-import { porLancamento, TEXTO_DA_SITUACAO } from "./comum.js";
+import { codigoSeNaoForReal, porLancamento, TEXTO_DA_SITUACAO } from "./comum.js";
 
 /** Atividade: o saldo de você em cada conjunto e tudo o que foi lançado, do mais novo ao mais antigo. */
 export default function Atividade({ app }) {
@@ -12,7 +12,7 @@ export default function Atividade({ app }) {
   const maior = Math.max(1, ...comVoce.map((p) => Math.abs(p.resumo.aberto)));
 
   const feed = panorama
-    .flatMap((p) => (p.atividade ?? []).map((a) => ({ ...a, conjunto: p.ficha.id, nomeDoConjunto: p.ficha.nome, modo: p.estado.modo })))
+    .flatMap((p) => (p.atividade ?? []).map((a) => ({ ...a, conjunto: p.ficha.id, nomeDoConjunto: p.ficha.nome, modo: p.estado.modo, estado: p.estado })))
     .sort((a, b) => String(b.quando).localeCompare(String(a.quando)))
     .slice(0, 30);
 
@@ -26,7 +26,8 @@ export default function Atividade({ app }) {
 
   return (
     <div className="tela">
-      <h1 className="titulo-tela titulo-tela--grande titulo-tela--sem-topo">Atividade</h1>
+      <TopoDaTela />
+      <h1 className="titulo-tela titulo-tela--grande">Atividade</h1>
       <p className="texto-apoio">O que está em aberto para você em cada conjunto, e o que foi lançado por último.</p>
 
       <TituloDeSecao>
@@ -48,7 +49,7 @@ export default function Atividade({ app }) {
                   </span>
                 </span>
                 <span className="linha-conjunto__valor">
-                  <strong className={`valor--${tomDoSaldo(v)}`}>{centavosEmDinheiro(v, { sinal: true, simbolo: false })}</strong>
+                  <strong className={`valor--${tomDoSaldo(v)}`}>{centavosEmDinheiro(v, { sinal: true, simbolo: Boolean(codigoSeNaoForReal(p.estado)), moeda: p.estado.moeda })}</strong>
                   <span>{TEXTO_DA_SITUACAO[p.resumo.situacao]}</span>
                 </span>
               </button>
@@ -68,13 +69,13 @@ export default function Atividade({ app }) {
             <p className="rotulo-secao">{d.dia === hoje ? "Hoje" : quandoFoi(d.dia, hoje) === "ontem" ? "Ontem" : curta(d.dia)}</p>
             <div className="cartao-lista">
               {d.itens.map((a, i) => (
-                <button key={`${a.conjunto}-${i}`} type="button" className="linha-historico linha-historico--botao" onClick={() => abrir(a.conjunto)}>
+                <button key={`${a.conjunto}-${i}`} type="button" className="linha-historico linha-historico--botao" onClick={() => abrir(a.conjunto, a.ref ? { tela: "lancamento", ...a.ref } : null)}>
                   <IconeDoTipo tipo={a.modo} tamanho={32} />
                   <span>
                     {a.texto}
                     <small> · {a.nomeDoConjunto}</small>
                   </span>
-                  {a.valor ? <strong className="mono">{dinheiro(a.valor, { simbolo: false })}</strong> : <span />}
+                  {a.valor ? <strong className="mono">{dinheiro(a.valor, { simbolo: Boolean(codigoSeNaoForReal(a.estado)), moeda: a.estado.moeda })}</strong> : <span />}
                 </button>
               ))}
             </div>

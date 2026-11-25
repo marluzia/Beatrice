@@ -8,6 +8,7 @@ import { num } from "../formato.js";
 import { faturaAtiva } from "../calendario.js";
 import { cicloPorId, deConta, doCiclo, unidadeDoRecurso } from "../ciclos.js";
 import { ciclosDoItem } from "../catalogo.js";
+import { emDinheiroPorRegistro } from "../precos.js";
 import { consumoDaFatura, valorDoConsumo } from "./fatura.js";
 import { quantidadeNaJanela, registrosDe, temUsoDatado, usosDe, usosPorJanela } from "./uso.js";
 
@@ -148,7 +149,21 @@ function rateioDoItem(item, janelas, doFechamento) {
   };
 }
 
-export function itemParaMotor(item, janelas, doFechamento = null) {
+export function itemParaMotor(itemDaTela, janelas, doFechamento = null) {
+  // Equipamento com preços por mês, dia, hora ou uso: cada registro já vale em dinheiro.
+  const emDinheiro = emDinheiroPorRegistro(itemDaTela);
+  // Dividido pelos registros, entra na conta quem aparece em algum deles,
+  // mesmo que não esteja marcado no item.
+  const pelosRegistros =
+    (emDinheiro.rateio === "uso" || emDinheiro.rateio === "horas") && temUsoDatado(emDinheiro);
+  const item = pelosRegistros
+    ? {
+        ...emDinheiro,
+        participantes: [
+          ...new Set([...(emDinheiro.participantes ?? []), ...registrosDe(emDinheiro).flatMap((r) => r.participantes ?? [])]),
+        ],
+      }
+    : emDinheiro;
   return {
     id: item.id,
     nome: item.nome?.trim() || "Item sem nome",

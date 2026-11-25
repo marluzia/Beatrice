@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { Ficha, MarcaR, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
 import { fechouRedondo } from "../nucleo/cessao.js";
@@ -95,8 +96,8 @@ export default function QuemCede({ estado, resultado, indicePorId, acoes }) {
         </p>
       ) : (
         <p className="dica dica--alerta">
-           Arredondando, a soma dá R$ {reais(resultado.somaCobradaArredondada)} contra os
-        R$ {reais(resultado.somaDevida)} devidos: {quantos} {moeda} de{" "}
+           Arredondando, a soma dá {simboloDe()} {reais(resultado.somaCobradaArredondada)} contra os
+        {simboloDe()} {reais(resultado.somaDevida)} devidos: {quantos} {moeda} de{" "}
         {falta ? "menos" : "sobra"}. Fiz meu melhor, mas esse sistema monetário não
         cedeu para mim. Passo a moeda para vocês...Enquanto ninguém assumir a moeda, a conta não ajusta. Não há escolha automática, ela deve ser humana.
         </p>

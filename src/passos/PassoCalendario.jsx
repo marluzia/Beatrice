@@ -1,3 +1,5 @@
+import { SetaComBarra } from "../componentes/Interface.jsx";
+import { simboloDe } from "../nucleo/moedas.js";
 import { useState } from "react";
 import { Botao, Campo, Ficha, Pastilha, Segmentado, SimboloDoCiclo, Titulo } from "../componentes/index.js";
 import { ciclosLigados, naOrdemDaTela } from "../nucleo/ciclos.js";
@@ -54,7 +56,40 @@ const semTarefa = (lista) => lista.filter((e) => e.natureza !== "tarefa");
  * A lista embaixo é o histórico: o mês em ordem, para a casa conferir o que
  * foi lançado e enxergar o que ficou sem marcação.
  */
-export default function PassoCalendario({ estado, acoes, modo, secao, irParaSecao, diaAberto, aoAbrirDia, solto = false }) {
+/**
+ * Um lançamento do dia como linha só de ver: tocar abre o lançamento sozinho.
+ * É o que o calendário do conjunto usa; dentro de Fechar contas, os
+ * lançamentos do dia continuam editáveis ali mesmo.
+ */
+function LinhaDoDia({ selo, titulo, detalhe, valor, cor, aoAbrir }) {
+  return (
+    <button type="button" className="linha-do-dia" onClick={aoAbrir}>
+      <i className="marca marca--losango" style={{ background: cor }} aria-hidden="true" />
+      <span className="linha-do-dia__textos">
+        <strong>{titulo}</strong>
+        <span>
+          {selo}
+          {detalhe ? ` · ${detalhe}` : ""}
+        </span>
+      </span>
+      {valor && <strong className="linha-do-dia__valor">{valor}</strong>}
+      <SetaComBarra />
+    </button>
+  );
+}
+
+export default function PassoCalendario({
+  estado,
+  acoes,
+  modo,
+  secao,
+  irParaSecao,
+  diaAberto,
+  aoAbrirDia,
+  solto = false,
+  aoAbrirLancamento = null,
+  aoLancarNoDia = null,
+}) {
   // Com faturas, o calendário vai dos ciclos; na temporada, do período dela
   // (as estadias fora dele não contam); no evento, não há limite.
   const temporada = modo.chave === "temporada";
@@ -285,7 +320,20 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
             {diaPorExtenso(aberto).semana}, <em>{diaPorExtenso(aberto).resto}</em>
           </h3>
 
-          {vencimentosDoDia(aberto).map((c) => (
+          {aoAbrirLancamento &&
+            vencimentosDoDia(aberto).map((c) => (
+              <LinhaDoDia
+                key={c.id}
+                selo="despesa cíclica"
+                titulo={`${c.nome || "Conta"} de ${MESES[estado.periodo.mes - 1]} vence`}
+                detalhe={c.pagoPor ? `paga por ${nomeDaPessoa(c.pagoPor)}` : "ninguém pagou ainda"}
+                valor={reaisDaConta(c)}
+                cor={CORES.despesa}
+                aoAbrir={() => aoAbrirLancamento({ tipo: "ciclica", id: c.id })}
+              />
+            ))}
+
+          {!aoAbrirLancamento && vencimentosDoDia(aberto).map((c) => (
             <div className="vencimento-do-dia" key={c.id}>
               <i className="marca marca--losango" style={{ background: CORES.despesa }} aria-hidden="true" />
               <span>
@@ -329,17 +377,36 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
           )}
 
           <div className="linha-acoes" id="acoes-do-dia">
-            <Botao tipo="fantasma" aoClicar={() => acoes.lancarDespesaNoDia(aberto)}>
+            <Botao
+              tipo="fantasma"
+              aoClicar={() => (aoLancarNoDia ? aoLancarNoDia("despesa", aberto) : acoes.lancarDespesaNoDia(aberto))}
+            >
               + Despesa
             </Botao>
             {acoes.adicionarLembrete && (
-              <Botao tipo="fantasma" aoClicar={() => acoes.adicionarLembrete("nota", { data: aberto })}>
+              <Botao
+                tipo="fantasma"
+                aoClicar={() =>
+                  aoLancarNoDia ? aoLancarNoDia("lembrete", aberto) : acoes.adicionarLembrete("nota", { data: aberto })
+                }
+              >
                 + Lembrete
               </Botao>
             )}
           </div>
 
-          {lembretesDoDia(aberto).map((l) => (
+          {aoAbrirLancamento &&
+            lembretesDoDia(aberto).map((l) => (
+              <LinhaDoDia
+                key={l.id}
+                selo={l.tipo === "lista" ? "lista" : "nota"}
+                titulo={(l.tipo === "lista" ? l.titulo : l.texto) || "Lembrete"}
+                cor={CORES.lembrete ?? "var(--azul)"}
+                aoAbrir={() => aoAbrirLancamento({ tipo: "lembrete", id: l.id })}
+              />
+            ))}
+
+          {!aoAbrirLancamento && lembretesDoDia(aberto).map((l) => (
             <div className="lancamento lancamento--lembrete" key={l.id}>
               <div className="lancamento__topo">
                 <span className="selo selo--modo">Lembrete</span>
@@ -378,13 +445,34 @@ export default function PassoCalendario({ estado, acoes, modo, secao, irParaSeca
             </>
           )}
 
-          <LancamentosDoDia
-            marcacoes={semTarefa(porDia[aberto] ?? [])}
-            estado={estado}
-            acoes={acoes}
-            polaridade={polaridade}
-            tarefaPorId={tarefaPorId}
-          />
+          {aoAbrirLancamento ? (
+            semTarefa(porDia[aberto] ?? [])
+              .filter((e) => e.natureza === "despesa" || e.natureza === "uso")
+              .map((e) => (
+                <LinhaDoDia
+                  key={e.id}
+                  selo={e.natureza === "uso" ? "registro" : "despesa avulsa"}
+                  titulo={e.titulo || (e.natureza === "uso" ? "Uso" : "Despesa")}
+                  detalhe={e.detalhe}
+                  cor={e.natureza === "uso" ? CORES.uso : CORES.despesa}
+                  aoAbrir={() =>
+                    aoAbrirLancamento(
+                      e.natureza === "uso"
+                        ? { tipo: "registro", item: e.itemId, id: e.usoId }
+                        : { tipo: "avulsa", id: e.itemId },
+                    )
+                  }
+                />
+              ))
+          ) : (
+            <LancamentosDoDia
+              marcacoes={semTarefa(porDia[aberto] ?? [])}
+              estado={estado}
+              acoes={acoes}
+              polaridade={polaridade}
+              tarefaPorId={tarefaPorId}
+            />
+          )}
         </Ficha>
       )}
       </>
@@ -481,7 +569,7 @@ function LancamentosDoDia({ marcacoes, estado, acoes, polaridade, tarefaPorId })
                   texto
                 />
                 <Campo
-                  rotulo="R$"
+                  rotulo={simboloDe()}
                   valor={item.valor}
                   aoMudar={(v) => acoes.editarItem(item.id, "valor", v)}
                   largura="campo--curto"

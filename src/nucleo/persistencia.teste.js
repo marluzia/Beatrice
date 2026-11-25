@@ -199,3 +199,40 @@ describe("v11 → v12: os cinco tipos", () => {
     expect(carregarConjunto("c-x").modo).toBe("multipro");
   });
 });
+
+describe("as edições ficam guardadas", () => {
+  it("guarda a edição com quem, quando e o que mudou, e descarta o que não tem forma", () => {
+    const estado = estadoInicial();
+    estado.edicoes = [
+      {
+        id: "ed1",
+        ref: { tipo: "avulsa", id: "i1" },
+        nome: "Gás",
+        mudancas: [{ campo: "Valor", antes: "R$ 80,00", depois: "R$ 95,00" }, null],
+        lancadoPor: "m1",
+        lancadoEm: "2026-11-22T18:00:00.000Z",
+      },
+      { id: "sem-ref" },
+      null,
+    ];
+    const id = criarConjunto("Casa", estado);
+    const volta = carregarConjunto(id);
+    expect(volta.edicoes).toEqual([
+      {
+        id: "ed1",
+        ref: { tipo: "avulsa", id: "i1" },
+        nome: "Gás",
+        mudancas: [{ campo: "Valor", antes: "R$ 80,00", depois: "R$ 95,00" }],
+        lancadoPor: "m1",
+        lancadoEm: "2026-11-22T18:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("conjunto antigo, sem edições, abre com a lista vazia", () => {
+    const estado = estadoInicial();
+    delete estado.edicoes;
+    const id = criarConjunto("Antigo", estado);
+    expect(carregarConjunto(id).edicoes).toEqual([]);
+  });
+});

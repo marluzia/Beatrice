@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { dinheiro, TituloDeSecao } from "../componentes/Interface.jsx";
 import { ciclosLigados } from "../nucleo/ciclos.js";
 import { nomeDe } from "../nucleo/resumo.js";
@@ -23,7 +24,7 @@ export function GraficoDosCiclos({ estado, historico, cores }) {
 
   return (
     <section className="secao-grafico">
-      <TituloDeSecao direita={`R$ por ciclo · ${historico.length} ${historico.length === 1 ? "fechamento" : "fechamentos"}`}>
+      <TituloDeSecao direita={`${simboloDe()} por ciclo · ${historico.length} ${historico.length === 1 ? "fechamento" : "fechamentos"}`}>
         Os <em>ciclos</em>
       </TituloDeSecao>
       <div className="cartao-grafico">

@@ -1,3 +1,4 @@
+import { MOEDA_PADRAO, moedaValida } from "./moedas.js";
 import { novoId } from "./formato.js";
 import { ciclosDeFabrica, novaLinha } from "./ciclos.js";
 import { totalDaFatura } from "./traducao/fatura.js";
@@ -118,7 +119,10 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas, chaveDoPrese
     admin: null,
     descricao: "",
     desde: null,
+    // A moeda do conjunto: escolhida ao criar e fixa depois.
+    moeda: MOEDA_PADRAO,
     lembretes: [],
+    edicoes: [],
     pagamentos: {},
     historicoDeCiclos: [],
   };
@@ -129,7 +133,16 @@ export function estadoInicial(chaveDoModo = PADRAO, quantasPessoas, chaveDoPrese
  * primeira sendo você (e quem administra). As outras entram como convidadas:
  * fazem parte da divisão sem precisar de conta no app.
  */
-export function estadoDeCriacao({ modo: chaveDoModo = PADRAO, preset, voce = "", convidados = [], descricao = "", desde = null, ate = null } = {}) {
+export function estadoDeCriacao({
+  modo: chaveDoModo = PADRAO,
+  preset,
+  voce = "",
+  convidados = [],
+  descricao = "",
+  desde = null,
+  ate = null,
+  moeda = MOEDA_PADRAO,
+} = {}) {
   const nomes = [String(voce ?? "").trim(), ...convidados.map((n) => String(n ?? "").trim()).filter(Boolean)];
   const base = estadoInicial(chaveDoModo, nomes.length, preset);
   const moradores = base.moradores.map((m, i) => ({ ...m, nome: nomes[i] ?? "", convidado: i > 0 }));
@@ -155,6 +168,7 @@ export function estadoDeCriacao({ modo: chaveDoModo = PADRAO, preset, voce = "",
     admin: eu,
     descricao: String(descricao ?? "").trim(),
     desde: data,
+    moeda: moedaValida(moeda),
   };
 }
 

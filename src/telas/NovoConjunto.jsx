@@ -4,7 +4,8 @@ import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
 import { Avatar, emBreve, NomeComItalico, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
 import { LISTA_DE_MODOS, modoDe, PRESETS_DA_REPUBLICA, presetsDe, presetValido } from "../nucleo/modos.js";
 import { hojeISO } from "../nucleo/resumo.js";
-import { limitesDeHoje, somarDias } from "../nucleo/calendario.js";
+import { somarDias } from "../nucleo/calendario.js";
+import { LISTA_DE_MOEDAS, MOEDA_PADRAO } from "../nucleo/moedas.js";
 
 /** Um nome de exemplo por tipo, para o campo não nascer vazio de ideia. */
 const EXEMPLO_DE_NOME = {
@@ -13,19 +14,6 @@ const EXEMPLO_DE_NOME = {
   familia: "Lar Doce Lar",
   moradia: "República Girassol",
   multipro: "Chalé da Serra",
-};
-
-const EXEMPLO_DE_DESCRICAO = {
-  evento: "Ex.: na casa da Bia, cada um leva uma coisa",
-  temporada: "Ex.: casa alugada em Paraty, 10 dias",
-  familia: "Ex.: o apartamento da Rua Augusta",
-  moradia: "Ex.: casa da Rua das Flores, 4 quartos",
-  multipro: "Ex.: chalé com 4 cotas, uso por temporada",
-};
-
-const NOTA_DA_DATA = {
-  evento: "Quando é o evento.",
-  temporada: "Quando a temporada começa. O calendário abre neste mês.",
 };
 
 /** As opções de "Adicionar pessoa": só Convidado funciona por enquanto. */
@@ -98,10 +86,7 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
   const [preset, setPreset] = useState(undefined);
 
   const [nome, setNome] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [desde, setDesde] = useState(hojeISO());
-  const limites = limitesDeHoje(hojeISO());
-  const [ate, setAte] = useState(() => somarDias(hojeISO(), 6));
+  const [moeda, setMoeda] = useState(MOEDA_PADRAO);
   const [meuNome, setMeuNome] = useState(perfil?.nome ?? "");
   const [convidados, setConvidados] = useState([]);
   const [adicionando, setAdicionando] = useState(false);
@@ -204,15 +189,18 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
   const criar = () => {
     const eu = meuNome.trim();
     if (eu && eu !== perfil?.nome) acoes.definirNomeDoPerfil(eu);
+    // A data do conjunto é a de hoje: ele nasce agora, e isso não se edita.
+    // A temporada começa hoje com uma semana; o período se ajusta na aba Período.
+    const hoje = hojeISO();
     aoCriar({
       nome: nome.trim() || EXEMPLO_DE_NOME[tipo] || modo.nome,
       modo: tipo,
       preset: presetAtual ?? undefined,
       voce: eu || "Você",
       convidados,
-      descricao,
-      desde,
-      ate: tipo === "temporada" ? ate : null,
+      moeda,
+      desde: hoje,
+      ate: tipo === "temporada" ? somarDias(hoje, 6) : null,
     });
   };
 
@@ -238,71 +226,24 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
         </label>
 
         <label className="campo-novo">
-          <span className="rotulo">Descrição (opcional)</span>
-          <textarea
-            className="caixa caixa--texto caixa--area"
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            placeholder={EXEMPLO_DE_DESCRICAO[tipo]}
-            rows={3}
-          />
+          <span className="rotulo">Moeda</span>
+          <select
+            className="caixa caixa--texto"
+            value={moeda}
+            onChange={(e) => setMoeda(e.target.value)}
+            aria-label="Moeda do conjunto"
+          >
+            {LISTA_DE_MOEDAS.map((m) => (
+              <option key={m.codigo} value={m.codigo}>
+                {m.nome} ({m.simbolo})
+              </option>
+            ))}
+          </select>
+          <span className="ajuda-campo">
+            Todos os valores do conjunto ficam nesta moeda. Ela não muda depois de criar.
+            {tipo === "temporada" ? " O período da temporada se escolhe depois, na aba Período." : ""}
+          </span>
         </label>
-
-        {tipo === "temporada" ? (
-          <div className="campo-novo">
-            <span className="rotulo">Período</span>
-            <div className="linha-campos linha-campos--duas">
-              <label className="caixa-com-icone">
-                <Icone nome="calendario" tamanho={22} />
-                <input
-                  className="caixa caixa--texto"
-                  type="date"
-                  aria-label="Início da temporada"
-                  value={desde}
-                  min={limites.min}
-                  max={limites.max}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v && (v < limites.min || v > limites.max)) return;
-                    setDesde(v);
-                    if (v && ate < v) setAte(v);
-                  }}
-                />
-              </label>
-              <label className="caixa-com-icone">
-                <Icone nome="calendario" tamanho={22} />
-                <input
-                  className="caixa caixa--texto"
-                  type="date"
-                  aria-label="Fim da temporada"
-                  value={ate}
-                  min={desde}
-                  max={limites.max}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v && v > limites.max) return;
-                    setAte(v);
-                  }}
-                />
-              </label>
-            </div>
-            <span className="ajuda-campo">
-              Do primeiro ao último dia; o início vai até 40 dias para trás e o fim, até 2 anos para a frente. No calendário, cada um marca os dias de estadia dentro deste período: são eles que
-              dividem por dias e por presença.
-            </span>
-          </div>
-        ) : (
-          <label className="campo-novo">
-            <span className="rotulo">Data</span>
-            <span className="caixa-com-icone">
-              <Icone nome="calendario" tamanho={22} />
-              <input className="caixa caixa--texto" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
-            </span>
-            <span className="ajuda-campo">
-              {NOTA_DA_DATA[tipo] ?? "Desde quando o conjunto existe. Os fechamentos contam a partir daqui."}
-            </span>
-          </label>
-        )}
 
         {!perfil?.nome && (
           <label className="campo-novo">

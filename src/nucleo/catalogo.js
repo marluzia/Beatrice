@@ -258,6 +258,8 @@ export const criarItem = (modelo, participantes = []) => ({
   dica: modelo.dica,
   participantes: [...participantes],
   // Só nos equipamentos da Multi: a lancha, o gerador. "hora" ou "uso".
+  // Os preços por mês, dia, hora ou uso (`precos`) só nascem quando a pessoa
+  // liga as unidades no cartão; até lá vale o preço único da `medida`.
   ...(modelo.equipamento ? { equipamento: true, medida: modelo.medida ?? "uso" } : {}),
 });
 

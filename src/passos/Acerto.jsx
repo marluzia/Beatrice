@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { Alerta, Ficha, Rotulo, Titulo } from "../componentes/index.js";
 import { mostrarAviso } from "../componentes/Interface.jsx";
 import { MESES, reais } from "../nucleo/formato.js";
@@ -101,7 +102,7 @@ export default function Acerto({ estado, resultado, modo, nomeDoConjunto, travad
             .map((t) => {
             const chave = chaveDaTransferencia(t);
             const feito = pagamentos[chave];
-            const texto = `${t.deNome} → ${t.paraNome}: R$ ${emReais(t.centavos)}`;
+            const texto = `${t.deNome} → ${t.paraNome}: ${simboloDe()} ${emReais(t.centavos)}`;
             if (feito) {
               return (
                 <div className="pix pix--feito" key={chave}>
@@ -114,7 +115,7 @@ export default function Acerto({ estado, resultado, modo, nomeDoConjunto, travad
                     </span>
                   </div>
                   <div className="pix__lado">
-                    <strong className="pix__valor pix__valor--menor">R$ {emReais(t.centavos)}</strong>
+                    <strong className="pix__valor pix__valor--menor">{simboloDe()} {emReais(t.centavos)}</strong>
                     <button type="button" className="link-sublinhado" onClick={() => acoes?.confirmarPagamento(chave, false)}>
                       desfazer
                     </button>
@@ -129,7 +130,7 @@ export default function Acerto({ estado, resultado, modo, nomeDoConjunto, travad
                   <strong className="pix__quem">
                     {nomeComVoce(t.de, t.deNome)} → {nomeComVoce(t.para, t.paraNome)}
                   </strong>
-                  <strong className="pix__valor">R$ {emReais(t.centavos)}</strong>
+                  <strong className="pix__valor">{simboloDe()} {emReais(t.centavos)}</strong>
                 </div>
                 <p className="pix__nota">
                   pendente{quais ? ` · ${t.paraNome} pagou ${quais}` : ""}
@@ -140,7 +141,7 @@ export default function Acerto({ estado, resultado, modo, nomeDoConjunto, travad
                     className="botao"
                     onClick={() =>
                       copiarTexto(
-                        `R$ ${emReais(t.centavos)}`,
+                        `${simboloDe()} ${emReais(t.centavos)}`,
                         `Valor copiado. A chave Pix de ${t.paraNome} ainda não fica salva no app: em breve.`,
                       )
                     }
@@ -161,7 +162,7 @@ export default function Acerto({ estado, resultado, modo, nomeDoConjunto, travad
       {minhaParte && ir && (
         <button type="button" className="linha-solta linha-solta--cartao" onClick={() => ir("saldos")}>
           <strong>
-            Por que R$ {emReais(Math.abs(minhaParte.saldo))}? Ver como sua parte foi formada
+            Por que {simboloDe()} {emReais(Math.abs(minhaParte.saldo))}? Ver como sua parte foi formada
           </strong>
           <span aria-hidden="true">›</span>
         </button>
@@ -189,7 +190,7 @@ export default function Acerto({ estado, resultado, modo, nomeDoConjunto, travad
             {acerto.diretas.map((d) => (
               <li key={d.id}>
                 <span>{d.nome}</span>
-                <strong>R$ {emReais(d.centavos)}</strong>
+                <strong>{simboloDe()} {emReais(d.centavos)}</strong>
               </li>
             ))}
           </ul>
@@ -203,7 +204,7 @@ export default function Acerto({ estado, resultado, modo, nomeDoConjunto, travad
 
       {(acerto.sobraDevendo !== 0 || acerto.sobraRecebendo !== 0) && (
         <Alerta nivel="erro">
-          O acerto não fechou: sobraram R$ {emReais(acerto.sobraDevendo)} devendo e R$ {emReais(acerto.sobraRecebendo)} a
+          O acerto não fechou: sobraram {simboloDe()} {emReais(acerto.sobraDevendo)} devendo e {simboloDe()} {emReais(acerto.sobraRecebendo)} a
           receber. Isso é erro do programa, não seu   mande este caso para a gente.
         </Alerta>
       )}

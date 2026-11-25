@@ -6,7 +6,7 @@ import { dentroDaJanela, janelaDoFechamento } from "../nucleo/calendario.js";
 
 /** O calendário do conjunto, fora do Fechar contas: o mês e o dia tocado. */
 export default function CalendarioDoConjunto({ app }) {
-  const { estado, acoes, modo, voltar, nomeDoConjunto, abrirNotificacoes } = app;
+  const { estado, acoes, modo, voltar, ir, nomeDoConjunto, abrirNotificacoes } = app;
   // Na temporada, abre no período dela quando hoje está fora.
   const [dia, setDia] = useState(() => {
     const hoje = hojeISO();
@@ -22,7 +22,19 @@ export default function CalendarioDoConjunto({ app }) {
       <h1 className="titulo-tela titulo-tela--grande">Calendário</h1>
 
       <div className="embutido embutido--calendario">
-        <PassoCalendario estado={estado} acoes={acoes} modo={modo} secao="mes" diaAberto={dia} aoAbrirDia={setDia} solto />
+        <PassoCalendario
+          estado={estado}
+          acoes={acoes}
+          modo={modo}
+          secao="mes"
+          diaAberto={dia}
+          aoAbrirDia={setDia}
+          solto
+          aoAbrirLancamento={(ref) => ir("lancamento", ref)}
+          aoLancarNoDia={(tipo, data) =>
+            tipo === "lembrete" ? ir("lancarLembrete", { tipo: "nota", data }) : ir("lancar", { tipo: "avulsa", data })
+          }
+        />
       </div>
 
       {dia && (

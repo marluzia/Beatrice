@@ -1,4 +1,6 @@
+import { simboloDe } from "./moedas.js";
 import { MESES, nomeOu, num, reais } from "./formato.js";
+import { precosDe, temPrecos, unidadeDePreco } from "./precos.js";
 import { consumoDaFatura, datasMarcadas, polaridadeDoConjunto, totalDaFatura } from "./adaptador.js";
 import { cicloPorId, ciclosLigados, ehMedido, unidadeDoRecurso } from "./ciclos.js";
 import { diasDaJanela, janelaDoFechamento } from "./calendario.js";
@@ -25,6 +27,12 @@ const itensAtivos = (estado) => estado.itens.filter((i) => i.participantes.lengt
 
 /** Um uso cobrado em reais: a faxina por diária, a embarcação por hora. */
 const usoEmReais = (item) => item.especie === "porUso" && item.origemUso === "reais";
+
+/** O preço de um uso em reais; num equipamento com vários preços, o maior deles (para saber se há algum). */
+const precoDoUso = (item) =>
+  temPrecos(item) && item.precos
+    ? Math.max(0, ...Object.values(precosDe(item)).map((v) => num(v)))
+    : num(item.valorPorUso);
 
 // ── presença: a pergunta muda de lado conforme o modo ──────────────────────
 //
@@ -86,7 +94,7 @@ function faturaLancada(fatura) {
 
   const partes = [];
   if (consumo) partes.push(`${qtd(consumo)} ${unidade}`);
-  if (total) partes.push(`R$ ${reais(total)}`);
+  if (total) partes.push(`${simboloDe()} ${reais(total)}`);
   return `${nome}: ${partes.join(", ")}`;
 }
 
@@ -105,9 +113,14 @@ function itemLancado(item, estado) {
   if (item.especie === "porUso") {
     // O que a casa precisa conferir num item por uso em reais é o PREÇO, não
     // só a quantidade: "4 usos" não diz se a diária da faxina está certa.
-    const preco = usoEmReais(item) && num(item.valorPorUso)
-      ? `R$ ${reais(num(item.valorPorUso))} cada`
-      : null;
+    const preco = usoEmReais(item) && temPrecos(item) && item.precos
+      ? Object.entries(precosDe(item))
+          .filter(([, v]) => num(v) > 0)
+          .map(([u, v]) => `${simboloDe()} ${reais(num(v))} ${unidadeDePreco(u).nome}`)
+          .join(", ") || null
+      : usoEmReais(item) && num(item.valorPorUso)
+        ? `${simboloDe()} ${reais(num(item.valorPorUso))} cada`
+        : null;
 
     const quantos =
       item.rateio === "uso" || item.rateio === "horas"
@@ -120,7 +133,7 @@ function itemLancado(item, estado) {
     return partes.length ? `${item.nome}: ${partes.join(", ")}` : null;
   }
 
-  return num(item.valor) ? `${item.nome}: R$ ${reais(num(item.valor))}` : null;
+  return num(item.valor) ? `${item.nome}: ${simboloDe()} ${reais(num(item.valor))}` : null;
 }
 
 function jaLancado(estado) {
@@ -209,7 +222,7 @@ function faltando(estado, diasNoMes) {
     // O preço do uso é da casa, não de cada um: a diária da faxina e a hora
     // da embarcação valem o mesmo para todo mundo, e sem elas o item custa
     // zero por mais usos que sejam lançados.
-    if (usoEmReais(item) && !num(item.valorPorUso)) {
+    if (usoEmReais(item) && !precoDoUso(item)) {
       perguntas.push({
         texto: `${item.nome}: quanto custa cada ${item.rateio === "horas" ? "hora" : "uso"}`,
         pessoal: false,

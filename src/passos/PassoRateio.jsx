@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { useState } from "react";
 import { Alerta, Botao, Ficha, Titulo } from "../componentes/index.js";
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
@@ -24,12 +25,12 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
     Math.abs(centavos) === 1 ? "1 centavo" : `${Math.abs(centavos)} centavos`;
 
   const veredito = !fecha
-    ? `diferença de R$ ${reais(resultado.diferenca)}`
+    ? `diferença de ${simboloDe()} ${reais(resultado.diferenca)}`
     : sobrouCentavo
       ? centavos > 0
-        ? `arredondado, falta ${quantos} para os R$ ${reais(resultado.somaDevida)} devidos`
-        : `arredondado, sobra ${quantos} sobre os R$ ${reais(resultado.somaDevida)} devidos`
-      : `fecha com os R$ ${reais(resultado.somaDevida)} devidos`;
+        ? `arredondado, falta ${quantos} para os ${simboloDe()} ${reais(resultado.somaDevida)} devidos`
+        : `arredondado, sobra ${quantos} sobre os ${simboloDe()} ${reais(resultado.somaDevida)} devidos`
+      : `fecha com os ${simboloDe()} ${reais(resultado.somaDevida)} devidos`;
 
   const classeDoVeredito = !fecha
     ? "veredito veredito--furado"
@@ -149,7 +150,7 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
                 <span className="ponto" style={{ background: corDe(i) }} />
                 <span className="pessoa-nome">{nomeOu(m.nome, i)}</span>
                 <span className="pessoa-dias">{m.diasContados}d</span>
-                <span className="pessoa-total">R$ {reais(deveDe(m.moradorId))}</span>
+                <span className="pessoa-total">{simboloDe()} {reais(deveDe(m.moradorId))}</span>
                 {cessao.quemCede === m.moradorId && cessao.residuo !== 0 && (
                   <span className="pessoa-cedeu" title="ficou com o centavo que não fecha">
                     cede {Math.abs(cessao.residuo)}
@@ -195,8 +196,8 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
             para a linha fechar. */}
         {cessao.precisaEscolher && (
           <p className="dica dica--alerta">
-            Somados, estes valores dão R$ {reais(resultado.somaCobradaArredondada)} e o
-            devido é R$ {reais(resultado.somaDevida)}. A diferença é a moeda que ainda
+            Somados, estes valores dão {simboloDe()} {reais(resultado.somaCobradaArredondada)} e o
+            devido é {simboloDe()} {reais(resultado.somaDevida)}. A diferença é a moeda que ainda
             não tem dono: escolha em <strong>Quem cede</strong>, acima.
           </p>
         )}
@@ -254,7 +255,7 @@ export default function PassoRateio({ estado, resultado, indicePorId, acoes, mod
           ))}
           <div className="conferencia-total">
             <span>Cobrado dos envolvidos</span>
-            <span>R$ {reais(resultado.somaCobrada)}</span>
+            <span>{simboloDe()} {reais(resultado.somaCobrada)}</span>
           </div>
           {/* A linha "somando os valores arredondados" saiu daqui. Ela existia
               quando não havia quem cede: mostrava a soma torta e deixava a casa

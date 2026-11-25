@@ -31,11 +31,15 @@
 // mostra. Quando a divisão não fecha em dinheiro, o resto vai para quem a casa
 // escolheu   é o `quemCede` do estado, e é a frase da marca virando campo.
 
+import { simboloDe } from "./moedas.js";
 import { estadoDaConta } from "./naConta.js";
 import { nomeOu, num } from "./formato.js";
 import { totalDaFatura } from "./traducao/fatura.js";
 import { ciclosLigados, deConta } from "./ciclos.js";
 import { emCentavos, quemCedeDe } from "./cessao.js";
+import { dentroDaJanela, janelaDoFechamento } from "./calendario.js";
+import { temPrecos, valorDoRegistro } from "./precos.js";
+import { pesosDoRegistro, registrosDe } from "./traducao/uso.js";
 
 export { emCentavos, quemCedeDe };
 
@@ -78,6 +82,15 @@ export function despesasPagaveis(estado, resultado) {
     const centavos = emCentavos(calculado?.custoTotal ?? 0);
     if (centavos === 0) continue;
 
+    // Equipamento avulso cujos registros dizem quem pagou: cada uso é uma
+    // despesa à parte, paga por quem o registro diz, e dividida entre quem
+    // pagou por ele (a fatia de cada um, pelo "como divide" do registro).
+    const porRegistro = porRegistroPagavel(estado, item);
+    if (porRegistro) {
+      lista.push(...porRegistro);
+      continue;
+    }
+
     lista.push({
       id: item.id,
       tipo: "item",
@@ -91,6 +104,37 @@ export function despesasPagaveis(estado, resultado) {
     });
   }
 
+  return lista;
+}
+
+/**
+ * As despesas de um equipamento avulso, uma por registro, quando algum
+ * registro diz quem pagou. Só os registros dentro do período do fechamento,
+ * como o motor conta. Sem nenhum registro com pagador, devolve null e o item
+ * entra inteiro, com o pagador do item.
+ */
+function porRegistroPagavel(estado, item) {
+  if (!temPrecos(item) || !(item.rateio === "uso" || item.rateio === "horas")) return null;
+  const registros = registrosDe(item).filter((r) => r.data);
+  if (!registros.some((r) => "pagoPor" in r)) return null;
+  const janela = janelaDoFechamento(estado.ciclos, estado.periodo, estado.corte);
+  const lista = [];
+  for (const r of registros) {
+    if (!dentroDaJanela(r.data, janela)) continue;
+    const valor = valorDoRegistro(item, r);
+    const centavos = emCentavos(valor);
+    if (centavos === 0) continue;
+    const { pesos, soma } = pesosDoRegistro(r);
+    lista.push({
+      id: `${item.id}:${r.id}`,
+      tipo: "item",
+      nome: `${item.nome?.trim() || "Item sem nome"} · ${r.data.slice(8, 10)}/${r.data.slice(5, 7)}`,
+      centavos,
+      pagoPor: r.pagoPor ?? item.pagoPor ?? null,
+      data: r.data,
+      porPessoa: Object.fromEntries(Object.entries(pesos).map(([id, p]) => [id, (valor * p) / soma])),
+    });
+  }
   return lista;
 }
 
@@ -269,7 +313,7 @@ export function mensagemDoAcerto(acerto, periodo, nomeDoConjunto) {
   } else {
     linhas.push("Acerto:");
     for (const t of acerto.transferencias) {
-      linhas.push(`  ${t.deNome} → ${t.paraNome}: R$ ${reais(t.centavos)}`);
+      linhas.push(`  ${t.deNome} → ${t.paraNome}: ${simboloDe()} ${reais(t.centavos)}`);
     }
   }
 

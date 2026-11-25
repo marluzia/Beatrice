@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { Ajuda } from "../componentes/index.js";
 
 export function AjudaContas() {
@@ -114,13 +115,13 @@ export function AjudaCentavos() {
         Divisão exata geralmente possui mais casas decimais que o formato monetário, isso causa arredondamentos. Por exemplo, cem reais entre três pessoas:
       </p>
       <div className="ajuda__conta">
-        {"R$ 100,00 ÷ 3  =  R$ 33,3333...\n" +
-          "arredondando   =  R$ 33,33 para cada\n" +
-          "somando         =  R$ 99,99\n" +
+        {`${simboloDe()} 100,00 ÷ 3  =  ${simboloDe()} 33,3333...\n` +
+          `arredondando   =  ${simboloDe()} 33,33 para cada\n` +
+          `somando         =  ${simboloDe()} 99,99\n` +
           "                   falta 1 centavo"}
       </div>
       <p>
-        O centavo não sumiu por erro de cálculo. 3 pessoas juntas não conseguem formar R$ 100,00 com fatias iguais em
+        O centavo não sumiu por erro de cálculo. 3 pessoas juntas não conseguem formar {simboloDe()} 100,00 com fatias iguais em
         centavos inteiros.
       </p>
       <p>

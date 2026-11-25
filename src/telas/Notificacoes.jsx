@@ -21,7 +21,7 @@ function avisosDeHoje(panorama, perfil, hoje) {
           tipo: "pix",
           conjunto: p.ficha.id,
           titulo: `${meus.length === 1 ? "Falta seu Pix" : `Faltam seus ${meus.length} Pix`} do fechamento${e.modo === "evento" || e.modo === "temporada" ? "" : ` de ${mes}`}`,
-          texto: `${listaEmFrase(meus.map((t) => `${dinheiro(t.centavos / 100)} para ${t.paraNome}`))} · ${p.ficha.nome}`,
+          texto: `${listaEmFrase(meus.map((t) => `${dinheiro(t.centavos / 100, { moeda: e.moeda })} para ${t.paraNome}`))} · ${p.ficha.nome}`,
         });
       }
     }
@@ -39,7 +39,7 @@ function avisosDeHoje(panorama, perfil, hoje) {
           titulo: `${v.ciclo.nome} de ${mes} vence ${quando}`,
           texto: v.pagoPor
             ? `Já paga por ${nomeDe(e, v.pagoPor)}${v.pagoEm ? ` em ${curta(v.pagoEm.slice(0, 10))}` : ""}. Nada a fazer.`
-            : `${dinheiro(v.valor)} · ${p.ficha.nome} · ninguém marcou como paga.`,
+            : `${dinheiro(v.valor, { moeda: e.moeda })} · ${p.ficha.nome} · ninguém marcou como paga.`,
         });
       }
     }
@@ -60,7 +60,7 @@ function avisosDeHoje(panorama, perfil, hoje) {
         id: `a-${p.ficha.id}-${a.quando}`,
         tipo: "lancamento",
         conjunto: p.ficha.id,
-        titulo: `${a.texto}, ${dinheiro(a.valor ?? 0)}`,
+        titulo: `${a.texto}, ${dinheiro(a.valor ?? 0, { moeda: e.moeda })}`,
         texto: p.ficha.nome,
       });
     }
@@ -76,23 +76,26 @@ export default function Notificacoes({ app, rota, aoVoltar }) {
   const deHoje = avisosDeHoje(fonte, perfil, hoje);
 
   const antes = fonte
-    .flatMap((p) => (p.atividade ?? []).map((a) => ({ ...a, conjunto: p.ficha.id, nomeDoConjunto: p.ficha.nome })))
+    .flatMap((p) => (p.atividade ?? []).map((a) => ({ ...a, conjunto: p.ficha.id, nomeDoConjunto: p.ficha.nome, moeda: p.estado.moeda })))
     .filter((a) => !String(a.quando).startsWith(hoje))
     .sort((a, b) => String(b.quando).localeCompare(String(a.quando)))
     .slice(0, 12);
 
+  // Cada aviso abre o lançamento dele, sozinho; o Pix vai para o acerto.
   const destino = (n) =>
     n.tipo === "pix"
       ? { tela: "fechar", passo: "rateio", secao: "acerto" }
       : n.tipo === "vencimento" || n.tipo === "ok"
-        ? { tela: "ciclo", id: n.ciclo }
-        : n.tipo === "lembrete"
-          ? { tela: "lembretes" }
-          : { tela: "despesas" };
+        ? { tela: "lancamento", tipo: "ciclica", id: n.ciclo }
+        : n.ref
+          ? { tela: "lancamento", ...n.ref }
+          : n.tipo === "lembrete"
+            ? { tela: "verLembretes" }
+            : { tela: "verDespesas" };
 
   return (
     <div className="tela">
-      <TopoDaTela aoVoltar={aoVoltar ?? voltar} />
+      <TopoDaTela aoVoltar={aoVoltar ?? voltar} semSino />
       <h1 className="titulo-tela titulo-tela--grande">{rota?.soEste ? "Histórico" : "Notificações"}</h1>
       <p className="texto-apoio">Os avisos nascem do que acontece nas despesas: vencimentos, pagamentos, registros e fechamentos.</p>
 
@@ -130,7 +133,7 @@ export default function Notificacoes({ app, rota, aoVoltar }) {
                 <span className="linha-historico__data">{curta(String(a.quando).slice(0, 10))}</span>
                 <span>
                   {a.texto}
-                  {a.valor ? ` · ${dinheiro(a.valor)}` : ""}
+                  {a.valor ? ` · ${dinheiro(a.valor, { moeda: a.moeda })}` : ""}
                   {!rota?.soEste && <small> · {a.nomeDoConjunto}</small>}
                 </span>
               </div>

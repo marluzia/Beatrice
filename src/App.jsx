@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCDR } from "./ganchos/useCDR.js";
-import { Avisos, mostrarAviso } from "./componentes/Interface.jsx";
+import { Avisos, mostrarAviso, SinoContexto } from "./componentes/Interface.jsx";
 import { dadosDoLink, lerLink } from "./nucleo/compartilhar/link.js";
+import { definirMoedaAtual } from "./nucleo/moedas.js";
 import BarraInferior from "./componentes/BarraInferior.jsx";
 import { quemSouEu, resumoDoConjunto } from "./nucleo/resumo.js";
 import Inicio from "./telas/Inicio.jsx";
@@ -12,9 +13,21 @@ import Hub from "./telas/Hub.jsx";
 import Despesas from "./telas/Despesas.jsx";
 import VerDespesas from "./telas/VerDespesas.jsx";
 import Historico from "./telas/Historico.jsx";
+import LancarDespesa from "./telas/LancarDespesa.jsx";
+import Busca from "./telas/Busca.jsx";
+import Pessoas from "./telas/Pessoas.jsx";
+import Itens from "./telas/Itens.jsx";
+import Analise from "./telas/Analise.jsx";
+import Lancamento from "./telas/Lancamento.jsx";
+import LancarLembrete from "./telas/LancarLembrete.jsx";
+import EditarLancamento from "./telas/EditarLancamento.jsx";
+import EditarItem from "./telas/EditarItem.jsx";
+import VerLembretes from "./telas/VerLembretes.jsx";
+import LancarRegistro from "./telas/LancarRegistro.jsx";
+import VerRegistros from "./telas/VerRegistros.jsx";
+import BarraDoConjunto from "./componentes/BarraDoConjunto.jsx";
 import Saldos from "./telas/Saldos.jsx";
 import FecharContas from "./telas/FecharContas.jsx";
-import Editor from "./telas/Editor.jsx";
 import CalendarioDoConjunto from "./telas/CalendarioDoConjunto.jsx";
 import Lembretes from "./telas/Lembretes.jsx";
 import Registros from "./telas/Registros.jsx";
@@ -40,10 +53,20 @@ const TELAS_DO_CONJUNTO = {
   despesas: Despesas,
   verDespesas: VerDespesas,
   historico: Historico,
+  lancar: LancarDespesa,
   saldos: Saldos,
   fechar: FecharContas,
-  editar: Editor,
   calendario: CalendarioDoConjunto,
+  pessoas: Pessoas,
+  itens: Itens,
+  analise: Analise,
+  lancamento: Lancamento,
+  lancarLembrete: LancarLembrete,
+  editarLancamento: EditarLancamento,
+  editarItem: EditarItem,
+  verLembretes: VerLembretes,
+  lancarRegistro: LancarRegistro,
+  verRegistros: VerRegistros,
   lembretes: Lembretes,
   registros: Registros,
   ciclo: DespesaCiclica,
@@ -52,11 +75,19 @@ const TELAS_DO_CONJUNTO = {
 };
 
 /**
- * As seções do conjunto: as que o hub abre direto. Só elas mostram a barra de baixo;
- * qualquer outra tela (lançar, ver despesas, composição, fechar, configurar…) esconde
- * a barra para a pessoa ficar só na ação.
+ * Dentro de um conjunto, a barra de baixo é a do conjunto (Início, Calendário,
+ * Análise, Pessoas) e só aparece no painel e nessas seções. Toda outra
+ * tela   Lançar despesas, Ver despesas, Ver saldos, lançar à mão, a
+ * composição, Fechar contas, Configurar   esconde a barra, para a pessoa
+ * ficar só no que veio fazer.
  */
-const SECOES_COM_BARRA = new Set(["hub", "despesas", "verDespesas", "saldos", "calendario", "lembretes", "registros"]);
+const SECOES_DO_CONJUNTO = ["calendario", "analise", "pessoas"];
+const COM_BARRA_DO_CONJUNTO = new Set(["hub", ...SECOES_DO_CONJUNTO]);
+
+/** Lembretes, Registros e Período são abas do painel: ir para eles é voltar ao painel com a aba aberta. */
+const ABAS_DO_PAINEL = new Set(["lembretes", "registros", "periodo"]);
+const naAba = (destino) =>
+  destino && ABAS_DO_PAINEL.has(destino.tela) ? { ...destino, tela: "hub", aba: destino.tela, vez: Date.now() } : destino;
 
 export default function App() {
   const cdr = useCDR();
@@ -71,7 +102,20 @@ export default function App() {
   const [folha, setFolha] = useState(false);
 
   const ir = useCallback((tela, params = {}) => {
-    setPilha((p) => [...p, { tela, ...params }]);
+    if (ABAS_DO_PAINEL.has(tela)) setPilha([naAba({ tela, ...params })]);
+    else setPilha((p) => [...p, { tela, ...params }]);
+    aoTopo();
+  }, []);
+
+  /** Uma das seções da barra do conjunto: fica logo acima do painel. */
+  const irParaSecao = useCallback((tela) => {
+    setPilha([{ tela: "hub" }, { tela }]);
+    aoTopo();
+  }, []);
+
+  /** Início, na barra do conjunto: o painel, sem nada empilhado. */
+  const irAoPainel = useCallback(() => {
+    setPilha([{ tela: "hub" }]);
     aoTopo();
   }, []);
 
@@ -86,6 +130,19 @@ export default function App() {
     setPilha([{ tela: "hub" }]);
     aoTopo();
   }, [acoes]);
+
+  /**
+   * Volta e tira também as telas de baixo que eram do lançamento apagado
+   * (apagar em Editar despesa não cai em "este lançamento não existe mais").
+   */
+  const voltarSem = useCallback((telas) => {
+    setPilha((p) => {
+      let q = p.slice(0, -1);
+      while (q.length > 1 && telas.includes(q[q.length - 1].tela)) q = q.slice(0, -1);
+      return q.length ? q : [{ tela: "hub" }];
+    });
+    aoTopo();
+  }, []);
 
   const voltar = useCallback(() => {
     if (pilha.length > 1) {
@@ -104,7 +161,8 @@ export default function App() {
         if (estado) acoes.fecharConjunto();
         if (!acoes.abrirConjunto(id)) return;
       }
-      setPilha(destino ? [{ tela: "hub" }, destino] : [{ tela: "hub" }]);
+      const alvo = naAba(destino);
+      setPilha(!alvo ? [{ tela: "hub" }] : alvo.tela === "hub" ? [alvo] : [{ tela: "hub" }, alvo]);
       setFora(null);
       setFolha(false);
       aoTopo();
@@ -163,6 +221,10 @@ export default function App() {
 
   const nomeDoConjunto = conjuntos.find((c) => c.id === idDoConjunto)?.nome;
 
+  // Dentro de um conjunto, todo valor sai na moeda dele; fora, em real (quem
+  // mostra valores de vários conjuntos diz a moeda de cada um).
+  definirMoedaAtual(estado?.moeda);
+
   // O saldo de você no conjunto aberto, ao vivo (o panorama só relê ao gravar).
   const resumo = useMemo(
     () => (estado && resultado ? resumoDoConjunto(estado, { perfil, resultado }) : null),
@@ -178,10 +240,15 @@ export default function App() {
     ir,
     trocar,
     voltar,
+    voltarSem,
     abrir,
     sairDoConjunto,
     escolherAba,
     comecarACriar,
+    abrirBusca: () => {
+      setFora({ tela: "busca" });
+      aoTopo();
+    },
     abrirNotificacoes: () => {
       if (estado) ir("notificacoes");
       else setFora({ tela: "notificacoes" });
@@ -192,6 +259,8 @@ export default function App() {
   let corpo;
   let comBarra = true;
   let abaAtiva = aba;
+  let barraDoConjunto = false;
+  let secaoDoConjunto = null;
 
   if (fora?.tela === "criar") {
     comBarra = false;
@@ -208,15 +277,20 @@ export default function App() {
         }}
       />
     );
+  } else if (fora?.tela === "busca") {
+    comBarra = false;
+    corpo = <Busca app={app} aoVoltar={() => setFora(null)} />;
   } else if (fora?.tela === "notificacoes" && !estado) {
     comBarra = false;
     corpo = <Notificacoes app={app} aoVoltar={() => setFora(null)} />;
   } else if (estado) {
     const rota = pilha[pilha.length - 1] ?? { tela: "hub" };
     const Tela = TELAS_DO_CONJUNTO[rota.tela] ?? Hub;
-    comBarra = SECOES_COM_BARRA.has(rota.tela);
+    comBarra = COM_BARRA_DO_CONJUNTO.has(rota.tela);
+    barraDoConjunto = true;
+    secaoDoConjunto = rota.tela;
     abaAtiva = "conjuntos";
-    corpo = <Tela key={`${idDoConjunto}-${pilha.length}-${rota.tela}`} app={app} rota={rota} />;
+    corpo = <Tela key={`${idDoConjunto}-${pilha.length}-${rota.tela}-${rota.vez ?? ""}`} app={app} rota={rota} />;
   } else if (aba === "conjuntos") {
     corpo = <ListaDeConjuntos app={app} />;
   } else if (aba === "atividade") {
@@ -227,13 +301,30 @@ export default function App() {
     corpo = <Inicio app={app} />;
   }
 
+  const sino = { abrir: app.abrirNotificacoes, pendente: panorama.some((p) => p.resumo?.aPagar > 0) };
+
   return (
+    <SinoContexto.Provider value={sino}>
     <div className={`app ${comBarra ? "app--com-barra" : ""}`}>
       <main className="app__corpo">{corpo}</main>
 
       {folha && <FolhaDeCriar app={app} aoFechar={() => setFolha(false)} />}
 
-      {comBarra && (
+      {comBarra && barraDoConjunto && (
+        <BarraDoConjunto
+          secao={secaoDoConjunto}
+          semCalendario={modo.chave === "evento"}
+          aoEscolher={(tela) =>
+            tela === "calendario" && modo.chave === "evento"
+              ? mostrarAviso("Evento não conta dias. Para marcar estadias no calendário, crie uma Temporada.")
+              : tela === "hub"
+                ? irAoPainel()
+                : irParaSecao(tela)
+          }
+        />
+      )}
+
+      {comBarra && !barraDoConjunto && (
         <BarraInferior
           aba={abaAtiva}
           aoEscolher={escolherAba}
@@ -244,5 +335,6 @@ export default function App() {
 
       <Avisos />
     </div>
+    </SinoContexto.Provider>
   );
 }

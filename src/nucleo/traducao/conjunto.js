@@ -21,6 +21,7 @@ import { diasForaNaJanela, polaridadeDoConjunto, presentesPorDia } from "./morad
 import { itemParaMotor } from "./item.js";
 import { alertaDeLavagens } from "./uso.js";
 import { estadoDaConta } from "../naConta.js";
+import { MOEDA_PADRAO, moedaValida, trocarSimbolo } from "../moedas.js";
 
 export function paraMotor(estado) {
   const { mes, ano } = estado.periodo;
@@ -80,5 +81,9 @@ export const calcular = (estadoCompleto) => {
   const estado = estadoDaConta(estadoCompleto);
   const resultado = fecharNoDominio(paraMotor(estado));
   const extras = [...alertaDeLavagens(estado), ...alertaDoCorte(estado)];
-  return extras.length ? { ...resultado, alertas: [...resultado.alertas, ...extras] } : resultado;
+  const comExtras = extras.length ? { ...resultado, alertas: [...resultado.alertas, ...extras] } : resultado;
+  // O motor escreve os avisos em reais; o conjunto pode ser de outra moeda.
+  const moeda = moedaValida(estadoCompleto.moeda);
+  if (moeda === MOEDA_PADRAO) return comExtras;
+  return { ...comExtras, alertas: comExtras.alertas.map((a) => ({ ...a, texto: trocarSimbolo(a.texto, moeda) })) };
 };

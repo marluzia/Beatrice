@@ -1,6 +1,8 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { useState } from "react";
 import { AjudaContas } from "./ajudas.jsx";
 import QuemPagou from "./QuemPagou.jsx";
+import TecladoDeDivisao from "../componentes/TecladoDeDivisao.jsx";
 import LinhaDoTempo from "./LinhaDoTempo.jsx";
 import {
   Botao,
@@ -100,7 +102,7 @@ function Linha({ qual, linha, unidade, medido, acoes }) {
           inputMode="decimal"
           className="caixa linha-fatura__valor"
           value={linha.valor}
-          placeholder="R$"
+          placeholder={simboloDe()}
           aria-label={`Valor de ${nome}`}
           onChange={(e) => editar("valor", e.target.value)}
         />
@@ -340,7 +342,7 @@ function BlocoDeFatura({ fatura, periodo, moradores, indicePorId, acoes, aoFecha
             <div className="resumo-fatura">
               {preco !== 0 && (
                 <p className="tarifa tarifa--viva">
-                  R$ {tarifa(preco)} por {unidade}
+                  {simboloDe()} {tarifa(preco)} por {unidade}
                   <span className="resumo-fatura__nota">
                     preço efetivo do mês, já com impostos e créditos: não é a
                     tarifa impressa na fatura
@@ -348,7 +350,7 @@ function BlocoDeFatura({ fatura, periodo, moradores, indicePorId, acoes, aoFecha
                 </p>
               )}
               <p className="total-fatura">
-                Total da fatura: <strong>R$ {reais(total)}</strong>
+                Total da fatura: <strong>{simboloDe()} {reais(total)}</strong>
                 <span>confira com o valor a pagar</span>
               </p>
             </div>
@@ -403,7 +405,7 @@ function SoValor({ fatura, moradores, indicePorId, acoes }) {
       <div className="linha-campos">
         <Campo
           rotulo="Valor"
-          sufixo="R$"
+          sufixo={simboloDe()}
           valor={linhaDoValor?.valor ?? ""}
           aoMudar={(v) => acoes.definirValorDoCiclo(qual, v)}
           largura="campo--curto"
@@ -412,8 +414,8 @@ function SoValor({ fatura, moradores, indicePorId, acoes }) {
       </div>
       <div className="grupo">
         <Rotulo>Como divide</Rotulo>
-        <Segmentado
-          rotuloDoGrupo={`Como ${fatura.nome || "a conta"} divide`}
+        <TecladoDeDivisao
+          rotulo={`Como ${fatura.nome || "a conta"} divide`}
           opcoes={REGRAS_SO_VALOR}
           valor={regra}
           aoMudar={(v) => acoes.definirCiclo(qual, "rateio", v)}

@@ -11,10 +11,12 @@ const DESENHOS = {
       <circle cx="12" cy="14.5" r="4.6" />
     </>
   ),
+  // Os círculos concêntricos: o que aconteceu em volta de você.
   atividade: (
     <>
-      <path d="M11 4.2A8 8 0 1 0 19.8 13H11z" />
-      <path d="M14 3.2V10h6.8A7 7 0 0 0 14 3.2z" />
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="5.2" />
+      <circle cx="12" cy="12" r="1.9" />
     </>
   ),
   mais: <path d="M12 5v14M5 12h14" />,
@@ -94,6 +96,13 @@ const DESENHOS = {
       <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
     </>
   ),
+  // O lápis no papel: editar um lançamento.
+  editar: (
+    <>
+      <path d="M13 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12" />
+      <path d="M17.6 3.6a1.8 1.8 0 0 1 2.6 2.6L12.5 14l-3.3.8.8-3.3z" />
+    </>
+  ),
   documento: (
     <>
       <path d="M6 3.5h8l4 4V20a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 6 20z" />
@@ -126,6 +135,25 @@ const DESENHOS = {
     </>
   ),
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  itens: <path d="M12 3.5l7.5 4.2v8.6L12 20.5l-7.5-4.2V7.7zM4.5 7.7L12 12l7.5-4.3M12 12v8.5" />,
+  engrenagem: (
+    <>
+      <path d="M10.3 4.5h3.4l.5 2.3 1.5.8 2.2-.9 1.7 2.9-1.7 1.6v1.6l1.7 1.6-1.7 2.9-2.2-.9-1.5.8-.5 2.3h-3.4l-.5-2.3-1.5-.8-2.2.9-1.7-2.9 1.7-1.6v-1.6L4.4 9.6l1.7-2.9 2.2.9 1.5-.8z" />
+      <circle cx="12" cy="12" r="2.8" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3l1.4-2h5.6l1.4 2h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z" />
+      <circle cx="12" cy="13" r="3.4" />
+    </>
+  ),
+  importar: (
+    <>
+      <path d="M12 3.5v11M8 10.5l4 4 4-4" />
+      <path d="M5 15.5v3A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-3" />
+    </>
+  ),
   pontos: (
     <>
       <circle cx="12" cy="5.5" r="1.1" />
@@ -154,6 +182,20 @@ const DESENHOS = {
     <>
       <path d="M5 4.5h14v10l-5 5H5z" />
       <path d="M14 19.5v-5h5" />
+    </>
+  ),
+  pessoas: (
+    <>
+      <circle cx="9" cy="8.5" r="3.4" />
+      <path d="M2.8 19.5a6.2 6.2 0 0 1 12.4 0" />
+      <path d="M15.2 5.4a3.4 3.4 0 0 1 0 6.3M17.4 13.6a6.2 6.2 0 0 1 3.8 5.9" />
+    </>
+  ),
+  // A pizza com a fatia destacada: para onde foi o dinheiro.
+  analise: (
+    <>
+      <path d="M11 4.2A8 8 0 1 0 19.8 13H11z" />
+      <path d="M14 3.2V10h6.8A7 7 0 0 0 14 3.2z" />
     </>
   ),
   pessoa: (

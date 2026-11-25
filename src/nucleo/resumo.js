@@ -14,6 +14,7 @@
 // Tudo é função pura do estado (e do resultado, quando precisa de valor).
 
 import { acertoDe } from "./acerto.js";
+import { quantidadeNaUnidade, valorDoRegistro } from "./precos.js";
 import { calcular, datasMarcadas, diasContadosNaFatura, janelaDaFatura, polaridadeDoConjunto } from "./adaptador.js";
 import { diasDaJanela, intervalosDe, janelaDoFechamento, ultimoDiaDaJanela } from "./calendario.js";
 import { ciclosLigados, unidadeDoRecurso } from "./ciclos.js";
@@ -441,7 +442,10 @@ export function atividadeDe(estado, { resultado = null } = {}) {
     lista.push({
       quando: i.criadoEm,
       tipo: "despesa",
-      texto: i.pagoPor ? `${nome(i.pagoPor)} pagou ${titulo}` : `${quemLancou} lançou ${titulo}`,
+      ref: { tipo: "avulsa", id: i.id },
+      texto: i.pagoPor
+        ? `${nome(i.pagoPor)} pagou ${titulo}`
+        : `${i.lancadoPor ? nome(i.lancadoPor) : quemLancou} lançou ${titulo}`,
       titulo,
       valor,
       quem: i.pagoPor ?? null,
@@ -455,6 +459,7 @@ export function atividadeDe(estado, { resultado = null } = {}) {
       lista.push({
         quando: c.pagoEm,
         tipo: "pagamento",
+        ref: { tipo: "ciclica", id: c.id },
         texto: `${nome(c.pagoPor)} marcou ${artigoDe(c)} ${(c.nome || "conta").toLowerCase()} como paga`,
         titulo: c.nome,
         valor: totalDaFatura(c),
@@ -483,14 +488,38 @@ export function atividadeDe(estado, { resultado = null } = {}) {
     lista.push({
       quando: l.criadoEm,
       tipo: "lembrete",
+      ref: { tipo: "lembrete", id: l.id },
       titulo: sobre,
       texto: `${l.autor ? `${nome(l.autor)} criou ${l.tipo === "lista" ? "a lista" : "a nota"}` : l.tipo === "lista" ? "Lista criada" : "Nota criada"}${sobre ? ` “${curtoDe(sobre)}”` : ""}`,
       quem: l.autor,
     });
   }
 
+  // Editar também é lançar: a edição entra na atividade com quem editou.
+  for (const ed of estado.edicoes ?? []) {
+    if (!ed.lancadoEm) continue;
+    const titulo = ed.nome?.trim() || "um lançamento";
+    lista.push({
+      quando: ed.lancadoEm,
+      tipo: "edicao",
+      ref: { tipo: "edicao", id: ed.id },
+      titulo,
+      texto: `${ed.lancadoPor ? nome(ed.lancadoPor) : quemLancou} editou ${O_QUE_FOI_EDITADO[ed.ref?.tipo] ?? ""}${titulo}`,
+      quem: ed.lancadoPor ?? null,
+      mudancas: ed.mudancas ?? [],
+    });
+  }
+
   return lista.sort((a, b) => String(b.quando).localeCompare(String(a.quando)));
 }
+
+/** "editou a despesa Gás", "editou o registro de Máquina de lavar". */
+export const O_QUE_FOI_EDITADO = {
+  avulsa: "a despesa ",
+  ciclica: "a conta ",
+  registro: "o registro de ",
+  lembrete: "o lembrete ",
+};
 
 function artigoDe(ciclo) {
   const n = normal(ciclo.nome);
@@ -589,7 +618,8 @@ export function composicaoDoCiclo(estado, resultado, idDoCiclo) {
 export const medeHoras = (item) =>
   item.especie === "porHora" || (Boolean(item.equipamento) && (item.medida === "hora" || item.rateio === "horas"));
 
-const PALAVRA_DO_USO = (item, n) => {
+/** "1 lavagem", "2 horas", "3 usos": a medida do registro, como o item conta. */
+export const PALAVRA_DO_USO = (item, n) => {
   const q = num(n) || 1;
   const [um, varios] = medeHoras(item)
     ? ["hora", "horas"]
@@ -659,17 +689,18 @@ export function todasAsDespesas(estado, resultado, hoje = hojeISO()) {
       if (!r.data) continue;
       const vezes = num(r.quantidade) || 1;
       const valor = equipamento
-        ? num(item.valorPorUso) * vezes
+        ? valorDoRegistro(item, r)
         : Object.entries(tabela).reduce((s, [ciclo, porVez]) => s + num(porVez) * vezes * (tarifas[ciclo] ?? 0), 0);
       lista.push({
         tipo: "registrada",
         id: `${item.id}:${r.id}`,
         item: item.id,
         nome: item.nome?.trim() || "Aparelho",
-        detalhe: `${listaEmFrase((r.participantes ?? []).map(nome))} · ${PALAVRA_DO_USO(item, r.quantidade)} · ${curta(r.data)}`,
+        detalhe: `${listaEmFrase((r.participantes ?? []).map(nome))} · ${equipamento ? quantidadeNaUnidade(item, r) : PALAVRA_DO_USO(item, r.quantidade)} · ${curta(r.data)}`,
         valor,
         quando: r.data,
         dia: r.data,
+        registro: r,
       });
     }
   }

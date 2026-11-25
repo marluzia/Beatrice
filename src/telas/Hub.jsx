@@ -6,9 +6,7 @@ import {
   Avatar,
   centavosEmDinheiro,
   dinheiro,
-  Ladrilho,
   LinhaDeMenu,
-  mostrarAviso,
   NomeComItalico,
   SeloPilula,
   Sobrescrito,
@@ -16,17 +14,14 @@ import {
   TopoDaTela,
   tomDoSaldo,
 } from "../componentes/Interface.jsx";
-import { CORES_DO_CICLO, GraficoDosCiclos, ParaOndeFoi } from "./graficos.jsx";
 import { OpcoesDeAdicionar } from "./NovoConjunto.jsx";
 import FolhaDeCompartilhar from "./FolhaDeCompartilhar.jsx";
 import PainelDoPeriodo, { temPeriodo } from "./Periodo.jsx";
+import Registros from "./Registros.jsx";
 import {
   atrasosDe,
   balancoDasDespesas,
   curta,
-  despesasAvulsas,
-  diaDaSemanaCurto,
-  historicoDosCiclos,
   hojeISO,
   linhaDoMembro,
   nomeDe,
@@ -35,7 +30,7 @@ import {
   quandoFoi,
   atividadeDe,
 } from "../nucleo/resumo.js";
-import { partesDoTipo } from "./comum.js";
+import { codigoSeNaoForReal, partesDoTipo } from "./comum.js";
 import { MESES } from "../nucleo/formato.js";
 
 /** O selo da linha "Fechar contas": quitado, em andamento, em aberto. */
@@ -55,7 +50,7 @@ export function sobrescritoDaTela(app) {
   return [nomeDoConjunto, modo.faturas !== false ? `Fechamento de ${MESES[estado.periodo.mes - 1]}` : null];
 }
 
-function Membros({ app }) {
+export function Membros({ app }) {
   const { estado, modo, acoes, eu } = app;
   const [menu, setMenu] = useState(null);
   const [editando, setEditando] = useState(null);
@@ -180,10 +175,27 @@ function Membros({ app }) {
 }
 
 /** O painel de um conjunto: saldos, o próximo vencimento, despesas ou pessoas, e o resto. */
-export default function Hub({ app }) {
+/**
+ * As abas do painel. Evento: Despesas e Lembretes. Temporada: mais Período.
+ * As casas e a Multi: Despesas, Lembretes, Registros e Período.
+ */
+export function abasDoPainel(modo) {
+  const semFaturas = modo.faturas === false;
+  return [
+    { valor: "despesas", rotulo: "Despesas" },
+    { valor: "lembretes", rotulo: "Lembretes" },
+    ...(semFaturas ? [] : [{ valor: "registros", rotulo: "Registros" }]),
+    ...(temPeriodo(modo) ? [{ valor: "periodo", rotulo: "Período" }] : []),
+  ];
+}
+
+export default function Hub({ app, rota }) {
   const { estado, resultado, modo, acoes, resumo, eu, ir, voltar, nomeDoConjunto } = app;
-  const [aba, setAba] = useState("despesas");
+  const [aba, setAba] = useState(rota?.aba ?? "despesas");
+  const abas = abasDoPainel(modo);
+  const abaVisivel = abas.some((a) => a.valor === aba) ? aba : "despesas";
   const [compartilhando, setCompartilhando] = useState(false);
+  const [menu, setMenu] = useState(false);
   const hoje = hojeISO();
   const semFaturas = modo.faturas === false;
   const periodo = periodoDe(estado);
@@ -210,7 +222,7 @@ export default function Hub({ app }) {
     : `Fechamento de ${mes} · ${periodo.texto}`;
 
   const sobrescrito = semFaturas
-    ? [modo.nome, `${estado.moradores.length} ${estado.moradores.length === 1 ? "pessoa" : "pessoas"}`, estado.desde ? diaDaSemanaCurto(estado.desde) : null]
+    ? [modo.nome, `${estado.moradores.length} ${estado.moradores.length === 1 ? "pessoa" : "pessoas"}`, codigoSeNaoForReal(estado)]
     : partesDoTipo(estado);
 
   const atrasos = atrasosDe(estado, hoje);
@@ -244,17 +256,48 @@ export default function Hub({ app }) {
     <div className="tela">
       <TopoDaTela
         aoVoltar={voltar}
-        acoes={[
-          { icone: "enviar", rotulo: "Compartilhar conjunto", aoClicar: () => setCompartilhando(true) },
-          { icone: "info", rotulo: "Sobre o conjunto", aoClicar: () => ir("configurar") },
-          { icone: "relogio", rotulo: "Histórico", aoClicar: () => ir("historico") },
-          { icone: "sino", rotulo: "Notificações", aoClicar: () => ir("notificacoes"), marcado: resumo?.aPagar > 0 },
-        ]}
+        acoes={[{ icone: "pontos", rotulo: "Mais opções", aoClicar: () => setMenu((v) => !v) }]}
       />
 
-      <button type="button" className="pilula-config" onClick={() => ir("configurar")}>
-        <Icone nome="lapis" tamanho={18} /> <Icone nome="ajustes" tamanho={18} /> Configurar conjunto
-      </button>
+      {menu && (
+        <div className="menu-pontos__fundo" onClick={() => setMenu(false)}>
+          <div className="menu-pontos" role="menu" aria-label="Mais opções" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              role="menuitem"
+              className="menu-pontos__item"
+              onClick={() => {
+                setMenu(false);
+                setCompartilhando(true);
+              }}
+            >
+              <Icone nome="enviar" tamanho={20} /> Compartilhar
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="menu-pontos__item"
+              onClick={() => {
+                setMenu(false);
+                ir("historico");
+              }}
+            >
+              <Icone nome="relogio" tamanho={20} /> Histórico
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="menu-pontos__item"
+              onClick={() => {
+                setMenu(false);
+                ir("configurar");
+              }}
+            >
+              <Icone nome="engrenagem" tamanho={20} /> Configurar conjunto
+            </button>
+          </div>
+        </div>
+      )}
 
       <Sobrescrito partes={sobrescrito} />
       <h1 className="titulo-tela titulo-tela--conjunto">
@@ -290,7 +333,7 @@ export default function Hub({ app }) {
                 : `pagar ${dinheiro(resumo.aPagar / 100, { simbolo: false })} · receber ${dinheiro(resumo.aReceber / 100, { simbolo: false })}`}
             </span>
           ) : (
-            <button type="button" className="cartao-anel__nota link-sublinhado" onClick={() => setAba("pessoas")}>
+            <button type="button" className="cartao-anel__nota link-sublinhado" onClick={() => ir("pessoas")}>
               Quem é você aqui?
             </button>
           )}
@@ -300,7 +343,11 @@ export default function Hub({ app }) {
       {recente && (
         <section className="recente" aria-label="Recente">
           <h2 className="recente__titulo">Recente</h2>
-          <button type="button" className="faixa-aviso" onClick={() => ir("historico")}>
+          <button
+            type="button"
+            className="faixa-aviso"
+            onClick={() => (recente.ref ? ir("lancamento", recente.ref) : ir("historico"))}
+          >
             <span className={`ponto-atividade ponto-atividade--${recente.tipo}`} aria-hidden="true" />
             <span className="faixa-aviso__duas">
               <strong>{recente.texto}</strong>
@@ -326,7 +373,7 @@ export default function Hub({ app }) {
           key={a.ciclo.id}
           type="button"
           className="faixa-aviso faixa-aviso--atraso"
-          onClick={() => ir("ciclo", { id: a.ciclo.id })}
+          onClick={() => ir("lancamento", { tipo: "ciclica", id: a.ciclo.id })}
         >
           <Icone nome="relogio" tamanho={20} className="faixa-aviso__icone" />
           <span>
@@ -337,7 +384,7 @@ export default function Hub({ app }) {
       ))}
 
       {vencimento && (
-        <button type="button" className="faixa-aviso" onClick={() => ir("ciclo", { id: vencimento.ciclo.id })}>
+        <button type="button" className="faixa-aviso" onClick={() => ir("lancamento", { tipo: "ciclica", id: vencimento.ciclo.id })}>
           <Icone nome={vencimento.ciclo.id === "agua" ? "gota" : "raio"} tamanho={20} className="faixa-aviso__icone" />
           <span>
             {vencimento.ciclo.nome} de {mes} vence{" "}
@@ -354,20 +401,29 @@ export default function Hub({ app }) {
         </button>
       )}
 
-      <Abas
-        rotulo="O que ver"
-        valor={aba}
-        aoMudar={setAba}
-        opcoes={[
-          { valor: "despesas", rotulo: "Despesas" },
-          { valor: "pessoas", rotulo: "Pessoas" },
-          ...(temPeriodo(modo) ? [{ valor: "periodo", rotulo: "Período" }] : []),
-        ]}
-      />
+      <Abas rotulo="O que ver" valor={abaVisivel} aoMudar={setAba} opcoes={abas} />
 
-      {aba === "periodo" && temPeriodo(modo) ? (
+      {abaVisivel === "periodo" ? (
         <PainelDoPeriodo app={app} />
-      ) : aba === "despesas" ? (
+      ) : abaVisivel === "lembretes" ? (
+        <div className="cartao-lista">
+          <LinhaDeMenu
+            icone="mais"
+            iconeEscuro
+            titulo="Lançar lembretes"
+            subtitulo="listas e notas"
+            aoClicar={() => ir("lancarLembrete")}
+          />
+          <LinhaDeMenu
+            icone="busca"
+            titulo="Ver lembretes"
+            subtitulo={`${(estado.lembretes ?? []).length} ${(estado.lembretes ?? []).length === 1 ? "lembrete" : "lembretes"} · buscar e filtrar`}
+            aoClicar={() => ir("verLembretes")}
+          />
+        </div>
+      ) : abaVisivel === "registros" ? (
+        <Registros app={app} />
+      ) : (
         <div className="cartao-lista">
           <LinhaDeMenu
             icone="mais"
@@ -406,37 +462,11 @@ export default function Hub({ app }) {
             aoClicar={() => ir("fechar")}
           />
         </div>
-      ) : (
-        <Membros app={app} />
-      )}
-
-      <div className={`ladrilhos ${modo.chave === "evento" || modo.chave === "temporada" ? "ladrilhos--dois" : ""}`}>
-        {modo.chave === "evento" ? (
-          <Ladrilho
-            icone="calendario"
-            titulo="Calendário"
-            subtitulo="só na temporada"
-            apagado
-            aoClicar={() =>
-              mostrarAviso("Evento não conta dias. Para marcar estadias no calendário, crie uma Temporada.")
-            }
-          />
-        ) : (
-          <Ladrilho icone="calendario" titulo="Calendário" aoClicar={() => ir("calendario")} />
-        )}
-        <Ladrilho icone="documento" titulo="Lembretes" aoClicar={() => ir("lembretes")} />
-        {!semFaturas && <Ladrilho icone="registro" titulo="Registros" aoClicar={() => ir("registros")} />}
-      </div>
-
-      {semFaturas ? (
-        <ParaOndeFoi estado={estado} despesas={despesasAvulsas(estado, resultado)} />
-      ) : (
-        <GraficoDosCiclos estado={estado} historico={historicoDosCiclos(estado)} cores={CORES_DO_CICLO} />
       )}
 
       {!eu && estado.moradores.length > 0 && (
         <p className="nota-tipo">
-          Para ver o seu saldo, diga quem é você: em Pessoas, toque nos três pontinhos e escolha “Sou eu”.
+          Para ver o seu saldo, diga quem é você: em Pessoas (na barra de baixo), toque nos três pontinhos e escolha “Sou eu”.
         </p>
       )}
 

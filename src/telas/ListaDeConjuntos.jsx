@@ -1,9 +1,9 @@
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
-import { dinheiro, tomDoSaldo } from "../componentes/Interface.jsx";
+import { BotaoSino, dinheiro, tomDoSaldo } from "../componentes/Interface.jsx";
 import { hojeISO } from "../nucleo/resumo.js";
-import { fraseDoConjunto, porLancamento, TEXTO_DA_SITUACAO } from "./comum.js";
+import { codigoSeNaoForReal, fraseDoConjunto, porLancamento, TEXTO_DA_SITUACAO } from "./comum.js";
 
 const normal = (s) =>
   String(s ?? "")
@@ -13,7 +13,7 @@ const normal = (s) =>
 
 /** A aba Conjuntos: busca, criar e todos os conjuntos, o de lançamento mais recente primeiro. */
 export default function ListaDeConjuntos({ app }) {
-  const { panorama, abrir, comecarACriar, abrirNotificacoes } = app;
+  const { panorama, abrir, comecarACriar } = app;
   const [busca, setBusca] = useState("");
   const hoje = hojeISO();
 
@@ -24,10 +24,7 @@ export default function ListaDeConjuntos({ app }) {
       <div className="topo-tela topo-tela--so-direita">
         <span />
         <div className="topo-tela__acoes">
-          <button type="button" className="icone-botao" aria-label="Notificações" onClick={abrirNotificacoes}>
-            <Icone nome="sino" tamanho={24} />
-            {panorama.some((p) => p.resumo?.aPagar > 0) && <span className="ponto-aviso" />}
-          </button>
+          <BotaoSino />
         </div>
       </div>
 
@@ -70,7 +67,7 @@ export default function ListaDeConjuntos({ app }) {
                 </span>
                 <span className="linha-conjunto__valor">
                   <strong className={`valor--${valor === null ? "zero" : tomDoSaldo(valor)}`}>
-                    {valor === null ? "—" : dinheiro(valor, { sinal: true, simbolo: false })}
+                    {valor === null ? "—" : dinheiro(valor, { sinal: true, simbolo: Boolean(codigoSeNaoForReal(p.estado)), moeda: p.estado.moeda })}
                   </strong>
                   <span>{TEXTO_DA_SITUACAO[r?.situacao] ?? ""}</span>
                 </span>

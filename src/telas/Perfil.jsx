@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import Icone from "../componentes/Icone.jsx";
 import MarcaR from "../componentes/MarcaR.jsx";
-import { Avatar, emBreve } from "../componentes/Interface.jsx";
+import { Avatar, BotaoSino, emBreve } from "../componentes/Interface.jsx";
 import { AVISOS } from "../nucleo/perfil.js";
 
 /** Perfil: o seu nome, os avisos e os dados deste navegador. */
@@ -31,6 +31,7 @@ export default function Perfil({ app }) {
       <div className="perfil-topo">
         <MarcaR tamanho={44} titulo="CEDER" />
         <span className="sobrescrito sobrescrito--sem-margem">juntos dividimos justo</span>
+        <BotaoSino />
       </div>
       <h1 className="titulo-tela titulo-tela--grande">Perfil</h1>
 

@@ -16,6 +16,7 @@
 // Nada aqui calcula dinheiro. A agenda é uma leitura do estado; quem divide é
 // o motor, e ele continua recebendo o estado do mesmo jeito de antes.
 
+import { simboloDe } from "./moedas.js";
 import { MESES, nomeOu, num, reais } from "./formato.js";
 import { partesDoDia } from "./calendario.js";
 import { modoDoConjunto, polaridadeDoConjuntoNoModo as polaridadeDe } from "./modos.js";
@@ -115,7 +116,7 @@ export function agendaDe(estado) {
       const ate = fimDoItem(item);
       const partes = [];
 
-      if (item.especie === "reais") partes.push(valor ? `R$ ${reais(valor)}` : "sem valor ainda");
+      if (item.especie === "reais") partes.push(valor ? `${simboloDe()} ${reais(valor)}` : "sem valor ainda");
       if (ate) partes.push(`até ${ate.slice(8, 10)}/${ate.slice(5, 7)}`);
       partes.push(listar(nomesDe(estado, item.participantes)));
 

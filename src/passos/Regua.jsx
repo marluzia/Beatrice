@@ -1,3 +1,4 @@
+import { simboloDe } from "../nucleo/moedas.js";
 import { corDe, nomeOu, reais } from "../nucleo/formato.js";
 
 export default function Regua({ item, moradores, indicePorId }) {
@@ -15,7 +16,7 @@ export default function Regua({ item, moradores, indicePorId }) {
           {item.automatico && <span className="regua-marca"> · sobra</span>}
         </span>
         <span className="valor" style={negativo ? { color: "var(--alerta)" } : undefined}>
-          R$ {reais(item.custoTotal)}
+          {simboloDe()} {reais(item.custoTotal)}
         </span>
       </div>
       <div className="regua-barra">
@@ -23,7 +24,7 @@ export default function Regua({ item, moradores, indicePorId }) {
           <div
             key={f.moradorId}
             className="regua-fatia"
-            title={`${nomeDe(f.moradorId)} · R$ ${reais(f.total)}`}
+            title={`${nomeDe(f.moradorId)} · ${simboloDe()} ${reais(f.total)}`}
             style={{
               width: `${Math.max(0, f.proporcao) * 100}%`,
               background: corDe(indicePorId[f.moradorId]),

@@ -103,7 +103,7 @@ export const MODOS = {
     nome: "Evento",
     tipo: "Evento",
     exemplo: "Compra, festa, vaquinha, transporte",
-    descricao: "Despesas pontuais para dividir entre um grupo. Sem ciclos de fatura.",
+    descricao: "Algumas despesas pontuais para dividir entre um grupo. Sem ciclos.",
     pago: false,
 
     presenca: "nenhuma",
@@ -135,7 +135,7 @@ export const MODOS = {
     tipo: "Temporada",
     exemplo: "Viagem, acampamento, espaço alugado",
     descricao:
-      "Tem calendário de estadia para pesar os dias. Sem ciclos de fatura.",
+      "Cada um fica dias diferentes. Tem calendário para pesar os dias. Sem ciclos de fatura.",
     pago: false,
 
     // Marca-se quem esteve: o normal é não estar.
@@ -170,7 +170,7 @@ export const MODOS = {
     nome: "Familiar",
     tipo: "Família",
     exemplo: "Casal, família, amig@s",
-    descricao: "Tem calendário de falta. Comporta ciclos de fatura.",
+    descricao: "Contexto amigável para até 5 pessoas. Comporta ciclos de fatura.",
     pago: false,
 
     presenca: "ausencia",
@@ -201,7 +201,7 @@ export const MODOS = {
     tipo: "Moradia",
     exemplo: "República, coliving, alojamento, flat dividido",
     descricao:
-      "Tem calendário de falta e régua de uso comum. Comporta ciclos de fatura.",
+      "Todos moram aqui o mês inteiro e quem viaja é a exceção. Comporta ciclos de fatura.",
     pago: true,
 
     presenca: "ausencia",
@@ -234,9 +234,9 @@ export const MODOS = {
     chave: "multipro",
     nome: "Multi",
     tipo: "Multi",
-    exemplo: "Negócios e propriedades",
+    exemplo: "Imóvel de temporada, negócios, embarcações",
     descricao:
-      "Calculadora completa e configurável. Possui maior catálogo. Comporta ciclos de fatura.",
+      "Ninguém costuma ficar o mês inteiro. Possui maior catálogo. Comporta ciclos de fatura.",
     pago: true,
 
     // Marca-se a estadia por padrão; o conjunto pode trocar para dias fora

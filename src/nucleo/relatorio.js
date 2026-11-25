@@ -1,3 +1,4 @@
+import { simboloDe } from "./moedas.js";
 import {
   consumoDaFatura,
   datasMarcadas,
@@ -285,19 +286,19 @@ export function montarRelatorio(estado, resultado) {
       ...(f.medido
         ? [
             `  consumo: ${numero(f.consumo)} ${f.unidade}`,
-            `  total da fatura: R$ ${reais(f.total)}`,
-            `  do total, acompanha o consumo: R$ ${reais(f.consumoEmReais)}`,
-            `  preço efetivo: R$ ${numero(f.tarifa, 6)} por ${f.unidade}`,
+            `  total da fatura: ${simboloDe()} ${reais(f.total)}`,
+            `  do total, acompanha o consumo: ${simboloDe()} ${reais(f.consumoEmReais)}`,
+            `  preço efetivo: ${simboloDe()} ${numero(f.tarifa, 6)} por ${f.unidade}`,
           ]
         : [
-            `  total da fatura: R$ ${reais(f.total)}`,
-            `  do total, vai para o uso comum: R$ ${reais(f.consumoEmReais)}`,
+            `  total da fatura: ${simboloDe()} ${reais(f.total)}`,
+            `  do total, vai para o uso comum: ${simboloDe()} ${reais(f.consumoEmReais)}`,
           ]),
       "  linhas lançadas:",
     );
     for (const l of f.linhas) {
       linhas.push(
-        `    ${l.nome.padEnd(34)} ${l.quantidade.padStart(12)}  R$ ${reais(l.valor).padStart(10)}  ${l.comportamento}`,
+        `    ${l.nome.padEnd(34)} ${l.quantidade.padStart(12)}  ${simboloDe()} ${reais(l.valor).padStart(10)}  ${l.comportamento}`,
       );
     }
     linhas.push("");
@@ -307,7 +308,7 @@ export function montarRelatorio(estado, resultado) {
   for (const i of d.itens) {
     linhas.push(
       `  ${i.nome.padEnd(30)} ${(i.consumo || " ").padStart(18)}  ` +
-        `R$ ${reais(i.custoTotal).padStart(10)}  divide por ${i.rateio}`,
+        `${simboloDe()} ${reais(i.custoTotal).padStart(10)}  divide por ${i.rateio}`,
     );
   }
 
@@ -325,7 +326,7 @@ export function montarRelatorio(estado, resultado) {
     linhas.push("", regua("QUEM PAGOU"), "");
     for (const p of d.pagamentos) {
       linhas.push(
-        `  ${p.nome.padEnd(30)} R$ ${reais(p.valor).padStart(10)}  ` +
+        `  ${p.nome.padEnd(30)} ${simboloDe()} ${reais(p.valor).padStart(10)}  ` +
           `${p.quemPagou ?? "cada um pagou a sua parte"}`,
       );
     }
@@ -346,13 +347,13 @@ export function montarRelatorio(estado, resultado) {
     for (const s of acerto.saldos) {
       const situacao =
         s.saldo > 0
-          ? `recebe R$ ${reais(s.saldo / 100)}`
+          ? `recebe ${simboloDe()} ${reais(s.saldo / 100)}`
           : s.saldo < 0
-            ? `paga R$ ${reais(-s.saldo / 100)}`
+            ? `paga ${simboloDe()} ${reais(-s.saldo / 100)}`
             : "quite";
       linhas.push(
-        `  ${s.nome.padEnd(20)} adiantou R$ ${reais(s.pagou / 100).padStart(10)}` +
-          `  parte dele(a) R$ ${reais(s.deve / 100).padStart(10)}  →  ${situacao}`,
+        `  ${s.nome.padEnd(20)} adiantou ${simboloDe()} ${reais(s.pagou / 100).padStart(10)}` +
+          `  parte dele(a) ${simboloDe()} ${reais(s.deve / 100).padStart(10)}  →  ${situacao}`,
       );
     }
 
@@ -361,7 +362,7 @@ export function montarRelatorio(estado, resultado) {
       linhas.push("  Nenhuma transferência necessária.");
     } else {
       for (const t of acerto.transferencias) {
-        linhas.push(`  ${t.deNome} → ${t.paraNome}: R$ ${reais(t.centavos / 100)}`);
+        linhas.push(`  ${t.deNome} → ${t.paraNome}: ${simboloDe()} ${reais(t.centavos / 100)}`);
       }
     }
   }
@@ -377,7 +378,7 @@ export function montarRelatorio(estado, resultado) {
       "",
       "  Pagas direto, fora do acerto (cada um pagou a sua parte):",
       ...acerto.diretas.map(
-        (d) => `    ${d.nome.padEnd(28)} R$ ${reais(d.centavos / 100).padStart(10)}`,
+        (d) => `    ${d.nome.padEnd(28)} ${simboloDe()} ${reais(d.centavos / 100).padStart(10)}`,
       ),
     );
   }
@@ -385,7 +386,7 @@ export function montarRelatorio(estado, resultado) {
   linhas.push("", regua("CADA PESSOA"), "");
 
   for (const p of d.pessoas) {
-    linhas.push(regua(`${p.nome}   R$ ${reais(p.total)}`), "", "  presença");
+    linhas.push(regua(`${p.nome}   ${simboloDe()} ${reais(p.total)}`), "", "  presença");
     for (const pr of p.presenca) {
       linhas.push(`    dias contados na ${pr.conta}: ${pr.contados} de ${pr.de}`);
     }
@@ -396,18 +397,18 @@ export function montarRelatorio(estado, resultado) {
       "  de onde veio o valor",
     );
     for (const l of p.linhas) {
-      linhas.push(`    ${l.nome.padEnd(38)} R$ ${reais(l.valor).padStart(10)}`);
+      linhas.push(`    ${l.nome.padEnd(38)} ${simboloDe()} ${reais(l.valor).padStart(10)}`);
     }
     linhas.push(
       "",
-      `    ${[...p.porCiclo.map((c) => `${c.nome.toUpperCase()} R$ ${reais(c.valor)}`), `REAIS R$ ${reais(p.reais)}`].join(" · ")}`,
+      `    ${[...p.porCiclo.map((c) => `${c.nome.toUpperCase()} ${simboloDe()} ${reais(c.valor)}`), `REAIS ${simboloDe()} ${reais(p.reais)}`].join(" · ")}`,
       "",
       "  participação em cada item",
     );
     for (const t of p.participacoes) {
       linhas.push(
         `    ${t.item.padEnd(30)} ${(numero(t.proporcao * 100, 1) + "%").padStart(7)}` +
-          `  R$ ${reais(t.total).padStart(10)}${t.detalhe ? `  · ${t.detalhe}` : ""}`,
+          `  ${simboloDe()} ${reais(t.total).padStart(10)}${t.detalhe ? `  · ${t.detalhe}` : ""}`,
       );
     }
     if (p.pendencias.length) {
@@ -427,9 +428,9 @@ export function montarRelatorio(estado, resultado) {
   linhas.push(
     regua("CONFERÊNCIA"),
     "",
-    `  soma das faturas e despesas: R$ ${reais(d.conferencia.somaDevida)}`,
-    `  soma cobrada das pessoas:    R$ ${reais(d.conferencia.somaCobrada)}`,
-    `  diferença:                   R$ ${reais(d.conferencia.diferenca)}`,
+    `  soma das faturas e despesas: ${simboloDe()} ${reais(d.conferencia.somaDevida)}`,
+    `  soma cobrada das pessoas:    ${simboloDe()} ${reais(d.conferencia.somaCobrada)}`,
+    `  diferença:                   ${simboloDe()} ${reais(d.conferencia.diferenca)}`,
   );
   if (d.conferencia.centavos) linhas.push("", `  ${d.conferencia.centavos}`);
 

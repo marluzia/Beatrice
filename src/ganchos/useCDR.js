@@ -9,7 +9,8 @@ import {
   novoLembrete,
   proximoMes,
 } from "../nucleo/estadoInicial.js";
-import { atividadeDe, hojeISO, resumoDoConjunto } from "../nucleo/resumo.js";
+import { atividadeDe, hojeISO, medeHoras, quemSouEu, resumoDoConjunto } from "../nucleo/resumo.js";
+import { carimbo } from "../nucleo/autoria.js";
 import { comMarcacao } from "../nucleo/marcacao.js";
 import { guardarPerfil, lerPerfil } from "../nucleo/perfil.js";
 import {
@@ -26,7 +27,7 @@ import { calcular } from "../nucleo/adaptador.js";
 import { criarItem, duplicarItem, modeloPorChave } from "../nucleo/catalogo.js";
 import { calibragemFixa, modoDoConjunto, PADRAO, presetValido } from "../nucleo/modos.js";
 import { novoId } from "../nucleo/formato.js";
-import { ehDeFabrica, MAXIMO_DE_CICLOS, novoCiclo } from "../nucleo/ciclos.js";
+import { ehDeFabrica, MAXIMO_DE_CICLOS, novoCiclo, RECURSOS } from "../nucleo/ciclos.js";
 import {
   carregarConjunto,
   criarConjunto,
@@ -53,6 +54,10 @@ export function useCDR() {
 
   // Quem usa este navegador: o nome que acha "você" nos conjuntos.
   const [perfil, definirPerfilBruto] = useState(() => lerPerfil());
+  // As ações leem o perfil na hora de lançar (para carimbar quem lançou).
+  const perfilAgora = useRef(perfil);
+  perfilAgora.current = perfil;
+  const autorDe = (e) => quemSouEu(e, perfilAgora.current);
   const mudarPerfil = useCallback((mudar) => {
     definirPerfilBruto((p) => {
       const novo = mudar(p);
@@ -225,11 +230,129 @@ export function useCDR() {
     });
   }, []);
 
-  /** Um ciclo novo, criado pela casa: gás, aluguel, condomínio. Até oito no total. */
+  /** Um ciclo novo, criado pela casa: gás, aluguel, condomínio. Até oito no total. Devolve o id. */
   const adicionarCiclo = useCallback((nome, recurso) => {
+    const novo = novoCiclo(nome, recurso);
     definir((e) => {
       if ((e.ciclos ?? []).length >= MAXIMO_DE_CICLOS) return e;
-      return { ...e, ciclos: [...(e.ciclos ?? []), novoCiclo(nome, recurso)] };
+      return { ...e, ciclos: [...(e.ciclos ?? []), novo] };
+    });
+    return novo.id;
+  }, []);
+
+  /**
+   * Lança uma despesa cíclica pelo formulário: liga a conta e escreve de uma
+   * vez as linhas (valor e consumo), o período de consumo, o vencimento,
+   * quem pagou e, numa conta só de valor, como divide.
+   */
+  /** A fatura de um ciclo com os dados de Lançar (ou de Editar) despesa cíclica. */
+  const comFatura = (e, id, dados, marca = {}) => {
+    const novo = mexerNoCiclo(e, id, (c) => ({
+      ...c,
+      ...marca,
+      ativa: true,
+      janela: dados.janela ?? c.janela,
+      vencimento: dados.vencimento !== undefined ? dados.vencimento : c.vencimento,
+      pagoPor: dados.pagoPor ?? null,
+      pagoEm: dados.pagoPor
+        ? dados.pagoEm
+          ? dados.pagoEm.length > 10
+            ? dados.pagoEm
+            : `${dados.pagoEm}T12:00:00.000Z`
+          : new Date().toISOString()
+        : null,
+      // Ou cada linha pelo id, ou um total só na primeira (a conta acabou de nascer).
+      linhas: (c.linhas ?? []).map((l, i) =>
+        dados.linhas?.[l.id]
+          ? { ...l, ...dados.linhas[l.id] }
+          : i === 0 && dados.total !== undefined
+            ? { ...l, valor: String(dados.total), quantidade: String(dados.quantidade ?? l.quantidade ?? "") }
+            : l,
+      ),
+      ...(dados.rateio && !RECURSOS[c.recurso] ? { rateio: dados.rateio } : {}),
+      ...(dados.porcentagens && !RECURSOS[c.recurso] ? { porcentagens: dados.porcentagens } : {}),
+    }));
+    const periodo = dados.janela ? { ...e.periodo, ...periodoDasFaturas(novo.ciclos, e.periodo) } : e.periodo;
+    return { ...novo, periodo };
+  };
+
+  const lancarCiclica = useCallback((id, dados = {}) => {
+    definir((e) => comFatura(e, id, dados, carimbo(autorDe(e))));
+  }, []);
+
+  // ── edições ──────────────────────────────────────────────────────────────
+  //
+  // Editar um lançamento também é um lançamento: a edição guarda quem editou,
+  // quando, o que foi editado (ref) e o que mudou (antes e depois, já em
+  // texto). Quem lançou o original continua sendo quem lançou.
+
+  const comEdicao = (e, ref, nome, mudancas) =>
+    mudancas?.length
+      ? {
+          ...e,
+          edicoes: [...(e.edicoes ?? []), { id: novoId("ed"), ref, nome: nome ?? "", mudancas, ...carimbo(autorDe(e)) }],
+        }
+      : e;
+
+  /** Uma despesa avulsa: os campos do formulário de lançar. */
+  const salvarEdicaoDaAvulsa = useCallback((id, campos, mudancas) => {
+    definir((e) => {
+      const antes = e.itens.find((i) => i.id === id);
+      if (!antes) return e;
+      const depois = { ...e, itens: e.itens.map((i) => (i.id === id ? { ...i, ...campos } : i)) };
+      return comEdicao(depois, { tipo: "avulsa", id }, campos.nome ?? antes.nome, mudancas);
+    });
+  }, []);
+
+  /** Um item inteiro (editado no cartão): fica o id, os registros e quem lançou. */
+  const salvarEdicaoDoItem = useCallback((id, item, mudancas) => {
+    definir((e) => {
+      const antes = e.itens.find((i) => i.id === id);
+      if (!antes) return e;
+      const fixo = {
+        id,
+        registrosDeUso: antes.registrosDeUso,
+        lancadoPor: antes.lancadoPor,
+        lancadoEm: antes.lancadoEm,
+        criadoEm: antes.criadoEm,
+      };
+      const depois = { ...e, itens: e.itens.map((i) => (i.id === id ? { ...item, ...fixo } : i)) };
+      return comEdicao(depois, { tipo: "avulsa", id }, item.nome ?? antes.nome, mudancas);
+    });
+  }, []);
+
+  /** A fatura de uma despesa cíclica. Quem lançou continua o mesmo. */
+  const salvarEdicaoDaCiclica = useCallback((id, dados, mudancas) => {
+    definir((e) => {
+      const antes = (e.ciclos ?? []).find((c) => c.id === id);
+      if (!antes) return e;
+      return comEdicao(comFatura(e, id, dados), { tipo: "ciclica", id }, antes.nome, mudancas);
+    });
+  }, []);
+
+  const salvarEdicaoDoRegistro = useCallback((idDoItem, idDoUso, campos, mudancas) => {
+    definir((e) => {
+      const item = e.itens.find((i) => i.id === idDoItem);
+      if (!item) return e;
+      const depois = {
+        ...e,
+        itens: e.itens.map((i) =>
+          i.id !== idDoItem
+            ? i
+            : { ...i, registrosDeUso: (i.registrosDeUso ?? []).map((u) => (u.id === idDoUso ? { ...u, ...campos } : u)) },
+        ),
+      };
+      return comEdicao(depois, { tipo: "registro", item: idDoItem, id: idDoUso }, item.nome, mudancas);
+    });
+  }, []);
+
+  const salvarEdicaoDoLembrete = useCallback((id, campos, mudancas) => {
+    definir((e) => {
+      const antes = (e.lembretes ?? []).find((l) => l.id === id);
+      if (!antes) return e;
+      const depois = { ...e, lembretes: e.lembretes.map((l) => (l.id === id ? { ...l, ...campos } : l)) };
+      const nome = (antes.tipo === "lista" ? campos.titulo ?? antes.titulo : campos.texto ?? antes.texto) || "Lembrete";
+      return comEdicao(depois, { tipo: "lembrete", id }, nome, mudancas);
     });
   }, []);
 
@@ -468,6 +591,7 @@ export function useCDR() {
           ...comRateioDoModo(criarItem(modelo, e.moradores.map((m) => m.id)), modoDoConjunto(e)),
           id,
           criadoEm: new Date().toISOString(),
+          lancadoPor: autorDe(e),
           ...campos,
         },
       ],
@@ -495,14 +619,22 @@ export function useCDR() {
   }, []);
 
   /** Uma cópia do item logo abaixo dele, com id novo. */
+  /** Duplica uma despesa. A cópia é um lançamento novo, de quem duplicou, com a hora de agora. Devolve o id. */
   const duplicarUmItem = useCallback((idDoItem) => {
+    const id = novoId("i");
     definir((e) => {
       const i = e.itens.findIndex((x) => x.id === idDoItem);
       if (i < 0) return e;
       const itens = [...e.itens];
-      itens.splice(i + 1, 0, duplicarItem(e.itens[i]));
+      itens.splice(i + 1, 0, {
+        ...duplicarItem(e.itens[i]),
+        id,
+        criadoEm: new Date().toISOString(),
+        ...carimbo(autorDe(e)),
+      });
       return { ...e, itens };
     });
+    return id;
   }, []);
 
   /**
@@ -595,11 +727,39 @@ export function useCDR() {
               rateio: i.especie === "porUso" && i.rateios?.includes("uso") ? "uso" : i.rateio,
               registrosDeUso: [
                 ...(i.registrosDeUso ?? []),
-                { id: novoId("ev"), data: dia, quantidade: "1", participantes: [...i.participantes] },
+                { id: novoId("ev"), data: dia, quantidade: "1", participantes: [...i.participantes], ...carimbo(autorDe(e)) },
               ],
             },
       ),
     }));
+  }, []);
+
+  /** Muda um registro de uso: a data, a quantidade, quem usou. */
+  const editarRegistro = useCallback((idDoItem, idDoUso, campos) => {
+    definir((e) => ({
+      ...e,
+      itens: e.itens.map((i) =>
+        i.id !== idDoItem
+          ? i
+          : { ...i, registrosDeUso: (i.registrosDeUso ?? []).map((u) => (u.id === idDoUso ? { ...u, ...campos } : u)) },
+      ),
+    }));
+  }, []);
+
+  /** Duplica um registro com a data de hoje. A cópia é de quem duplicou. Devolve o id. */
+  const duplicarRegistro = useCallback((idDoItem, idDoUso, hoje) => {
+    const id = novoId("ev");
+    definir((e) => ({
+      ...e,
+      itens: e.itens.map((i) => {
+        if (i.id !== idDoItem) return i;
+        const original = (i.registrosDeUso ?? []).find((u) => u.id === idDoUso);
+        if (!original) return i;
+        const copia = { ...original, id, data: hoje, participantes: [...(original.participantes ?? [])], ...carimbo(autorDe(e)) };
+        return { ...i, registrosDeUso: [...(i.registrosDeUso ?? []), copia] };
+      }),
+    }));
+    return id;
   }, []);
 
   const removerUso = useCallback((idDoItem, idDoUso) => {
@@ -739,8 +899,33 @@ export function useCDR() {
 
   const adicionarLembrete = useCallback((tipo, campos = {}) => {
     const novo = novoLembrete(tipo, campos);
-    definir((e) => ({ ...e, lembretes: [...(e.lembretes ?? []), { ...novo, autor: novo.autor ?? e.voce ?? null }] }));
+    definir((e) => {
+      const autor = novo.autor ?? autorDe(e);
+      return { ...e, lembretes: [...(e.lembretes ?? []), { ...novo, autor, lancadoPor: autor, lancadoEm: novo.criadoEm }] };
+    });
     return novo.id;
+  }, []);
+
+  /** Duplica um lembrete (a lista volta sem nada riscado). A cópia é de quem duplicou. Devolve o id. */
+  const duplicarLembrete = useCallback((idDoLembrete) => {
+    const id = novoId("lb");
+    definir((e) => {
+      const l = (e.lembretes ?? []).find((x) => x.id === idDoLembrete);
+      if (!l) return e;
+      const agora = new Date().toISOString();
+      const autor = autorDe(e);
+      const copia = {
+        ...l,
+        id,
+        itens: (l.itens ?? []).map((x) => ({ ...x, id: novoId("li"), feito: false })),
+        autor,
+        lancadoPor: autor,
+        lancadoEm: agora,
+        criadoEm: agora,
+      };
+      return { ...e, lembretes: [...(e.lembretes ?? []), copia] };
+    });
+    return id;
   }, []);
 
   const editarLembrete = useCallback((id, campos) => {
@@ -785,7 +970,7 @@ export function useCDR() {
   }, []);
 
   /** Um uso com data, já com quantidade e quem usou: a tela Registros. */
-  const lancarRegistro = useCallback((idDoItem, { data, quantidade = "1", participantes } = {}) => {
+  const lancarRegistro = useCallback((idDoItem, { data, quantidade = "1", participantes, unidade, divisao, pagoPor } = {}) => {
     definir((e) => ({
       ...e,
       itens: e.itens.map((i) =>
@@ -793,16 +978,23 @@ export function useCDR() {
           ? i
           : {
               ...i,
-              // Registrar usos de um aparelho por uso passa a dividir por uso;
-              // num aparelho por hora, os registros dão as horas e a regra fica.
-              rateio: i.especie === "porUso" && i.rateios?.includes("uso") ? "uso" : i.rateio,
+              // Com registros, quem paga e como divide são de cada registro: o
+              // item passa a dividir pelos registros (horas ou usos de cada um).
+              rateio: medeHoras(i) ? "horas" : "uso",
               registrosDeUso: [
                 ...(i.registrosDeUso ?? []),
                 {
                   id: novoId("ev"),
                   data,
                   quantidade: String(quantidade ?? "1"),
+                  // Num equipamento com vários preços: mês, dia, hora ou uso.
+                  ...(unidade ? { unidade } : {}),
+                  // Como divide entre quem paga: igual, percentual ou cotas.
+                  ...(divisao && divisao.tipo !== "igual" ? { divisao } : {}),
+                  // Só no avulso: quem pagou este uso (no cíclico, é quem pagou a fatura).
+                  ...(pagoPor !== undefined ? { pagoPor } : {}),
                   participantes: participantes?.length ? [...participantes] : [...i.participantes],
+                  ...carimbo(autorDe(e)),
                 },
               ],
             },
@@ -862,6 +1054,15 @@ export function useCDR() {
       // dentro de um conjunto
       definirCiclo,
       adicionarCiclo,
+      lancarCiclica,
+      salvarEdicaoDaAvulsa,
+      salvarEdicaoDoItem,
+      salvarEdicaoDaCiclica,
+      salvarEdicaoDoRegistro,
+      salvarEdicaoDoLembrete,
+      editarRegistro,
+      duplicarRegistro,
+      duplicarLembrete,
       removerCiclo,
       definirCorte,
       adicionarLinha,
