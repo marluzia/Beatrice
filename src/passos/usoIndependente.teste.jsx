@@ -151,8 +151,9 @@ describe("desmarcar", () => {
     abrir();
 
     const lancamento = document.querySelector(".evento-uso");
-    const pastilha = within(lancamento).getByText("Pessoa 1");
-    fireEvent.click(pastilha);
+    // Quem usou é a lista de pessoas: abre e desmarca a única marcada.
+    fireEvent.click(within(lancamento).getByRole("button", { name: /^Quem usou/ }));
+    fireEvent.click(within(lancamento).getByRole("option", { name: /Pessoa 1/ }));
 
     expect(mudancas.at(-1)[1][0].participantes).toEqual([]);
   });

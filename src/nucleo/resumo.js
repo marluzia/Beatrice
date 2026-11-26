@@ -25,6 +25,7 @@ import { quantidadeNaJanela, registrosDe, temUsoDatado, usosPorJanela } from "./
 import { saiDoBolso } from "./acerto.js";
 import { foraDaConta } from "./naConta.js";
 import { autorDoMovimento, movimentosLimpos, textoDoMovimento } from "./movimentos.js";
+import { dataAgendada } from "./lembretes.js";
 
 // ── datas ──────────────────────────────────────────────────────────────────
 
@@ -381,6 +382,10 @@ export function eventosDoDia(estado, dia) {
     if (saiDoBolso(i) && i.data && (i.data === dia || (i.ate && i.data <= dia && dia <= i.ate))) {
       eventos.push({ tipo: "despesa", id: `d-${i.id}`, item: i.id, titulo: i.nome?.trim() || "Despesa", valor: num(i.valor), pagoPor: i.pagoPor ?? null });
     }
+    // A avulsa com vencimento vence no dia dele.
+    if (saiDoBolso(i) && i.vencimento === dia) {
+      eventos.push({ tipo: "vencimento", id: `va-${i.id}`, item: i.id, titulo: `${i.nome?.trim() || "Despesa"} vence`, valor: num(i.valor), pagoPor: i.pagoPor ?? null });
+    }
     for (const r of registrosDe(i)) {
       if (r.data === dia) {
         eventos.push({ tipo: "registro", id: `r-${r.id}`, item: i.id, registro: r.id, titulo: i.nome?.trim() || "Uso", quantidade: num(r.quantidade) || 1, participantes: r.participantes ?? [] });
@@ -389,7 +394,7 @@ export function eventosDoDia(estado, dia) {
   }
 
   for (const l of estado.lembretes ?? []) {
-    if (l.data === dia) eventos.push({ tipo: "lembrete", id: `l-${l.id}`, lembrete: l.id, titulo: l.titulo || l.texto || "Lembrete" });
+    if (dataAgendada(l) === dia) eventos.push({ tipo: "lembrete", id: `l-${l.id}`, lembrete: l.id, titulo: l.titulo || l.texto || "Lembrete", pessoas: l.pessoas ?? [] });
   }
 
   if (polaridade !== "nenhuma") {
@@ -677,8 +682,8 @@ export function todasAsDespesas(estado, resultado, hoje = hojeISO()) {
       quando: d.criadoEm ?? d.data ?? "",
       dia: (d.data ?? d.criadoEm ?? "").slice(0, 10) || null,
       pagoPor: d.pagoPor,
-      vencimento: null,
-      status: statusDaDespesa(d, hoje),
+      vencimento: d.item.vencimento ?? null,
+      status: statusDaDespesa({ pagoPor: d.pagoPor, vencimento: d.item.vencimento ?? null }, hoje),
       naConta: !fora.itens.has(d.id),
       equipamento: Boolean(d.item.equipamento),
     });

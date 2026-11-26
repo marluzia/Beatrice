@@ -1,11 +1,12 @@
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
-import { centavosEmDinheiro, dinheiro, TituloDeSecao, tomDoSaldo, TopoDaTela } from "../componentes/Interface.jsx";
+import { centavosEmDinheiro, dinheiro, TituloDeSecao, tomDoSaldo } from "../componentes/Interface.jsx";
+import { CabecalhoDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { curta, hojeISO, quandoFoi } from "../nucleo/resumo.js";
 import { codigoSeNaoForReal, porLancamento, TEXTO_DA_SITUACAO } from "./comum.js";
 
 /** Atividade: o saldo de você em cada conjunto e tudo o que foi lançado, do mais novo ao mais antigo. */
 export default function Atividade({ app }) {
-  const { panorama, abrir } = app;
+  const { panorama, abrir, escolherAba } = app;
   const hoje = hojeISO();
 
   const comVoce = porLancamento(panorama).filter((p) => p.resumo?.eu);
@@ -26,8 +27,7 @@ export default function Atividade({ app }) {
 
   return (
     <div className="tela">
-      <TopoDaTela />
-      <h1 className="titulo-tela titulo-tela--grande">Atividade</h1>
+      <CabecalhoDaAba titulo="Atividade" aoVoltar={() => escolherAba("inicio")} comSino />
       <p className="texto-apoio">O que está em aberto para você em cada conjunto, e o que foi lançado por último.</p>
 
       <TituloDeSecao>

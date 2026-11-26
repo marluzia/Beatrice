@@ -157,6 +157,8 @@ export interface Fatura {
    * própria: igual, por dias, por porcentagem.
    */
   rateio?: Rateio;
+  /** Quem divide o que sobra da fatura (e as taxas). Sem a lista, todos os moradores. */
+  participantes?: MoradorId[];
 }
 
 // ── Ciclo ──────────────────────────────────────────────────────────────────

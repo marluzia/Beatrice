@@ -15,6 +15,22 @@ const TECLAS = {
 };
 
 /**
+ * A ordem das teclas em toda calculadora: primeiro o que se declara (igual,
+ * cotas, percentual, valor, ajuste), depois o que se mede (presença, dias,
+ * horas, uso). Regra que não está aqui vai para o fim.
+ */
+export const ORDEM_DA_CALCULADORA = ["igual", "cotas", "porcentagem", "valor", "ajuste", "presenca", "dias", "horas", "uso"];
+
+/** As regras pedidas, na ordem da calculadora. */
+export const naOrdemDaCalculadora = (regras) => {
+  const posicao = (r) => {
+    const i = ORDEM_DA_CALCULADORA.indexOf(typeof r === "string" ? r : r.valor);
+    return i < 0 ? ORDEM_DA_CALCULADORA.length : i;
+  };
+  return [...regras].sort((a, b) => posicao(a) - posicao(b));
+};
+
+/**
  * "Como divide" como o teclado de uma calculadora: uma tecla por regra, com o
  * símbolo grande e o nome embaixo. A tecla escolhida fica acesa.
  *

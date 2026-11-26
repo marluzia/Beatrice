@@ -1,4 +1,4 @@
-import { Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { ItensDoConjunto } from "./Configurar.jsx";
 
 /**
@@ -9,9 +9,7 @@ export default function Itens({ app }) {
   const { voltar, modo } = app;
   return (
     <div className="tela">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito>{app.nomeDoConjunto}</Sobrescrito>
-      <h1 className="titulo-tela titulo-tela--grande">Itens</h1>
+      <CabecalhoDaSecao app={app} secao="Registros" subsecao="Itens" />
       <p className="texto-apoio">
         Itens e aparelhos que consomem kWh ou m³ e saem das faturas: geladeira, máquina de lavar, ar-condicionado,
         chuveiro.

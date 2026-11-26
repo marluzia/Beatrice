@@ -1,23 +1,58 @@
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import { Campo, CampoData } from "../componentes/index.js";
-import { AbasDePasta, mostrarAviso, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
+import { AbasDePasta, mostrarAviso } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { novoId } from "../nucleo/formato.js";
-import { sobrescritoDaTela } from "./Hub.jsx";
 
 const SOBRE_O_TIPO = {
   lista: "Uma lista para riscar: o mercado da semana, o que levar na viagem.",
   nota: "Um recado para o grupo: a senha do wi-fi, lavar as toalhas no sábado.",
 };
 
-const listaEmBranco = () => ({ titulo: "", novo: "", itens: [] });
-const notaEmBranco = (data = null) => ({ texto: "", data, registro: "" });
+const listaEmBranco = (data = null) => ({ titulo: "", novo: "", itens: [], data, pessoas: [] });
+const notaEmBranco = (data = null) => ({ texto: "", data, pessoas: [] });
 
 /** O rascunho de um lembrete que já existe (para editar). */
-export const rascunhoDoLembrete = (l) =>
-  l.tipo === "lista"
+export const rascunhoDoLembrete = (l) => ({
+  ...(l.tipo === "lista"
     ? { titulo: l.titulo ?? "", novo: "", itens: (l.itens ?? []).map((x) => ({ ...x })) }
-    : { texto: l.texto ?? "", data: l.data ?? null, registro: l.registro ?? "" };
+    : { texto: l.texto ?? "" }),
+  data: l.data ?? null,
+  pessoas: [...(l.pessoas ?? [])],
+});
+
+/**
+ * O que todo lembrete tem além do conteúdo: a data agendada (a da agenda e da
+ * notificação; sem ela, vale o dia do lançamento) e as pessoas marcadas.
+ */
+export function CamposDoLembrete({ rascunho, setRascunho, estado, indicePorId }) {
+  return (
+    <>
+      <CampoData
+        rotulo="Data agendada (opcional)"
+        valor={rascunho.data ?? null}
+        aoMudar={(v) => setRascunho((r) => ({ ...r, data: v }))}
+        etiqueta="Data agendada do lembrete"
+      />
+      <p className="ajuda-campo">Sem data, vale o dia do lançamento: é nela que o lembrete aparece na agenda e chega a notificação.</p>
+      {estado.moradores.length > 0 && (
+        <div className="grupo">
+          <span className="rotulo">Marcar pessoas (opcional)</span>
+          <ListaDePessoas
+            rotulo="Pessoas marcadas"
+            pessoas={estado.moradores}
+            indicePorId={indicePorId}
+            selecionados={rascunho.pessoas ?? []}
+            aoMudar={(sel) => setRascunho((r) => ({ ...r, pessoas: sel }))}
+          />
+          <p className="ajuda-campo">A notificação vai para quem estiver marcado. Sem ninguém, vai para o grupo todo.</p>
+        </div>
+      )}
+    </>
+  );
+}
 
 /** Os itens da lista, com o que estiver escrito no campo de novo item. */
 export const itensDaLista = (lista) => [
@@ -25,8 +60,8 @@ export const itensDaLista = (lista) => [
   ...(lista.novo.trim() ? [{ id: novoId("li"), texto: lista.novo.trim(), feito: false }] : []),
 ];
 
-/** Nome e itens de uma lista. */
-export function CamposDaLista({ lista, setLista }) {
+/** Nome e itens de uma lista, a data agendada e as pessoas marcadas. */
+export function CamposDaLista({ lista, setLista, estado, indicePorId }) {
   const somarItem = () => {
     const texto = lista.novo.trim();
     if (!texto) return;
@@ -66,13 +101,13 @@ export function CamposDaLista({ lista, setLista }) {
           </button>
         </div>
       </div>
+      <CamposDoLembrete rascunho={lista} setRascunho={setLista} estado={estado} indicePorId={indicePorId} />
     </div>
   );
 }
 
-/** O texto da nota, o dia na agenda e o registro a que ela se liga. */
-export function CamposDaNota({ nota, setNota, estado }) {
-  const comUso = estado.itens.filter((i) => i.especie === "porUso" || i.especie === "porHora");
+/** O texto da nota, a data agendada e as pessoas marcadas. (Quem se vincula a uma nota é o registro.) */
+export function CamposDaNota({ nota, setNota, estado, indicePorId }) {
   return (
     <div className="formulario formulario--classico">
       <label className="campo-novo">
@@ -86,29 +121,7 @@ export function CamposDaNota({ nota, setNota, estado }) {
           aria-label="Texto da nota"
         />
       </label>
-      <CampoData
-        rotulo="Na agenda (opcional)"
-        valor={nota.data}
-        aoMudar={(v) => setNota((n) => ({ ...n, data: v }))}
-        etiqueta="Dia da nota na agenda"
-      />
-      {comUso.length > 0 && (
-        <label className="campo-novo">
-          <span className="rotulo">Vincular a um registro (opcional)</span>
-          <select
-            className="caixa caixa--texto"
-            value={nota.registro ?? ""}
-            onChange={(e) => setNota((n) => ({ ...n, registro: e.target.value }))}
-          >
-            <option value="">Nenhum</option>
-            {comUso.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.nome}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <CamposDoLembrete rascunho={nota} setRascunho={setNota} estado={estado} indicePorId={indicePorId} />
     </div>
   );
 }
@@ -119,9 +132,9 @@ export function CamposDaNota({ nota, setNota, estado }) {
  * lançado se confere em Ver lembretes.
  */
 export default function LancarLembrete({ app, rota }) {
-  const { estado, acoes, ir, voltar } = app;
+  const { estado, acoes, ir, voltar, indicePorId } = app;
   const [tipo, setTipo] = useState(rota?.tipo === "nota" ? "nota" : "lista");
-  const [lista, setLista] = useState(listaEmBranco);
+  const [lista, setLista] = useState(() => listaEmBranco(rota?.data ?? null));
   const [nota, setNota] = useState(() => notaEmBranco(rota?.data ?? null));
   const [lancados, setLancados] = useState(0);
 
@@ -129,11 +142,11 @@ export default function LancarLembrete({ app, rota }) {
     if (tipo === "lista") {
       const itens = itensDaLista(lista);
       if (!lista.titulo.trim() && itens.length === 0) return mostrarAviso("Dê um nome à lista ou escreva um item.");
-      acoes.adicionarLembrete("lista", { titulo: lista.titulo.trim(), itens });
+      acoes.adicionarLembrete("lista", { titulo: lista.titulo.trim(), itens, data: lista.data ?? null, pessoas: lista.pessoas });
       setLista(listaEmBranco());
     } else {
       if (!nota.texto.trim()) return mostrarAviso("Escreva a nota.");
-      acoes.adicionarLembrete("nota", { texto: nota.texto.trim(), data: nota.data, registro: nota.registro || null });
+      acoes.adicionarLembrete("nota", { texto: nota.texto.trim(), data: nota.data ?? null, pessoas: nota.pessoas });
       setNota(notaEmBranco());
     }
     setLancados((n) => n + 1);
@@ -142,11 +155,7 @@ export default function LancarLembrete({ app, rota }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Lançar <em>lembretes</em>
-      </h1>
+      <CabecalhoDaSecao app={app} secao="Lançar lembretes" subsecao={tipo === "lista" ? "Lista" : "Nota"} />
       <p className="texto-apoio">Escolha o tipo e preencha. O que já foi lançado fica em Ver lembretes.</p>
 
       {lancados > 0 && (
@@ -174,9 +183,9 @@ export default function LancarLembrete({ app, rota }) {
         <p className="texto-apoio texto-apoio--colado">{SOBRE_O_TIPO[tipo]}</p>
 
         {tipo === "lista" ? (
-          <CamposDaLista lista={lista} setLista={setLista} />
+          <CamposDaLista lista={lista} setLista={setLista} estado={estado} indicePorId={indicePorId} />
         ) : (
-          <CamposDaNota nota={nota} setNota={setNota} estado={estado} />
+          <CamposDaNota nota={nota} setNota={setNota} estado={estado} indicePorId={indicePorId} />
         )}
       </AbasDePasta>
 

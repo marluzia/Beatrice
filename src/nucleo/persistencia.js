@@ -23,10 +23,11 @@
 
 import { moedaValida } from "./moedas.js";
 import { calibragemFixa, CHAVES_ANTIGAS, PADRAO, presetValido } from "./modos.js";
-import { RECURSOS, REGRAS_DO_CICLO } from "./ciclos.js";
+import { DIVISOES_DO_CICLO, divisaoDoCiclo, RECURSOS, REGRAS_DO_CICLO } from "./ciclos.js";
 import { corteValido } from "./calendario.js";
 import { especiesDe } from "./catalogo.js";
 import { movimentosLimpos } from "./movimentos.js";
+import { vinculosNosRegistros } from "./lembretes.js";
 
 const tabela = (t) => (t && typeof t === "object" && !Array.isArray(t) ? t : {});
 
@@ -687,6 +688,12 @@ function registrosDeDiasAntigos(item) {
 const soDatas = (v) => (Array.isArray(v) ? v.filter((d) => typeof d === "string") : undefined);
 
 export function sanear(estado) {
+  const limpo = sanearCampos(estado);
+  // O vínculo nota ↔ registro mora no registro (conjuntos de antes o tinham na nota).
+  return { ...limpo, itens: vinculosNosRegistros(limpo.itens, estado.lembretes, limpo.lembretes) };
+}
+
+function sanearCampos(estado) {
   const modo = typeof estado.modo === "string" ? estado.modo : PADRAO;
 
   // Preset ausente ou desconhecido vira Livre (`presetValido` com null), que
@@ -738,13 +745,21 @@ export function sanear(estado) {
       pagoPor: typeof c.pagoPor === "string" ? c.pagoPor : null,
       pagoEm: typeof c.pagoPor === "string" && typeof c.pagoEm === "string" ? c.pagoEm : null,
       linhas: Array.isArray(c.linhas) ? c.linhas.filter(Boolean) : [],
-      // Só conta só de valor tem regra própria; sem regra válida, segue a régua.
+      // Como a cíclica se divide e quem divide (sem lista, todo o conjunto).
+      divisao: DIVISOES_DO_CICLO.includes(c.divisao) ? c.divisao : divisaoDoCiclo(c),
+      participantes: Array.isArray(c.participantes) ? c.participantes.filter((id) => typeof id === "string") : null,
+      // A regra da calculadora e as tabelas de cada um. Conta só de valor sem
+      // regra válida segue a régua; a medida guarda a regra só se tiver uma.
       ...(RECURSOS[c.recurso]
-        ? {}
-        : {
-            rateio: REGRAS_DO_CICLO.includes(c.rateio) ? c.rateio : "comum",
-            porcentagens: c.porcentagens && typeof c.porcentagens === "object" ? c.porcentagens : {},
-          }),
+        ? REGRAS_DO_CICLO.includes(c.rateio)
+          ? { rateio: c.rateio }
+          : {}
+        : { rateio: REGRAS_DO_CICLO.includes(c.rateio) ? c.rateio : "comum" }),
+      porcentagens: tabela(c.porcentagens),
+      valores: tabela(c.valores),
+      cotas: tabela(c.cotas),
+      ajustes: tabela(c.ajustes),
+      usosPorPessoa: tabela(c.usosPorPessoa),
     })),
     moradores: estado.moradores.filter(Boolean).map((m) => ({
       ...m,
@@ -768,6 +783,8 @@ export function sanear(estado) {
       participantes: Array.isArray(i.participantes) ? i.participantes : [],
       pagoPor: typeof i.pagoPor === "string" ? i.pagoPor : null,
       data: typeof i.data === "string" ? i.data : null,
+      // O vencimento de uma avulsa (opcional): sem ele, a despesa não vence.
+      vencimento: typeof i.vencimento === "string" && i.vencimento ? i.vencimento : null,
       // Fim do período. Só vale com um começo: `ate` sem `data` seria um
       // período que não começa, e isso não é uma data nem é nada.
       ate: typeof i.data === "string" && typeof i.ate === "string" ? i.ate : null,
@@ -838,8 +855,9 @@ function lembretesLimpos(lista) {
       // Quem lançou e quando (os lembretes antigos só tinham autor e criadoEm).
       lancadoPor: typeof l.lancadoPor === "string" ? l.lancadoPor : typeof l.autor === "string" ? l.autor : null,
       lancadoEm: typeof l.lancadoEm === "string" ? l.lancadoEm : typeof l.criadoEm === "string" ? l.criadoEm : null,
-      data: typeof l.data === "string" ? l.data : null,
-      registro: typeof l.registro === "string" ? l.registro : null,
+      // O dia agendado; sem ele, vale o do lançamento (`dataAgendada`).
+      data: typeof l.data === "string" && l.data ? l.data : null,
+      pessoas: Array.isArray(l.pessoas) ? l.pessoas.filter((id) => typeof id === "string") : [],
       criadoEm: typeof l.criadoEm === "string" ? l.criadoEm : null,
     }));
 }

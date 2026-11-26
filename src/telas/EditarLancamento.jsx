@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Campo, CampoData, Rotulo, SeletorDePessoas } from "../componentes/index.js";
-import { dinheiro, mostrarAviso, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { Campo, CampoData, Rotulo } from "../componentes/index.js";
+import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
+import { dinheiro, mostrarAviso } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { autoriaDe, podeEditar } from "../nucleo/autoria.js";
 import { modeloPorChave } from "../nucleo/catalogo.js";
 import { RECURSOS, unidadeDoRecurso } from "../nucleo/ciclos.js";
@@ -16,6 +18,7 @@ import {
   rascunhoDoItem,
 } from "./LancarDespesa.jsx";
 import { CamposDaLista, CamposDaNota, itensDaLista, rascunhoDoLembrete } from "./LancarLembrete.jsx";
+import { CampoNotaDoRegistro } from "./LancarRegistro.jsx";
 
 const PALAVRA = { avulsa: "despesa", ciclica: "despesa", registro: "registro", lembrete: "lembrete" };
 const APAGAR = { avulsa: "Apagar esta despesa", registro: "Apagar este registro", lembrete: "Apagar este lembrete" };
@@ -114,6 +117,7 @@ function EdicaoDoRegistro({ app, item, registro, aoSalvar, rodape }) {
     data: registro.data ?? null,
     quantidade: String(registro.quantidade ?? "1"),
     participantes: [...(registro.participantes ?? [])],
+    nota: registro.nota ?? null,
   }));
   const mudar = (campo, valor) => setR((x) => ({ ...x, [campo]: valor }));
   return (
@@ -131,9 +135,9 @@ function EdicaoDoRegistro({ app, item, registro, aoSalvar, rodape }) {
           largura="campo--curto"
         />
         <div className="grupo">
-          <Rotulo>Quem usou</Rotulo>
-          <SeletorDePessoas
-            rotulo="Quem usou"
+          <Rotulo>Quem divide</Rotulo>
+          <ListaDePessoas
+            rotulo="Quem divide"
             pessoas={estado.moradores}
             indicePorId={indicePorId}
             selecionados={r.participantes}
@@ -141,6 +145,7 @@ function EdicaoDoRegistro({ app, item, registro, aoSalvar, rodape }) {
           />
         </div>
         <CampoData rotulo="Quando foi" valor={r.data} aoMudar={(v) => v && mudar("data", v)} etiqueta="Data do registro" />
+        <CampoNotaDoRegistro estado={estado} valor={r.nota} aoMudar={(v) => mudar("nota", v)} />
       </div>
       {rodape}
       <div className="rodape-fixo">
@@ -159,9 +164,9 @@ function EdicaoDoLembrete({ app, lembrete, aoSalvar, rodape }) {
   return (
     <>
       {lembrete.tipo === "lista" ? (
-        <CamposDaLista lista={r} setLista={setR} />
+        <CamposDaLista lista={r} setLista={setR} estado={app.estado} indicePorId={app.indicePorId} />
       ) : (
-        <CamposDaNota nota={r} setNota={setR} estado={app.estado} />
+        <CamposDaNota nota={r} setNota={setR} estado={app.estado} indicePorId={app.indicePorId} />
       )}
       {rodape}
       <div className="rodape-fixo">
@@ -183,15 +188,7 @@ export default function EditarLancamento({ app, rota }) {
   const lancamento = rota ? acharLancamento(app, rota) : null;
   const palavra = PALAVRA[rota?.tipo] ?? "lançamento";
 
-  const topo = (
-    <>
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={[nomeDoConjunto, lancamento?.nome]} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Editar <em>{palavra}</em>
-      </h1>
-    </>
-  );
+  const topo = <CabecalhoDaSecao app={app} secao={`Editar ${palavra}`} subsecao={lancamento?.nome ?? null} />;
 
   if (!lancamento || lancamento.editavel === false) {
     return (
@@ -257,10 +254,11 @@ export default function EditarLancamento({ app, rota }) {
                 ["Nome", antes.nome, depois.nome],
                 ["Quem pagou", pagador(antes.pagoPor), pagador(depois.pagoPor)],
                 ["Valor", dinheiro(num(antes.valor)), dinheiro(num(depois.valor))],
+                ["Quem divide", nomes(antes.participantes), nomes(depois.participantes)],
                 ["Como divide", nomeDaRegra(antes.rateio), nomeDaRegra(depois.rateio)],
-                ["Quem paga", nomes(antes.participantes), nomes(depois.participantes)],
                 ["Partes de cada um", partes(antes), partes(depois)],
-                ["Quando foi", momento(antes.data), momento(depois.data)],
+                ["Data agendada", momento(antes.data), momento(depois.data)],
+                ["Vencimento", momento(antes.vencimento) ?? "", momento(depois.vencimento) ?? ""],
               ]),
               (m) => acoes.salvarEdicaoDaAvulsa(rota.id, campos, m),
             );
@@ -321,8 +319,9 @@ export default function EditarLancamento({ app, rota }) {
         ...porLinha,
         ["Quem pagou", pagador(r.pagoPor)],
         ["Pago em", r.pagoPor ? momento(r.pagoEm) : ""],
-        ["Como divide", medido ? "" : NOME_DA_REGRA_DO_CICLO[r.rateio] ?? r.rateio],
-        ["Partes de cada um", !medido && r.rateio === "porcentagem" ? partes({ rateio: "porcentagem", porcentagens: r.porcentagens }) : ""],
+        ["Quem divide", r.participantes ? nomes(r.participantes) : "todas as pessoas"],
+        ["Como divide", r.divisao === "registros" ? "registros + régua" : `calculadora · ${NOME_DA_REGRA_DO_CICLO[r.rateio] ?? r.rateio}`],
+        ["Partes de cada um", r.divisao === "calculadora" && r.rateio === "porcentagem" ? partes({ rateio: "porcentagem", porcentagens: r.porcentagens }) : ""],
         ["Consumo de", r.de && r.ate ? `${momento(r.de)} a ${momento(r.ate)}` : ""],
         ["Vencimento", momento(r.vencimento) ?? ""],
       ];
@@ -346,6 +345,7 @@ export default function EditarLancamento({ app, rota }) {
     );
   } else if (rota.tipo === "registro") {
     const item = lancamento.item;
+    const textoDaNota = (id) => (id ? (estado.lembretes ?? []).find((l) => l.id === id)?.texto ?? "" : "");
     const quanto = (q) => PALAVRA_DO_USO(item, q);
     formulario = (
       <EdicaoDoRegistro
@@ -355,12 +355,13 @@ export default function EditarLancamento({ app, rota }) {
         rodape={rodape}
         aoSalvar={(r) => {
           if (!(num(r.quantidade) > 0)) return mostrarAviso("Escreva quantas vezes (ou horas).");
-          if (r.participantes.length === 0) return mostrarAviso("Marque quem usou.");
+          if (r.participantes.length === 0) return mostrarAviso("Marque quem divide.");
           salvar(
             soOQueMudou([
               ["Quanto", quanto(original.quantidade), quanto(r.quantidade)],
-              ["Quem usou", nomes(original.participantes), nomes(r.participantes)],
+              ["Quem divide", nomes(original.participantes), nomes(r.participantes)],
               ["Quando foi", momento(original.data), momento(r.data)],
+              ["Nota", textoDaNota(original.nota), textoDaNota(r.nota)],
             ]),
             (m) => acoes.salvarEdicaoDoRegistro(rota.item, rota.id, r, m),
           );
@@ -382,20 +383,20 @@ export default function EditarLancamento({ app, rota }) {
               soOQueMudou([
                 ["Nome", original.titulo ?? "", r.titulo.trim()],
                 ["Itens", textoDosItens(original.itens ?? []), textoDosItens(itens)],
+                ["Data agendada", momento(original.data) ?? "", momento(r.data) ?? ""],
+                ["Pessoas marcadas", nomes(original.pessoas ?? []), nomes(r.pessoas ?? [])],
               ]),
-              (m) => acoes.salvarEdicaoDoLembrete(rota.id, { titulo: r.titulo.trim(), itens }, m),
+              (m) => acoes.salvarEdicaoDoLembrete(rota.id, { titulo: r.titulo.trim(), itens, data: r.data ?? null, pessoas: r.pessoas ?? [] }, m),
             );
           } else {
             if (!r.texto.trim()) return mostrarAviso("Escreva a nota.");
-            const nomeDoItem = (id) => estado.itens.find((i) => i.id === id)?.nome ?? "";
             salvar(
               soOQueMudou([
                 ["Texto", original.texto ?? "", r.texto.trim()],
-                ["Na agenda", momento(original.data) ?? "", momento(r.data) ?? ""],
-                ["Registro", nomeDoItem(original.registro), nomeDoItem(r.registro)],
+                ["Data agendada", momento(original.data) ?? "", momento(r.data) ?? ""],
+                ["Pessoas marcadas", nomes(original.pessoas ?? []), nomes(r.pessoas ?? [])],
               ]),
-              (m) =>
-                acoes.salvarEdicaoDoLembrete(rota.id, { texto: r.texto.trim(), data: r.data ?? null, registro: r.registro || null }, m),
+              (m) => acoes.salvarEdicaoDoLembrete(rota.id, { texto: r.texto.trim(), data: r.data ?? null, pessoas: r.pessoas ?? [] }, m),
             );
           }
         }}

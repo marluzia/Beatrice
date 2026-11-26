@@ -1,7 +1,9 @@
+import ListaDePessoas, { porDiferenca } from "../componentes/ListaDePessoas.jsx";
+import { dataAgendada } from "../nucleo/lembretes.js";
 import { SetaComBarra } from "../componentes/Interface.jsx";
 import { simboloDe } from "../nucleo/moedas.js";
 import { useState } from "react";
-import { Botao, Campo, Ficha, Pastilha, Segmentado, SimboloDoCiclo, Titulo } from "../componentes/index.js";
+import { Botao, Campo, Ficha, Segmentado, SimboloDoCiclo, Titulo } from "../componentes/index.js";
 import { ciclosLigados, naOrdemDaTela } from "../nucleo/ciclos.js";
 import {
   cicloValido,
@@ -17,7 +19,7 @@ import {
   semanasDoMes,
   ultimoDiaDaJanela,
 } from "../nucleo/calendario.js";
-import { MESES, corDe, nomeOu, reais } from "../nucleo/formato.js";
+import { MESES, nomeOu, reais } from "../nucleo/formato.js";
 import { agendaPorDia, ROTULO_DA_NATUREZA } from "../nucleo/agenda.js";
 import { registravel } from "../nucleo/adaptador.js";
 import { diaPorExtenso, hojeISO } from "../nucleo/resumo.js";
@@ -113,7 +115,7 @@ export default function PassoAgenda({
   const aberto = aoAbrirDia ? diaAberto ?? null : abertoAqui;
   const setAberto = aoAbrirDia ?? setAbertoAqui;
   const hoje = hojeISO();
-  const lembretesDoDia = (dia) => (estado.lembretes ?? []).filter((l) => l.data === dia);
+  const lembretesDoDia = (dia) => (estado.lembretes ?? []).filter((l) => dataAgendada(l) === dia);
   // As contas que vencem no dia: entram como despesa na marquinha e na lista do dia.
   const vencimentosDoDia = (dia) => ciclosLigados(estado).filter((c) => c.vencimento === dia);
   const nomeDaPessoa = (id) => {
@@ -303,9 +305,12 @@ export default function PassoAgenda({
                     <i className="marca marca--losango" style={{ background: CORES.presenca }} /> {rotuloPresenca}
                   </span>
                 )}
-                <span>
-                  <i className="marca marca--losango" style={{ background: CORES.uso }} /> {NOME_NA_LEGENDA.uso}
-                </span>
+                {/* Registro de uso só existe onde há faturas ou equipamentos: no evento, não. */}
+                {(modo.faturas !== false || modo.equipamentos) && (
+                  <span>
+                    <i className="marca marca--losango" style={{ background: CORES.uso }} /> {NOME_NA_LEGENDA.uso}
+                  </span>
+                )}
                 <span>
                   <i className="marca marca--canto" /> Lembrete
                 </span>
@@ -316,7 +321,7 @@ export default function PassoAgenda({
       </Ficha>
 
       {aberto && (
-        <Ficha>
+        <Ficha className="dia-aberto" key={aberto}>
           <h3 className="titulo-do-dia">
             {diaPorExtenso(aberto).semana}, <em>{diaPorExtenso(aberto).resto}</em>
           </h3>
@@ -358,21 +363,22 @@ export default function PassoAgenda({
 
           {polaridade !== "nenhuma" && estado.moradores.length > 0 && (!temporada || !limite || dentroDaJanela(aberto, limite)) && (
             <>
-              <p className="dica">
-                {polaridade === "presenca"
-                  ? `Quem esteve ${modo.palavras.noLugar ?? "no espaço"} neste dia:`
-                  : "Quem não dormiu em casa nesta noite:"}
-              </p>
-              <div className="pastilhas">
-                {estado.moradores.map((m, i) => (
-                  <Pastilha
-                    key={m.id}
-                    cor={corDe(i)}
-                    nome={nomeOu(m.nome, i)}
-                    ativo={(m[campo] ?? []).includes(aberto)}
-                    aoClicar={() => acoes.alternarDiaDaPessoa(m.id, aberto)}
-                  />
-                ))}
+              <div className="grupo">
+                <span className="rotulo">
+                  {polaridade === "presenca" ? `Quem esteve ${modo.palavras.noLugar ?? "no espaço"} neste dia` : "Quem não dormiu em casa nesta noite"}
+                </span>
+                <ListaDePessoas
+                  rotulo={polaridade === "presenca" ? "Estadia no dia" : "Dias fora no dia"}
+                  pessoas={estado.moradores}
+                  selecionados={estado.moradores.filter((m) => (m[campo] ?? []).includes(aberto)).map((m) => m.id)}
+                  aoMudar={(depois) =>
+                    porDiferenca(
+                      estado.moradores.filter((m) => (m[campo] ?? []).includes(aberto)).map((m) => m.id),
+                      depois,
+                      (id) => acoes.alternarDiaDaPessoa(id, aberto),
+                    )
+                  }
+                />
               </div>
             </>
           )}
@@ -524,17 +530,12 @@ function LancamentosDoDia({ marcacoes, estado, acoes, polaridade, tarefaPorId })
                 texto
               />
 
-              <div className="pastilhas">
-                {estado.moradores.map((m, i) => (
-                  <Pastilha
-                    key={m.id}
-                    cor={corDe(i)}
-                    nome={nomeOu(m.nome, i)}
-                    ativo={tarefa.responsaveis.includes(m.id)}
-                    aoClicar={() => acoes.alternarResponsavel(tarefa.id, m.id)}
-                  />
-                ))}
-              </div>
+              <ListaDePessoas
+                rotulo="Quem fez"
+                pessoas={estado.moradores}
+                selecionados={tarefa.responsaveis}
+                aoMudar={(depois) => porDiferenca(tarefa.responsaveis, depois, (id) => acoes.alternarResponsavel(tarefa.id, id))}
+              />
 
               <p className="nota">
                 Tarefa fica registrada e não muda valor nenhum. Faxineira paga é
@@ -579,17 +580,12 @@ function LancamentosDoDia({ marcacoes, estado, acoes, polaridade, tarefaPorId })
                 />
               </div>
 
-              <div className="pastilhas">
-                {estado.moradores.map((m, i) => (
-                  <Pastilha
-                    key={m.id}
-                    cor={corDe(i)}
-                    nome={nomeOu(m.nome, i)}
-                    ativo={item.participantes.includes(m.id)}
-                    aoClicar={() => acoes.alternarParticipante(item.id, m.id)}
-                  />
-                ))}
-              </div>
+              <ListaDePessoas
+                rotulo="Quem divide"
+                pessoas={estado.moradores}
+                selecionados={item.participantes}
+                aoMudar={(depois) => porDiferenca(item.participantes, depois, (id) => acoes.alternarParticipante(item.id, id))}
+              />
 
               <p className="nota">
                 A divisão desta despesa (igual, %, valor, cotas, ajuste, dias…)

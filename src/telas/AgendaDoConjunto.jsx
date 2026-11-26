@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import CabecalhoDoConjunto from "../componentes/CabecalhoDoConjunto.jsx";
 import PassoAgenda from "../passos/PassoAgenda.jsx";
 import { hojeISO } from "../nucleo/resumo.js";
 import { dentroDaJanela, janelaDoFechamento } from "../nucleo/calendario.js";
 
 /** A agenda do conjunto, fora do Fechar contas: o mês e o dia tocado. */
 export default function AgendaDoConjunto({ app }) {
-  const { estado, acoes, modo, voltar, ir, nomeDoConjunto, abrirNotificacoes, esconderBarra } = app;
+  const { estado, acoes, modo, voltar, ir, nomeDoConjunto, esconderBarra } = app;
   // Abre no mês de hoje, sem dia escolhido. Na temporada, no período dela
   // quando hoje está fora.
   const [inicial] = useState(() => {
@@ -16,6 +16,21 @@ export default function AgendaDoConjunto({ app }) {
     return dentroDaJanela(hoje, periodo) ? hoje : periodo.de;
   });
   const [dia, setDia] = useState(null);
+  // O lápis do cabeçalho leva ao "lançar no dia": abre o dia (hoje, se nenhum
+  // estava aberto) e desce até as ações dele, sem pulo.
+  const [descer, setDescer] = useState(0);
+  const lancarNoDia = () => {
+    if (!dia) setDia(inicial);
+    setDescer((n) => n + 1);
+  };
+  useEffect(() => {
+    if (!descer) return undefined;
+    const quadro = requestAnimationFrame(() => {
+      const reduz = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById("acoes-do-dia")?.scrollIntoView?.({ behavior: reduz ? "auto" : "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(quadro);
+  }, [descer]);
 
   // Com um dia escolhido, a barra de baixo sai e fica só o "+ Lançar no dia";
   // tirar a seleção a traz de volta.
@@ -26,9 +41,13 @@ export default function AgendaDoConjunto({ app }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} acoes={[{ icone: "sino", rotulo: "Notificações", aoClicar: abrirNotificacoes }]} />
-      <Sobrescrito>{nomeDoConjunto}</Sobrescrito>
-      <h1 className="titulo-tela titulo-tela--grande">Agenda</h1>
+      <CabecalhoDoConjunto
+        estado={estado}
+        nome={nomeDoConjunto}
+        aoVoltar={voltar}
+        subtitulo="Agenda"
+        acoes={[{ icone: "editar", rotulo: "Lançar no dia", aoClicar: lancarNoDia }]}
+      />
 
       <div className="embutido embutido--agenda">
         <PassoAgenda
@@ -47,14 +66,11 @@ export default function AgendaDoConjunto({ app }) {
         />
       </div>
 
+      {/* No lugar da barra de baixo, que sai enquanto um dia está aberto. */}
       {dia && (
-        <div className="rodape-fixo">
-          <button
-            type="button"
-            className="botao botao--largo"
-            onClick={() => document.getElementById("acoes-do-dia")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-          >
-            + Lançar no dia {Number(dia.slice(8, 10))}
+        <div className="rodape-fixo rodape-fixo--agenda">
+          <button type="button" className="botao botao--largo" onClick={lancarNoDia}>
+            Lançar no dia {Number(dia.slice(8, 10))}
           </button>
         </div>
       )}

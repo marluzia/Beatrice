@@ -1,6 +1,8 @@
+import { dataAgendada, registrosDaNota } from "../nucleo/lembretes.js";
 import { useEffect, useRef, useState } from "react";
 import Icone from "../componentes/Icone.jsx";
-import { Abas, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { Abas } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { nomeDe } from "../nucleo/resumo.js";
 
 const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -95,10 +97,11 @@ export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
     if (editando) area.current?.focus();
   }, [editando]);
 
-  const registro = lembrete.registro ? estado.itens.find((i) => i.id === lembrete.registro) : null;
-  const comUso = estado.itens.filter((i) => i.especie === "porUso");
+  // Quem se vincula a uma nota são os registros (o vínculo mora no registro).
+  const vinculados = registrosDaNota(estado, lembrete.id);
   const autor = lembrete.autor ? nomeDe(estado, lembrete.autor) : null;
-  const rodape = [autor, diaEMes((lembrete.criadoEm ?? "").slice(0, 10)), lembrete.data ? "aparece na agenda" : null]
+  const agendada = dataAgendada(lembrete);
+  const rodape = [autor, diaEMes((lembrete.criadoEm ?? "").slice(0, 10)), agendada ? `na agenda em ${diaEMes(agendada)}` : null]
     .filter(Boolean)
     .join(" · ");
 
@@ -116,7 +119,7 @@ export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
             aria-label="Texto da nota"
           />
           <label className="nota-papel__campo">
-            <span className="rotulo">Na agenda</span>
+            <span className="rotulo">Data agendada</span>
             <input
               type="date"
               className="caixa caixa--texto caixa--compacta"
@@ -124,23 +127,6 @@ export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
               onChange={(e) => acoes.editarLembrete(lembrete.id, { data: e.target.value || null })}
             />
           </label>
-          {comUso.length > 0 && (
-            <label className="nota-papel__campo">
-              <span className="rotulo">Vincular a um registro</span>
-              <select
-                className="caixa caixa--texto caixa--compacta"
-                value={lembrete.registro ?? ""}
-                onChange={(e) => acoes.editarLembrete(lembrete.id, { registro: e.target.value || null })}
-              >
-                <option value="">Nenhum</option>
-                {comUso.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <div className="linha-dupla">
             <button
               type="button"
@@ -157,9 +143,10 @@ export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
       ) : (
         <button type="button" className="nota-papel__ver" onClick={() => setEditando(true)}>
           <span className="nota-papel__texto">{lembrete.texto || "Nota em branco"}</span>
-          {registro && (
+          {vinculados.length > 0 && (
             <span className="vinculo">
-              <Icone nome="registro" tamanho={16} /> Vinculado ao registro · {registro.nome}
+              <Icone nome="registro" tamanho={16} /> Vinculada a {vinculados.length === 1 ? "um registro" : `${vinculados.length} registros`} ·{" "}
+              {[...new Set(vinculados.map((v) => v.item.nome))].join(", ")}
             </span>
           )}
           {rodape && <span className="nota-papel__rodape">{rodape}</span>}
@@ -203,9 +190,7 @@ export default function Lembretes({ app, rota, embutido = false }) {
     <div className={embutido ? "aba-do-painel" : "tela tela--com-rodape"}>
       {!embutido && (
         <>
-          <TopoDaTela aoVoltar={voltar} acoes={[{ icone: "sino", rotulo: "Notificações", aoClicar: abrirNotificacoes }]} />
-          <Sobrescrito>{nomeDoConjunto}</Sobrescrito>
-          <h1 className="titulo-tela titulo-tela--grande">Lembretes</h1>
+          <CabecalhoDaSecao app={app} secao="Lembretes" subsecao={{ tudo: "Tudo", listas: "Listas", notas: "Notas" }[filtro]} />
         </>
       )}
 

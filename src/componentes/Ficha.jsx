@@ -1,3 +1,3 @@
-export default function Ficha({ children }) {
-  return <section className="ficha">{children}</section>;
+export default function Ficha({ children, className = "" }) {
+  return <section className={`ficha ${className}`.trim()}>{children}</section>;
 }

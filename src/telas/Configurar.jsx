@@ -1,7 +1,8 @@
 import Icone from "../componentes/Icone.jsx";
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
 import { useId, useState } from "react";
-import { AbasDePasta, LinhaDeMenu, mostrarAviso, SetaComBarra, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { AbasDePasta, LinhaDeMenu, mostrarAviso, SetaComBarra } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { nomeDeArquivo } from "../nucleo/arquivo.js";
 import EscolhaDePreset from "../passos/EscolhaDePreset.jsx";
 import CaixaComLista from "../componentes/CaixaComLista.jsx";
@@ -174,11 +175,7 @@ export default function Configurar({ app }) {
 
   return (
     <div className="tela">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito>{nomeDoConjunto}</Sobrescrito>
-      <h1 className="titulo-tela titulo-tela--grande">
-        Configurar <em>conjunto</em>
-      </h1>
+      <CabecalhoDaSecao app={app} secao="Configurar conjunto" />
 
       <>
       <div className="formulario">

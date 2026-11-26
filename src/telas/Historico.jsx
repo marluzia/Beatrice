@@ -1,8 +1,9 @@
+import { dataAgendada } from "../nucleo/lembretes.js";
 import { useState } from "react";
-import { AbasDePasta, Chips, dinheiro, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { AbasDePasta, Chips, dinheiro } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { atividadeDe, curta, hojeISO, nomeDe, STATUS_DA_DESPESA, todasAsDespesas } from "../nucleo/resumo.js";
 import { destinoDaDespesa } from "./linhasDeDespesa.jsx";
-import { sobrescritoDaTela } from "./Hub.jsx";
 
 const FILTROS = [
   { valor: "todos", rotulo: "Tudo" },
@@ -43,8 +44,8 @@ export function historicoDoConjunto(estado, resultado, hoje = hojeISO()) {
       detalhe:
         l.tipo === "lista"
           ? `lista · ${feitos} de ${(l.itens ?? []).length} feitos`
-          : l.data
-            ? `nota para ${curta(l.data)}`
+          : dataAgendada(l)
+            ? `nota para ${curta(dataAgendada(l))}`
             : "nota",
       quando: l.criadoEm ?? l.data ?? "",
       valor: 0,
@@ -99,9 +100,7 @@ export default function Historico({ app, rota }) {
 
   return (
     <div className="tela">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">Histórico</h1>
+      <CabecalhoDaSecao app={app} secao="Histórico" subsecao={rotuloDaAba(FILTROS, filtro)} />
 
       <div className="pasta--compacta">
       <AbasDePasta opcoes={FILTROS} valor={filtro} aoMudar={setFiltro} rotulo="O que ver">

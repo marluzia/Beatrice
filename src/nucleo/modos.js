@@ -197,7 +197,7 @@ export const MODOS = {
 
   moradia: {
     chave: "moradia",
-    nome: "Moradia compartilhada",
+    nome: "Moradia",
     tipo: "Moradia",
     exemplo: "República, coliving, alojamento, flat dividido",
     descricao:

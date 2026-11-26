@@ -1,6 +1,8 @@
+import { notaDoRegistro } from "../nucleo/lembretes.js";
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
-import { AbasDePasta, dinheiro, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { AbasDePasta, dinheiro } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { ciclosDoRegistro, janelaDaFatura, registravel, registrosDe } from "../nucleo/adaptador.js";
 import { dentroDaJanela, janelaDoFechamento, ultimoDiaDaJanela } from "../nucleo/calendario.js";
 import { unidadeDoRecurso } from "../nucleo/ciclos.js";
@@ -8,7 +10,6 @@ import { num, reais } from "../nucleo/formato.js";
 import { simboloDe } from "../nucleo/moedas.js";
 import { quantidadeNaUnidade, valorDoRegistro } from "../nucleo/precos.js";
 import { curta, diasAte, hojeISO, listaEmFrase, medeHoras, nomeDe } from "../nucleo/resumo.js";
-import { sobrescritoDaTela } from "./Hub.jsx";
 
 const UNIDADE_NA_TELA = { kWh: "kWh", "m³": "m³", kwh: "kWh", m3: "m³" };
 
@@ -59,8 +60,8 @@ function LinhaDeRegistro({ app, item, r, mostrarDia }) {
   }));
   const valorEmReais = emReais(item) ? valorDoRegistro(item, r) : 0;
   const noPeriodo = dentroDaJanela(r.data, doFechamento);
-  const lembrete =
-    (estado.lembretes ?? []).find((l) => l.registro === item.id && (!l.data || l.data === r.data)) ?? null;
+  // O vínculo é do registro: a nota a que ele aponta.
+  const lembrete = notaDoRegistro(estado, r);
 
   return (
     <div className="linha-registro">
@@ -149,11 +150,7 @@ export default function VerRegistros({ app }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Ver <em>registros</em>
-      </h1>
+      <CabecalhoDaSecao app={app} secao="Ver registros" subsecao={rotuloDaAba(filtros, filtroValido)} />
 
       <label className="busca">
         <Icone nome="busca" tamanho={22} />

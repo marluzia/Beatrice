@@ -24,8 +24,9 @@ function EmQual({ opcoes, valor, aoMudar }) {
 }
 
 /**
- * "O que vamos criar?": a folha que sobe do botão "+". Novo conjunto, nova
- * despesa, novo registro, novo lembrete   cada um já no conjunto escolhido.
+ * "O que vamos criar?": a folha que sobe do botão "+". Conjunto, despesa,
+ * registro, lembrete   cada um já no conjunto escolhido. Todos os cartões
+ * iguais, com a sombra de tecla de calculadora.
  */
 export default function FolhaDeCriar({ app, aoFechar }) {
   const { panorama, idDoConjunto, abrir, comecarACriar } = app;
@@ -50,10 +51,10 @@ export default function FolhaDeCriar({ app, aoFechar }) {
         <span className="folha__alca" aria-hidden="true" />
         <h2 className="titulo-tela">O que vamos criar?</h2>
 
-        <button type="button" className="criar-cartao criar-cartao--escuro" onClick={comecarACriar}>
+        <button type="button" className="criar-cartao" onClick={comecarACriar}>
           <IconeDoTipo tipo="novoConjunto" tamanho={64} />
           <span className="criar-cartao__textos">
-            <strong>Novo conjunto</strong>
+            <strong>Conjunto</strong>
             <span>Evento, temporada, familiar, moradia ou multi</span>
           </span>
           <SetaComBarra />
@@ -64,7 +65,7 @@ export default function FolhaDeCriar({ app, aoFechar }) {
             <button type="button" className="criar-cartao__linha criar-cartao__linha--botao" disabled={!despesaEm} onClick={() => abrir(despesaEm, { tela: "despesas" })}>
               <IconeDoTipo tipo="novaDespesa" tamanho={64} />
               <span className="criar-cartao__textos">
-                <strong>Nova despesa</strong>
+                <strong>Despesa</strong>
                 <span>Avulsa ou cíclica, por arquivo, foto ou à mão</span>
               </span>
             </button>
@@ -87,7 +88,7 @@ export default function FolhaDeCriar({ app, aoFechar }) {
             <button type="button" className="criar-cartao__linha criar-cartao__linha--botao" disabled={!registroEm} onClick={() => abrir(registroEm, { tela: "lancarRegistro" })}>
               <IconeDoTipo tipo="novoRegistro" tamanho={64} />
               <span className="criar-cartao__textos">
-                <strong>Novo registro</strong>
+                <strong>Registro</strong>
                 <span>Uso de itens, aparelhos etc.</span>
               </span>
             </button>
@@ -114,7 +115,7 @@ export default function FolhaDeCriar({ app, aoFechar }) {
             <button type="button" className="criar-cartao__linha criar-cartao__linha--botao" disabled={!lembreteEm} onClick={() => abrir(lembreteEm, { tela: "lancarLembrete" })}>
               <IconeDoTipo tipo="novoLembrete" tamanho={64} />
               <span className="criar-cartao__textos">
-                <strong>Novo lembrete</strong>
+                <strong>Lembrete</strong>
                 <span>Lista ou nota, para o grupo</span>
               </span>
             </button>

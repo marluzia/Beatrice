@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alerta, Navegacao } from "../componentes/index.js";
-import { TopoDaTela } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao } from "../componentes/CabecalhoDoConjunto.jsx";
 import { faltasDoFechamento } from "../nucleo/calendario.js";
 import { passosDe } from "../nucleo/modos.js";
 import { periodoDe } from "../nucleo/resumo.js";
@@ -105,15 +105,8 @@ export default function FecharContas({ app, rota }) {
   return (
     <div className="tela tela--assistente tela--com-rodape">
       <div className="assistente-topo">
-        <div className="assistente-topo__titulo">
-          <TopoDaTela aoVoltar={voltar} fechar />
-          <div>
-            <h1 className="titulo-assistente">{titulo}</h1>
-            <p className="texto-apoio texto-apoio--colado">
-              {nomeDoConjunto} · {periodo.texto}
-            </p>
-          </div>
-        </div>
+        <CabecalhoDaSecao app={app} secao={titulo} subsecao={passos[indice]?.titulo} />
+        <p className="texto-apoio texto-apoio--colado">{periodo.texto}</p>
         <Navegacao
           passos={passos.map((p) => p.titulo)}
           atual={indice}

@@ -129,6 +129,39 @@
   font-style: normal;
 }
 
+/* Nas seções, embaixo do nome: o nome da seção. */
+.cabecalho-conjunto__subtitulo {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+
+.cabecalho-conjunto__subtitulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cabecalho-conjunto__seta {
+  color: var(--tinta-3);
+}
+
+/* As ações da tela (editar, duplicar) à direita, no lugar dos três pontos. */
+.cabecalho-conjunto__acoes {
+  display: flex;
+  flex: none;
+}
+
+/* Sem menu, o lado direito guarda o lugar dos três pontos: o nome fica onde estava. */
+.cabecalho-conjunto__vazio {
+  flex: none;
+  width: 44px;
+}
+
 .membros-em-fila {
   display: flex;
   align-items: center;
@@ -656,6 +689,51 @@
   text-align: center;
 }
 
+/* O total desenhado com as pessoas: pizza, segmento ou polígono. */
+.figura-total {
+  position: relative;
+  flex: none;
+}
+
+.figura-total svg {
+  display: block;
+  overflow: visible;
+}
+
+/* Os pontos (um por pessoa) ficam meio apagados: marcam as pessoas sem pesar mais que o contorno. */
+.figura-total__ponto {
+  fill: var(--tinta);
+  opacity: 0.35;
+}
+
+.figura-total__miolo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.figura-total__miolo .rotulo {
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+}
+
+/* Duas pessoas: "Total" fica logo acima do segmento. */
+.figura-total--segmento .figura-total__miolo {
+  bottom: 50%;
+  justify-content: flex-end;
+  padding-bottom: 10px;
+}
+
+/* Uma pessoa: "Total" dentro da pizza colorida. */
+.figura-total--pizza .figura-total__miolo .rotulo {
+  font-weight: 700;
+  color: var(--tinta);
+}
+
 .anel__miolo .rotulo {
   font-size: 9.5px;
   letter-spacing: 0.2em;
@@ -667,34 +745,43 @@
   gap: 10px;
 }
 
+/* Teclas de calculadora: quadradas, creme, com a sombra creme-escura logo embaixo. */
 .acao-rapida {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-start;
-  min-height: 104px;
-  padding: 14px 14px 13px;
-  background: var(--cartao);
-  border: 1px solid var(--linha);
-  border-radius: 18px;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  aspect-ratio: 1;
+  min-height: 0;
+  padding: 10px 8px;
+  background: var(--areia);
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 5px 0 var(--creme-escuro);
   color: var(--tinta);
-  text-align: left;
+  text-align: center;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease;
+}
+
+.acao-rapida:active {
+  box-shadow: 0 0 0 var(--creme-escuro);
+  transform: translateY(5px);
 }
 
 .acao-rapida strong {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
 }
 
-.acao-rapida--escura {
-  background: var(--tinta);
-  border-color: var(--tinta);
-  color: var(--cartao);
-}
-
-.acao-rapida--escura .icone {
-  color: var(--ouro);
+@media (prefers-reduced-motion: reduce) {
+  .acao-rapida,
+  .criar-cartao {
+    transition: none;
+  }
 }
 
 .chips {
@@ -900,9 +987,8 @@
   animation: busca-sobe 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-.tela--busca-entrando .titulo-tela,
-.tela--busca-entrando .pasta--compacta,
-.tela--busca-entrando .topo-tela {
+.tela--busca-entrando .cabecalho-conjunto,
+.tela--busca-entrando .pasta--compacta {
   animation: busca-aparece 260ms ease-out 140ms both;
 }
 
@@ -926,12 +1012,35 @@
   }
 }
 
+/*
+ * Toda tela entra do mesmo jeito que a Busca: o cabeçalho aparece primeiro e
+ * o resto sobe um pouco e aparece logo depois. O que fica preso na tela
+ * (rodapé, menus, folhas) não entra na animação: mexer no transform deles os
+ * tiraria do lugar.
+ */
+.tela > :where(:not(.rodape-fixo, .menu-pontos__fundo, .folha-fundo)) {
+  animation: busca-aparece 260ms ease-out 80ms both;
+}
+
+.tela > .cabecalho-conjunto {
+  animation: tela-cabecalho 200ms ease-out both;
+}
+
+@keyframes tela-cabecalho {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .tela > *,
   .tela--busca-entrando .busca,
-  .tela--busca-entrando .titulo-tela,
-  .tela--busca-entrando .pasta--compacta,
-  .tela--busca-entrando .topo-tela {
-    animation: none;
+  .tela--busca-entrando .cabecalho-conjunto,
+  .tela--busca-entrando .pasta--compacta {
+    animation: none !important;
   }
 }
 
@@ -1085,12 +1194,13 @@
   transform: translateX(-50%);
 }
 
+/* Quadrado, como a tecla "=" da calculadora: preto, com a sombra mostarda logo embaixo. */
 .botao-criar__sombra {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  border-radius: 16px;
   background: var(--ouro);
-  transform: translate(6px, 7px);
+  transform: translateY(5px);
 }
 
 .botao-criar__face {
@@ -1098,13 +1208,20 @@
   inset: 0;
   display: grid;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 16px;
   background: var(--tinta);
   color: var(--cartao);
+  transition: transform 90ms ease;
 }
 
 .botao-criar:active .botao-criar__face {
-  transform: translate(2px, 2px);
+  transform: translateY(5px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .botao-criar__face {
+    transition: none;
+  }
 }
 
 /* ------------------------------------------------------------ folha de criar --- */
@@ -1163,6 +1280,7 @@
   }
 }
 
+/* Os cartões de "O que vamos criar?": todos iguais, com a sombra de tecla de calculadora. */
 .criar-cartao {
   display: flex;
   flex-direction: column;
@@ -1171,8 +1289,18 @@
   background: var(--cartao);
   border: 1px solid var(--linha);
   border-radius: 22px;
+  box-shadow: 0 5px 0 var(--creme-escuro);
   color: var(--tinta);
   text-align: left;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease;
+}
+
+button.criar-cartao:active,
+.criar-cartao:has(.criar-cartao__linha--botao:active, .criar-cartao__seta:active) {
+  box-shadow: 0 0 0 var(--creme-escuro);
+  transform: translateY(5px);
 }
 
 button.criar-cartao {
@@ -2502,8 +2630,79 @@ button.cartao-anel__nota {
 
 /* ------------------------------------------------------------ agenda --- */
 
+/* Na agenda, cada quadro respira: folga igual nas bordas e entre as partes. */
 .embutido--agenda .ficha {
+  gap: 12px;
+  padding: 18px 18px 20px;
   border-radius: 22px;
+}
+
+.embutido--agenda .coluna {
+  gap: 14px;
+}
+
+.embutido--agenda .calendario-topo {
+  padding: 0 2px;
+}
+
+.embutido--agenda .legenda-alternar {
+  margin-top: 4px;
+}
+
+.embutido--agenda .legenda-agenda {
+  gap: 16px;
+  margin-top: 0;
+  padding: 16px 4px 2px;
+}
+
+.embutido--agenda .legenda-agenda__coluna {
+  gap: 10px;
+}
+
+.embutido--agenda .legenda-agenda__acoes {
+  gap: 10px 14px;
+}
+
+.embutido--agenda .titulo-do-dia {
+  margin: 0;
+}
+
+.embutido--agenda .linha-acoes {
+  margin: 0;
+  gap: 8px;
+}
+
+.embutido--agenda .linha-do-dia,
+.embutido--agenda .linha-do-dia + .linha-do-dia {
+  margin: 0;
+  padding: 14px 16px;
+}
+
+/* O dia aberto chega subindo, e o botão de lançar sobe no lugar da barra de baixo. */
+.dia-aberto {
+  animation: busca-aparece 260ms ease-out both;
+}
+
+.rodape-fixo--agenda {
+  animation: rodape-sobe 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rodape-sobe {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 100%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dia-aberto,
+  .rodape-fixo--agenda {
+    animation: none;
+  }
 }
 
 .titulo-do-dia {
@@ -4931,6 +5130,190 @@ button.cartao-anel__nota {
 @media (prefers-reduced-motion: reduce) {
   .teclado-divisao__tecla,
   .caixa-lista__seta {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------- quem pagou, quem divide --- */
+
+/* A caixa que abre a lista das pessoas: quem está marcado, e a seta. */
+.lista-de-pessoas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lista-de-pessoas__caixa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--tinta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lista-de-pessoas__caixa > .icone,
+.lista-de-pessoas__caixa > svg {
+  flex: none;
+  margin-left: auto;
+  color: var(--tinta-2);
+  transition: transform 160ms ease;
+}
+
+.lista-de-pessoas--aberta .lista-de-pessoas__caixa > svg {
+  transform: rotate(180deg);
+}
+
+.lista-de-pessoas__rostos {
+  display: flex;
+  flex: none;
+}
+
+.lista-de-pessoas__rostos:empty {
+  display: none;
+}
+
+.lista-de-pessoas__rostos .avatar {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--cartao);
+}
+
+.lista-de-pessoas__rostos .avatar + .avatar {
+  margin-left: -6px;
+}
+
+.lista-de-pessoas__resumo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A lista aberta, logo embaixo da caixa: "Selecionar todos" (ou "Ninguém") no topo. */
+.lista-de-pessoas__lista {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: var(--canto-pequeno);
+  box-shadow: 0 6px 18px rgba(27, 26, 23, 0.08);
+  animation: busca-aparece 180ms ease-out both;
+}
+
+.lista-de-pessoas__opcao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--tinta);
+  text-align: left;
+}
+
+.lista-de-pessoas__opcao + .lista-de-pessoas__opcao,
+.lista-de-pessoas__rolo > .lista-de-pessoas__opcao,
+.lista-de-pessoas__rolo > .lista-de-pessoas__vazio {
+  border-top: 1px solid var(--linha);
+}
+
+/* Escrever o nome para achar a pessoa. */
+.lista-de-pessoas__busca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--linha);
+  color: var(--tinta-2);
+}
+
+.lista-de-pessoas__busca input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--tinta);
+}
+
+.lista-de-pessoas__busca input::placeholder {
+  color: var(--tinta-3);
+}
+
+.lista-de-pessoas__opcoes {
+  display: flex;
+  flex-direction: column;
+}
+
+/* As pessoas rolam numa janela do tamanho de três linhas (48px cada). */
+.lista-de-pessoas__rolo {
+  display: flex;
+  flex-direction: column;
+  max-height: 144px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.lista-de-pessoas__rolo > * {
+  flex: none;
+}
+
+.lista-de-pessoas__vazio {
+  margin: 0;
+  padding: 14px;
+  font-size: 14px;
+  color: var(--tinta-2);
+}
+
+.lista-de-pessoas__opcao--topo {
+  background: var(--areia);
+  font-weight: 600;
+}
+
+.lista-de-pessoas__opcao .avatar {
+  border-radius: 50%;
+}
+
+.lista-de-pessoas__nome {
+  flex: 1;
+  min-width: 0;
+}
+
+.lista-de-pessoas__marca {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--tinta-3);
+  border-radius: 6px;
+  color: var(--cartao);
+}
+
+.lista-de-pessoas__marca--redonda {
+  border-radius: 50%;
+}
+
+.lista-de-pessoas__marca--ligada {
+  background: var(--tinta);
+  border-color: var(--tinta);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lista-de-pessoas__lista {
+    animation: none;
+  }
+
+  .lista-de-pessoas__caixa > svg {
     transition: none;
   }
 }

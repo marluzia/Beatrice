@@ -1,7 +1,8 @@
 import { simboloDe } from "../nucleo/moedas.js";
 import { podeEditar } from "../nucleo/autoria.js";
 import Icone from "../componentes/Icone.jsx";
-import { dinheiro, SeloPilula, TopoDaTela } from "../componentes/Interface.jsx";
+import { dinheiro, SeloPilula } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { janelaDaFatura, linhasPorComportamento } from "../nucleo/adaptador.js";
 import { janelaDoFechamento, ultimoDiaDaJanela } from "../nucleo/calendario.js";
 import { cicloPorId, ciclosLigados, unidadeDoRecurso } from "../nucleo/ciclos.js";
@@ -93,7 +94,7 @@ export default function DespesaCiclica({ app, rota }) {
   if (!ciclo) {
     return (
       <div className="tela">
-        <TopoDaTela aoVoltar={voltar} />
+        <CabecalhoDaSecao app={app} secao="Despesa cíclica" />
         <p className="vazio-suave">Esta conta não existe mais.</p>
       </div>
     );
@@ -135,13 +136,7 @@ export default function DespesaCiclica({ app, rota }) {
 
   return (
     <div className="tela">
-      <TopoDaTela aoVoltar={voltar} acoes={[{ icone: "sino", rotulo: "Notificações", aoClicar: abrirNotificacoes }]} />
-      <p className="sobrescrito sobrescrito--icone">
-        <Icone nome={ciclo.id === "agua" ? "gota" : "raio"} tamanho={18} />
-        <span>
-          {nomeDoConjunto} · despesa cíclica · {ciclo.nome}
-        </span>
-      </p>
+      <CabecalhoDaSecao app={app} secao="Despesa cíclica" subsecao={ciclo.nome} />
       <p className="valor-gigante">{dinheiro(valor)}</p>
       <div className="pilulas">
         {ciclo.pagoPor ? (

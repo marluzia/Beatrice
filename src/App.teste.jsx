@@ -16,19 +16,22 @@ afterEach(() => {
 
 const clicar = (texto) => fireEvent.click(screen.getByText(texto));
 
-/** Pelo "+" da barra de baixo: "O que vamos criar?" → Novo conjunto. */
+/** O nome de um cabeçalho: ele inteiro, ou a última parte de "Seção › Subseção". */
+const noCabecalho = (texto) => new RegExp(`(^|› )${texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+
+/** Pelo "+" da barra de baixo: "O que vamos criar?" → Conjunto. */
 const comecarACriar = () => {
   fireEvent.click(screen.getByRole("button", { name: "Criar" }));
-  clicar("Novo conjunto");
+  fireEvent.click(within(screen.getByRole("dialog", { name: "O que vamos criar?" })).getByText("Conjunto"));
 };
 
 /** Cria um conjunto do tipo pedido e cai no painel dele. */
-const criar = (tipo = "Moradia compartilhada", botao = "Criar república") => {
+const criar = (tipo = "Moradia") => {
   const montado = render(<App />);
   comecarACriar();
   clicar(tipo);
   clicar("Continuar");
-  clicar(botao);
+  clicar("Criar");
   return montado;
 };
 
@@ -126,11 +129,34 @@ describe("a aplicação abre", () => {
     render(<App />);
     fireEvent.click(screen.getAllByText("Conjuntos")[0]);
     expect(screen.getByRole("button", { name: "Buscar conjunto" })).toBeTruthy();
-    // Sem sino e sem "Novo conjunto": criar é pelo + da barra.
-    expect(screen.queryByRole("button", { name: "Notificações" })).toBeNull();
+    // Sem "Novo conjunto" (criar é pelo + da barra); o sino fica no canto direito do cabeçalho.
     expect(screen.queryByText("Novo conjunto")).toBeNull();
+    expect(within(document.querySelector(".cabecalho-conjunto")).getByRole("button", { name: "Notificações" })).toBeTruthy();
     fireEvent.click(screen.getByText("Perfil"));
     expect(screen.getByText("Seu nome")).toBeTruthy();
+  });
+
+  it("Conjuntos, Atividade e Perfil têm o cabeçalho de um conjunto, com o voltar ao Início", () => {
+    render(<App />);
+    for (const aba of ["Conjuntos", "Atividade", "Perfil"]) {
+      fireEvent.click(within(document.querySelector(".barra-inferior")).getByText(aba));
+      const cabecalho = document.querySelector(".cabecalho-conjunto");
+      expect(cabecalho.querySelector("h1").textContent).toBe(aba);
+      // O sino fica em Conjuntos e Atividade; o Perfil não tem.
+      expect(Boolean(within(cabecalho).queryByRole("button", { name: "Notificações" }))).toBe(aba !== "Perfil");
+      fireEvent.click(within(cabecalho).getByRole("button", { name: "Voltar" }));
+      expect(screen.getByRole("combobox", { name: "Moeda do saldo" })).toBeTruthy();
+    }
+
+    // Buscar e Notificações também: Buscar com o sino, Notificações sem.
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    let cabecalho = document.querySelector(".cabecalho-conjunto");
+    expect(cabecalho.querySelector("h1").textContent).toBe("Buscar");
+    fireEvent.click(within(cabecalho).getByRole("button", { name: "Notificações" }));
+    cabecalho = document.querySelector(".cabecalho-conjunto");
+    expect(cabecalho.querySelector("h1").textContent).toBe("Notificações");
+    expect(within(cabecalho).queryByRole("button", { name: "Notificações" })).toBeNull();
+    expect(within(cabecalho).getByRole("button", { name: "Voltar" })).toBeTruthy();
   });
 });
 
@@ -138,14 +164,33 @@ describe("criar um conjunto", () => {
   it("oferece os cinco tipos", () => {
     render(<App />);
     comecarACriar();
-    for (const tipo of ["Evento", "Temporada", "Familiar", "Moradia compartilhada", "Multi"]) {
+    for (const tipo of ["Evento", "Temporada", "Familiar", "Moradia", "Multi"]) {
       expect(screen.getByText(tipo)).toBeTruthy();
     }
+    // O evento vem marcado, e o cabeçalho é o padrão, só com o título.
+    expect(screen.getByRole("radio", { name: /^Evento/ }).getAttribute("aria-checked")).toBe("true");
+    const cabecalho = document.querySelector(".cabecalho-conjunto");
+    expect(cabecalho.querySelector("h1").textContent).toBe("Que tipo de conjunto?");
+    expect(within(cabecalho).queryByRole("button", { name: "Notificações" })).toBeNull();
   });
 
-  it("na moradia compartilhada, o uso comum tem quatro jeitos, e só a Livre não é grátis", () => {
+  it("a folha de criar mostra só o objeto: Conjunto, Despesa, Registro, Lembrete", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+    const folha = screen.getByRole("dialog", { name: "O que vamos criar?" });
+    const nomes = [...folha.querySelectorAll(".criar-cartao__textos strong")].map((el) => el.textContent);
+    expect(nomes).toEqual(["Conjunto", "Despesa", "Registro", "Lembrete"]);
+    expect(folha.querySelector(".criar-cartao--escuro")).toBeNull();
+  });
+
+  it("na moradia, o uso comum tem quatro jeitos no formulário de criar, e só a Livre não é grátis", () => {
     const { container } = render(<App />);
     comecarACriar();
+    clicar("Moradia");
+    // Na escolha do tipo, ainda não.
+    expect(screen.queryByText("Comunal")).toBeNull();
+    clicar("Continuar");
+    expect(document.querySelector(".cabecalho-conjunto h1").textContent).toBe("Criar moradia");
     expect(screen.getByText("Comunal")).toBeTruthy();
     expect(screen.getByText("Temporal")).toBeTruthy();
     expect(screen.getByText("Livre")).toBeTruthy();
@@ -153,8 +198,9 @@ describe("criar um conjunto", () => {
     expect(radios).toHaveLength(4);
     expect(radios.filter((r) => r.querySelector(".selo-gratis"))).toHaveLength(3);
     fireEvent.click(screen.getByText("Livre"));
-    clicar("Continuar");
-    expect(screen.getByText("Moradia compartilhada · Livre")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /^Livre/ }).getAttribute("aria-checked")).toBe("true");
+    clicar("Criar");
+    expect(document.querySelector(".aneis")).toBeTruthy();
   });
 
   it("o evento não pergunta o uso comum", () => {
@@ -185,7 +231,7 @@ describe("criar um conjunto", () => {
     clicar("Convidado");
     fireEvent.change(screen.getByPlaceholderText("Nome do convidado"), { target: { value: "Bia" } });
     clicar("Adicionar");
-    clicar("Criar república");
+    clicar("Criar");
     clicar("Pessoas");
     expect(screen.getByText("Membros")).toBeTruthy();
     expect(screen.getByText("Bia")).toBeTruthy();
@@ -199,7 +245,7 @@ describe("criar um conjunto", () => {
   });
 
   it("o evento lança despesas avulsas, por categoria", () => {
-    criar("Evento", "Criar evento");
+    criar("Evento");
     expect(screen.getByText("avulsas, por categoria")).toBeTruthy();
     expect(screen.queryByText("Registros")).toBeNull();
   });
@@ -207,7 +253,7 @@ describe("criar um conjunto", () => {
 
 describe("na Multi, a agenda marca estadia ou dias fora", () => {
   it("a escolha fica na agenda e em Configurar", () => {
-    criar("Multi", "Criar espaço");
+    criar("Multi");
     clicar("Agenda");
     expect(screen.getByText("Marcar na agenda")).toBeTruthy();
     const naEscolha = (texto) => screen.getAllByText(texto).find((el) => el.closest(".marcacao-da-agenda"));
@@ -220,10 +266,21 @@ describe("na Multi, a agenda marca estadia ou dias fora", () => {
     expect(dias.closest(".opcao-radio").getAttribute("aria-checked")).toBe("true");
   });
 
-  it("a moradia compartilhada não oferece a escolha: marca sempre os dias fora", () => {
+  it("a moradia não oferece a escolha: marca sempre os dias fora", () => {
     abrirRepublica();
     clicar("Agenda");
     expect(screen.queryByText("Marcar na agenda")).toBeNull();
+  });
+
+  it("os dias fora do dia se marcam pela lista de pessoas, com Selecionar todos", () => {
+    abrirRepublica();
+    clicar("Agenda");
+    fireEvent.click(document.querySelector(".calendario-dia--hoje"));
+    fireEvent.click(screen.getByRole("button", { name: /^Dias fora no dia: Ninguém/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Selecionar todos/ }));
+    expect(screen.getByRole("option", { name: /Selecionar todos/ }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("option", { name: /Selecionar todos/ }));
+    expect(screen.getByRole("button", { name: /^Dias fora no dia: Ninguém/ })).toBeTruthy();
   });
 });
 
@@ -242,14 +299,23 @@ describe("as telas do conjunto abrem", () => {
 
     clicar("Agenda");
     // Sem dia escolhido, a barra de baixo fica; escolher um dia a tira, e tirar a seleção a traz de volta.
-    expect(screen.queryByText(/\+ Lançar no dia \d+/)).toBeNull();
+    expect(screen.queryByText(/Lançar no dia \d+/)).toBeNull();
     expect(temBarra()).toBe(true);
     fireEvent.click(document.querySelector(".calendario-dia--hoje"));
-    expect(screen.getAllByText(/\+ Lançar no dia \d+/).length).toBeGreaterThan(0);
+    // O botão de lançar (sem o "+") toma o lugar da barra de baixo.
+    expect(document.querySelector(".rodape-fixo--agenda .botao").textContent).toMatch(/^Lançar no dia \d+$/);
     expect(temBarra()).toBe(false);
     fireEvent.click(document.querySelector(".calendario-dia--hoje"));
     expect(temBarra()).toBe(true);
-    fireEvent.click(document.querySelector(".calendario-dia--hoje"));
+    // O lápis do cabeçalho abre o dia de hoje e o botão de lançar.
+    fireEvent.click(within(document.querySelector(".cabecalho-conjunto")).getByRole("button", { name: "Lançar no dia" }));
+    expect(document.querySelector(".dia-aberto")).not.toBeNull();
+    expect(document.querySelector(".rodape-fixo--agenda")).not.toBeNull();
+    expect(temBarra()).toBe(false);
+    // A legenda da moradia tem o registro de uso.
+    clicar("Mostrar legenda");
+    expect(within(document.querySelector(".legenda-agenda")).getByText("Registro")).toBeTruthy();
+    clicar("Ocultar legenda");
     // A legenda começa oculta e abre pelo botão.
     expect(screen.queryByText("Ocultar legenda")).toBeNull();
     clicar("Mostrar legenda");
@@ -304,7 +370,7 @@ describe("as telas do conjunto abrem", () => {
     fireEvent.click(screen.getByText("Feira"));
     expect(screen.getByRole("dialog", { name: "Opções de Feira" })).toBeTruthy();
     clicar("Abrir");
-    expect(screen.getByRole("heading", { name: "Feira" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Feira") })).toBeTruthy();
     expect(screen.getByText("Lançado por")).toBeTruthy();
     expect(screen.getByText("Lançado em")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Editar" })).toBeTruthy();
@@ -459,9 +525,19 @@ describe("despesas: lançar e ver", () => {
 
     clicar("Lançar manualmente");
     expect(temBarra()).toBe(false);
-    for (const rotulo of ["Categoria", "Quem pagou", "Valor", "Como divide", "Quem paga", "Quando foi"]) {
+    for (const rotulo of ["Categoria", "Quem pagou", "Valor", "Quem divide", "Como divide", "Data agendada (opcional)", "Vencimento (opcional)"]) {
       expect(screen.getAllByText(rotulo).length).toBeGreaterThan(0);
     }
+    expect(screen.queryByText("Quem paga")).toBeNull();
+    expect(screen.queryByText("Quando foi")).toBeNull();
+    // A calculadora da avulsa: a mesma ordem, com presença depois de ajuste.
+    const teclas = [...document.querySelectorAll(".teclado-divisao__tecla")].map((b) => b.getAttribute("aria-label"));
+    const ordem = ["igual", "cotas", "percentual", "valor", "ajuste", "presença", "dias", "horas", "uso"];
+    expect(teclas).toEqual(ordem.filter((t) => teclas.includes(t)));
+    expect(teclas.slice(0, 5)).toEqual(["igual", "cotas", "percentual", "valor", "ajuste"]);
+    // Quem divide vem antes de Como divide.
+    const rotulos = [...document.querySelectorAll(".formulario .rotulo")].map((el) => el.textContent);
+    expect(rotulos.indexOf("Quem divide")).toBeLessThan(rotulos.indexOf("Como divide"));
     // Sem valor, não lança.
     fireEvent.click(document.querySelector(".rodape-fixo .botao"));
     expect(screen.getByText("Escreva o valor da despesa.")).toBeTruthy();
@@ -469,7 +545,7 @@ describe("despesas: lançar e ver", () => {
     fireEvent.click(document.querySelector(".rodape-fixo .botao"));
     expect(screen.getByText(/Sucesso\. Confira em/)).toBeTruthy();
     clicar("Ver despesas");
-    expect(screen.getByText("Ver")).toBeTruthy();
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toMatch(/^Ver despesas/);
   });
 
   it("a cíclica se lança pelo formulário da fatura", () => {
@@ -479,6 +555,18 @@ describe("despesas: lançar e ver", () => {
     clicar("Lançar manualmente");
     expect(screen.getByRole("radio", { name: "Luz" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "Luz" }));
+    // Quem divide (escolhe-se) vem antes de Como divide, que tem Calculadora e Registros + régua.
+    const rotulos = [...document.querySelectorAll(".formulario .rotulo")].map((el) => el.textContent);
+    expect(rotulos.indexOf("Quem divide")).toBeGreaterThan(-1);
+    expect(rotulos.indexOf("Quem divide")).toBeLessThan(rotulos.indexOf("Como divide"));
+    expect(screen.getByRole("button", { name: "Registros + régua" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Calculadora" }));
+    const teclas = [...document.querySelectorAll(".teclado-divisao__tecla")].map((b) => b.getAttribute("aria-label"));
+    expect(teclas).toEqual(["igual", "cotas", "percentual", "valor", "ajuste", "dias", "horas", "uso"]);
+    // Quem pagou e quem divide abrem uma lista.
+    expect(screen.getByRole("button", { name: /^Quem divide:/ }).getAttribute("aria-haspopup")).toBe("listbox");
+    expect(screen.getByRole("button", { name: /^Quem pagou:/ }).getAttribute("aria-haspopup")).toBe("listbox");
+    fireEvent.click(screen.getByRole("button", { name: "Registros + régua" }));
     fireEvent.change(campo("Energia elétrica"), { target: { value: "180" } });
     fireEvent.click(document.querySelector(".rodape-fixo .botao"));
     expect(screen.getByText(/Sucesso\. Confira em/)).toBeTruthy();
@@ -546,21 +634,22 @@ describe("o painel: período, anel e histórico", () => {
   });
 
   it("o evento tem só Despesas e Lembretes; a temporada, mais Período", () => {
-    criar("Evento", "Criar evento");
+    criar("Evento");
     expect([...document.querySelectorAll(".abas__aba")].map((a) => a.textContent)).toEqual(["Despesas", "Lembretes"]);
     cleanup();
     window.localStorage.clear();
-    criar("Temporada", "Criar temporada");
+    criar("Temporada");
     expect([...document.querySelectorAll(".abas__aba")].map((a) => a.textContent)).toEqual(["Período", "Despesas", "Lembretes"]);
   });
 
   it("o histórico filtra despesas, lembretes e registros, e as despesas por status", () => {
-    criar("Evento", "Criar evento");
+    criar("Evento");
     lancarAvulsa("80");
     voltarAoPainel();
     noMenu("Histórico");
 
-    for (const chip of ["Tudo", "Despesas", "Lembretes", "Registros"]) expect(screen.getByText(chip)).toBeTruthy();
+    for (const chip of ["Tudo", "Despesas", "Lembretes", "Registros"]) expect(screen.getAllByText(chip).length).toBeGreaterThan(0);
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Histórico › Tudo");
     clicar("Despesas");
     for (const chip of ["Abertas", "A vencer", "Atrasadas", "Pagas"]) expect(screen.getByText(chip)).toBeTruthy();
     expect(document.querySelectorAll(".linha-historia").length).toBe(1);
@@ -576,7 +665,7 @@ describe("o painel: período, anel e histórico", () => {
 
 describe("conjuntos que nascem limpos e não mudam de tipo", () => {
   it("o evento nasce sem nenhuma despesa e sem trocar para temporada", () => {
-    criar("Evento", "Criar evento");
+    criar("Evento");
     clicar("Lançar despesas");
     expect(screen.queryByText("Outra despesa")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
@@ -595,7 +684,7 @@ describe("conjuntos que nascem limpos e não mudam de tipo", () => {
     expect(screen.getByRole("combobox", { name: "Moeda do conjunto" })).toBeTruthy();
     expect(document.querySelector('[aria-label="Início da temporada"]')).toBeNull();
     expect(screen.queryByText("Descrição (opcional)")).toBeNull();
-    clicar("Criar temporada");
+    clicar("Criar");
     clicar("Lançar despesas");
     expect(screen.queryByText("Outra despesa")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
@@ -623,14 +712,16 @@ describe("Configurar conjunto e a seção Itens", () => {
     expect(temBarra()).toBe(false);
     expect(screen.getByText("Nome")).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "Itens" })).toBeNull();
-    const ultimo = [...document.querySelectorAll(".topo-tela__acoes button")].at(-1);
-    expect(ultimo.getAttribute("aria-label")).toBe("Notificações");
+    // Configurar tem o cabeçalho das telas do conjunto: o nome e "Configurar conjunto", sem sino.
+    const cabecalho = document.querySelector(".cabecalho-conjunto");
+    expect(cabecalho.querySelector("h2").textContent).toBe("Configurar conjunto");
+    expect(within(cabecalho).queryByRole("button", { name: "Notificações" })).toBeNull();
   });
 
   it("na moradia, Itens é onde ficam os aparelhos que geram registros", () => {
     abrirRepublica();
     abrirItens();
-    expect(screen.getByRole("heading", { name: "Itens" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Itens") })).toBeTruthy();
     // "O que o conjunto gasta" é só de Fechar contas: aqui, a lista dos itens.
     expect(screen.queryByText(/o que o conjunto gasta/i)).toBeNull();
     expect(screen.queryByText("Nome")).toBeNull();
@@ -654,13 +745,13 @@ describe("Configurar conjunto e a seção Itens", () => {
     abrirRepublica();
     clicar("Registros");
     clicar("Cadastrar itens");
-    expect(screen.getByRole("heading", { name: "Itens" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Itens") })).toBeTruthy();
   });
 });
 
 describe("o painel do conjunto", () => {
   it("Recente, no fim do painel, mostra até cinco movimentações e 'mostrar mais' leva ao histórico", () => {
-    criar("Evento", "Criar evento");
+    criar("Evento");
     // Criar já é atividade: o conjunto novo mostra quem o criou.
     expect(document.querySelector(".recente").textContent).toMatch(/criou o conjunto/);
     lancarAvulsa("30");
@@ -750,7 +841,7 @@ describe("antes do período e equipamentos", () => {
     comecarACriar();
     clicar("Temporada");
     clicar("Continuar");
-    clicar("Criar temporada");
+    clicar("Criar");
     mexerNoSalvo((e) => {
       const de = e.corte.de;
       const antes = new Date(`${de}T12:00:00Z`);
@@ -778,7 +869,7 @@ describe("antes do período e equipamentos", () => {
   });
 
   it("na Multi, Itens cadastra embarcação e equipamento; na moradia, não", () => {
-    criar("Multi", "Criar espaço");
+    criar("Multi");
     abrirItens();
     fireEvent.click(screen.getByRole("tab", { name: "Avulsos" }));
     expect(screen.getByText("Equipamentos fora das faturas")).toBeTruthy();
@@ -811,7 +902,7 @@ describe("a moeda do conjunto", () => {
     clicar("Evento");
     clicar("Continuar");
     fireEvent.change(screen.getByRole("combobox", { name: "Moeda do conjunto" }), { target: { value: "USD" } });
-    clicar("Criar evento");
+    clicar("Criar");
     expect(document.querySelector(".valor-anel").textContent).toBe("US$ 0,00");
 
     lancarAvulsa("90");
@@ -828,6 +919,40 @@ describe("a moeda do conjunto", () => {
     sairParaOInicio();
     const seletor = screen.getByRole("combobox", { name: "Moeda do saldo" });
     expect([...seletor.options].map((o) => o.value)).toEqual(["USD"]);
+  });
+});
+
+describe("o cabeçalho das telas do conjunto", () => {
+  const subtitulo = () => document.querySelector(".cabecalho-conjunto h2").textContent;
+
+  it("é o nome do conjunto e 'Seção › Subseção', e a subseção segue a aba", () => {
+    abrirRepublica();
+    const nome = document.querySelector(".cabecalho-conjunto h1").textContent;
+    clicar("Lançar despesas");
+    expect(document.querySelector(".cabecalho-conjunto h1").textContent).toBe(nome);
+    expect(subtitulo()).toBe("Lançar despesas › Avulsa");
+    fireEvent.click(screen.getByRole("tab", { name: "Cíclica" }));
+    expect(subtitulo()).toBe("Lançar despesas › Cíclica");
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    clicar("Ver saldos");
+    expect(subtitulo()).toBe("Ver saldos");
+  });
+});
+
+describe("o lembrete: pessoas marcadas e data agendada", () => {
+  it("lançado sem data, entra na agenda e nas notificações do dia do lançamento", () => {
+    criar("Evento");
+    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
+    clicar("Lançar lembretes");
+    fireEvent.click(screen.getByRole("tab", { name: "Nota" }));
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Lançar lembretes › Nota");
+    expect(screen.getByText("Marcar pessoas (opcional)")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Texto da nota"), { target: { value: "Comprar gelo" } });
+    fireEvent.click(document.querySelector(".rodape-fixo .botao"));
+    voltarAoPainel();
+    sairParaOInicio();
+    fireEvent.click(screen.getAllByRole("button", { name: "Notificações" })[0]);
+    expect(screen.getByText("Comprar gelo")).toBeTruthy();
   });
 });
 
@@ -893,7 +1018,7 @@ describe("a busca geral do Início", () => {
     expect(screen.getByText("Pão de queijo")).toBeTruthy();
     fireEvent.click(screen.getByText("Pão de queijo"));
     // Fora de "Ver", tocar num lançamento mostra só ele.
-    expect(screen.getByRole("heading", { name: "Pão de queijo" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Pão de queijo") })).toBeTruthy();
     expect(screen.getByText("Lançado em")).toBeTruthy();
   });
 });
@@ -911,11 +1036,21 @@ describe("a barra de baixo do conjunto", () => {
     expect(screen.queryByRole("dialog", { name: "O que vamos criar?" })).toBeNull();
     expect(document.querySelector(".ladrilhos")).toBeNull();
 
+    const nome = document.querySelector(".cabecalho-conjunto h1").textContent;
+    // Agenda, Análise e Pessoas: o mesmo cabeçalho do painel, com o nome da seção embaixo e sem os três pontos.
+    for (const secao of ["Pessoas", "Análise", "Agenda"]) {
+      fireEvent.click(within(barraDoConjunto()).getByText(secao));
+      const cabecalho = document.querySelector(".cabecalho-conjunto");
+      expect(cabecalho.querySelector("h1").textContent).toBe(nome);
+      expect(cabecalho.querySelector("h2").textContent).toBe(secao);
+      expect(within(cabecalho).queryByRole("button", { name: "Mais opções" })).toBeNull();
+    }
+
     fireEvent.click(within(barraDoConjunto()).getByText("Pessoas"));
     expect(screen.getByText("Adicionar pessoa")).toBeTruthy();
     expect(barraDoConjunto()).toBeTruthy();
     fireEvent.click(within(barraDoConjunto()).getByText("Análise"));
-    expect(screen.getByRole("heading", { name: "Análise" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Análise") })).toBeTruthy();
     fireEvent.click(within(barraDoConjunto()).getByText("Conjunto"));
     expect(document.querySelector(".aneis")).toBeTruthy();
     fireEvent.click(within(barraDoConjunto()).getByText("Agenda"));
@@ -934,17 +1069,26 @@ describe("a barra de baixo do conjunto", () => {
     }
   });
 
-  it("o evento não tem agenda: a barra avisa", () => {
-    criar("Evento", "Criar evento");
+  it("o evento tem agenda para as despesas e os lembretes, sem marcar dias", () => {
+    criar("Evento");
+    lancarAvulsa("30", "Carvão");
+    voltarAoPainel();
     fireEvent.click(within(barraDoConjunto()).getByText("Agenda"));
-    expect(screen.getByText(/Evento não conta dias/)).toBeTruthy();
+    expect(screen.queryByText(/Evento não conta dias/)).toBeNull();
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Agenda");
+    fireEvent.click(document.querySelector(".calendario-dia--hoje"));
+    expect([...document.querySelectorAll(".linha-do-dia")].some((b) => b.textContent.includes("Carvão"))).toBe(true);
+    // Sem presença: nada de dias fora ou estadia; e, sem faturas, a legenda não tem registro.
+    expect(screen.queryByText(/Marcar dias fora|Marcar estadia/)).toBeNull();
+    clicar("Mostrar legenda");
+    expect(within(document.querySelector(".legenda-agenda")).queryByText("Registro")).toBeNull();
   });
 
   it("o novo registro do + abre Lançar registros", () => {
     abrirRepublica();
     sairParaOInicio();
     fireEvent.click(screen.getByRole("button", { name: "Criar" }));
-    clicar("Novo registro");
+    clicar("Registro");
     expect(screen.getByRole("heading", { name: /Lançar registros/ })).toBeTruthy();
   });
 });
@@ -970,7 +1114,7 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
     lancarAvulsa("45", "Padaria");
     voltarAoPainel();
     fireEvent.click(document.querySelector(".faixa-aviso"));
-    expect(screen.getByRole("heading", { name: "Padaria" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Padaria") })).toBeTruthy();
     expect(screen.getByText("Lançado por")).toBeTruthy();
     expect(screen.getByText("Lançado em")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Duplicar" })).toBeTruthy();
@@ -1015,7 +1159,7 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
     noMenu("Histórico");
     fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
     fireEvent.click(document.querySelector(".pasta__conteudo button"));
-    expect(screen.getByRole("heading", { name: "Viagem" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Viagem") })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Toalha" }));
     fireEvent.click(screen.getByRole("button", { name: "Duplicar" }));
     expect(screen.getByText(/A cópia é um lançamento seu/)).toBeTruthy();
@@ -1036,8 +1180,8 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
     fireEvent.click(screen.getByRole("tab", { name: "Registradas" }));
     fireEvent.click(document.querySelector(".linha-despesa"));
     clicar("Abrir");
-    expect(screen.getByRole("heading", { name: "Máquina de lavar" })).toBeTruthy();
-    expect(screen.getByText("Quem usou")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Máquina de lavar") })).toBeTruthy();
+    expect(screen.getAllByText("Quem divide").length > 0).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Editar" }));
     expect(screen.getByRole("heading", { name: /Editar registro/ })).toBeTruthy();
     expect(screen.getByText("Apagar este registro")).toBeTruthy();
@@ -1047,7 +1191,7 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
     expect(screen.getByText("1 edição")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Duplicar" }));
     expect(screen.getByText(/A cópia é um lançamento seu/)).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Máquina de lavar" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Máquina de lavar") })).toBeTruthy();
   });
 
   it("Ver lembretes começa vazio e leva a Lançar lembretes", () => {
@@ -1070,7 +1214,7 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
     const linha = [...document.querySelectorAll(".linha-do-dia")].find((b) => b.textContent.includes("Sorvete"));
     expect(linha).toBeTruthy();
     fireEvent.click(linha);
-    expect(screen.getByRole("heading", { name: "Sorvete" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Sorvete") })).toBeTruthy();
   });
 });
 
@@ -1101,13 +1245,13 @@ describe("editar é lançar: Editar despesa e a edição como lançamento", () =
     fireEvent.change(campo("Valor"), { target: { value: "75" } });
     clicar("Salvar edição");
     expect(screen.getByText("Sucesso. A edição foi lançada.")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Pizza" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Pizza") })).toBeTruthy();
     expect(screen.getByText("R$ 75,00")).toBeTruthy();
     expect(screen.getByText("1 edição")).toBeTruthy();
 
     // A edição abre sozinha: o que mudou, quem editou e quando.
     fireEvent.click(document.querySelector(".edicoes-do-lancamento .linha-despesa"));
-    expect(screen.getByRole("heading", { name: "Edição de Pizza" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Edição de Pizza") })).toBeTruthy();
     expect(screen.getByText("R$ 60,00")).toBeTruthy();
     expect(screen.getByText("R$ 75,00")).toBeTruthy();
     expect(screen.getByText("Editado por")).toBeTruthy();
@@ -1115,7 +1259,7 @@ describe("editar é lançar: Editar despesa e a edição como lançamento", () =
     expect(screen.queryByRole("button", { name: "Editar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Duplicar" })).toBeNull();
     clicar("Ver o lançamento editado");
-    expect(screen.getByRole("heading", { name: "Pizza" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: noCabecalho("Pizza") })).toBeTruthy();
   });
 
   it("a edição aparece no Histórico (aba Edições) e no Recente do painel", () => {

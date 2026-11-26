@@ -20,8 +20,10 @@ import type {
   CicloId,
   CustoBruto,
   Estado,
+  Fatura,
   Item,
   ItemCalculado,
+  MoradorId,
   Rateio,
   Resultado,
   TaxaFixa,
@@ -166,14 +168,21 @@ export function calcular(estado: Estado): Resultado {
   if (todos.length > 0) {
     const calibragem = entreZeroEUm(estado.calibragem ?? 0);
     const comum = { participantes: todos, rateio: { tipo: "misto", igual: calibragem } as Rateio };
+    // Quem divide a sobra de um ciclo: os que a conta marcou e moram aqui; sem ninguém, todos.
+    const quemDivide = (f: Fatura | undefined): MoradorId[] => {
+      const marcados = (f?.participantes ?? []).filter((id) => todos.includes(id));
+      return marcados.length > 0 ? marcados : todos;
+    };
 
     for (const m of medidas) {
       // Um ciclo pode trazer a própria regra (o aluguel por porcentagem);
       // sem regra, a sobra vai pela régua do uso comum.
-      const proprio = faturas.find((f) => f.id === m.id)?.rateio;
+      const fatura = faturas.find((f) => f.id === m.id);
+      const proprio = fatura?.rateio;
       processar(
         {
           ...comum,
+          participantes: quemDivide(fatura),
           ...(proprio ? { rateio: proprio } : {}),
           id: `__${m.id}`,
           nome: nomeDoUsoComum(m),
@@ -195,7 +204,7 @@ export function calcular(estado: Estado): Resultado {
         const valor = taxa.valor * ajuste;
         processar(
           {
-            participantes: todos,
+            participantes: quemDivide(faturas.find((f) => f.id === ciclo)),
             rateio: { tipo: "igual" },
             id: `__taxa_${ciclo}_${i}`,
             nome: taxa.nome,

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
+import FiguraDoTotal from "../componentes/FiguraDoTotal.jsx";
+import CabecalhoDoConjunto from "../componentes/CabecalhoDoConjunto.jsx";
 import {
   Abas,
   Anel,
@@ -7,7 +9,6 @@ import {
   centavosEmDinheiro,
   dinheiro,
   LinhaDeMenu,
-  NomeComItalico,
   SeloPilula,
   TituloDeSecao,
   tomDoSaldo,
@@ -170,51 +171,6 @@ export function Membros({ app }) {
   );
 }
 
-/**
- * O cabeçalho do conjunto, como o de um grupo de conversa: numa caixa creme,
- * a seta de voltar, o nome e, embaixo dele, os membros (círculos um por cima
- * do outro, da esquerda para a direita, e quantos são); à direita, os três
- * pontos com o menu. Quanto mais gente, mais os círculos se sobrepõem para
- * caber na largura (até sobrar só a borda de cada um).
- */
-export function CabecalhoDoConjunto({ estado, nome, aoVoltar, aoVerPessoas, menuAberto, aoAbrirMenu }) {
-  const n = estado.moradores.length;
-  const quantos = `${n} ${n === 1 ? "pessoa" : "pessoas"}`;
-  return (
-    <header className="cabecalho-conjunto">
-      <button type="button" className="icone-botao" onClick={aoVoltar} aria-label="Voltar">
-        <Icone nome="voltar" tamanho={24} />
-      </button>
-      <div className="cabecalho-conjunto__meio">
-        <h1 className="cabecalho-conjunto__titulo">
-          <NomeComItalico texto={nome} />
-        </h1>
-        <button type="button" className="membros-em-fila" onClick={aoVerPessoas} aria-label={`${quantos}: ver pessoas`}>
-          {n > 0 && (
-            <span className="membros-em-fila__rolo" aria-hidden="true">
-              {estado.moradores.map((m, i) => (
-                <span className="membros-em-fila__lugar" key={m.id} style={{ zIndex: n - i }}>
-                  <Avatar nome={nomeDe(estado, m.id)} indice={i} tamanho={24} />
-                </span>
-              ))}
-            </span>
-          )}
-          <span className="membros-em-fila__quantos">{quantos}</span>
-        </button>
-      </div>
-      <button
-        type="button"
-        className="icone-botao"
-        onClick={aoAbrirMenu}
-        aria-label="Mais opções"
-        aria-expanded={menuAberto}
-      >
-        <Icone nome="pontos" tamanho={24} />
-      </button>
-    </header>
-  );
-}
-
 /** A legenda de um anel: a bolinha da cor, o nome e o valor. */
 function Legenda({ itens }) {
   return (
@@ -334,10 +290,10 @@ export default function Hub({ app, rota }) {
 
       <div className="aneis">
         <div className="cartao-anel">
-          <Anel tamanho={140} partes={partesDoTotal}>
+          <FiguraDoTotal tamanho={140} pessoas={estado.moradores.length} partes={partesDoTotal}>
             <span className="rotulo">Total</span>
-            <strong className="valor-anel">{dinheiro(total)}</strong>
-          </Anel>
+          </FiguraDoTotal>
+          <strong className="valor-anel">{dinheiro(total)}</strong>
           <Legenda
             itens={[
               { cor: "agua", rotulo: "pago", valor: balanco.pago },
@@ -358,8 +314,8 @@ export default function Hub({ app, rota }) {
             }
           >
             <span className="rotulo">Meu saldo</span>
-            <strong className={`valor-anel valor--${tom}`}>{eu ? centavosEmDinheiro(resumo.aberto, { sinal: true }) : "—"}</strong>
           </Anel>
+          <strong className={`valor-anel valor--${tom}`}>{eu ? centavosEmDinheiro(resumo.aberto, { sinal: true }) : "—"}</strong>
           {eu ? (
             <Legenda
               itens={[

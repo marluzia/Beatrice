@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
-import { AbasDePasta, dinheiro, TopoDaTela } from "../componentes/Interface.jsx";
+import { AbasDePasta, dinheiro } from "../componentes/Interface.jsx";
+import { CabecalhoDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { ehEmReais } from "../nucleo/catalogo.js";
 import { modoDe } from "../nucleo/modos.js";
 import { nomeDe, todasAsDespesas } from "../nucleo/resumo.js";
@@ -116,8 +117,7 @@ export default function Busca({ app, aoVoltar, abaInicial = "conjuntos", animar 
 
   return (
     <div className={`tela tela--busca ${animar ? "tela--busca-entrando" : ""}`}>
-      <TopoDaTela aoVoltar={aoVoltar} />
-      <h1 className="titulo-tela titulo-tela--grande">Buscar</h1>
+      <CabecalhoDaAba titulo="Buscar" aoVoltar={aoVoltar} comSino />
 
       <label className="busca">
         <Icone nome="busca" tamanho={22} />

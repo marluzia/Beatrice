@@ -6,7 +6,7 @@
 
 import { num } from "../formato.js";
 import { cicloValido, diasDaJanela, janelaDoMes } from "../calendario.js";
-import { ehMedido } from "../ciclos.js";
+import { divisaoDoCiclo, ehMedido } from "../ciclos.js";
 
 export function linhasPorComportamento(fatura, comportamento) {
   return (fatura?.linhas ?? []).filter(
@@ -54,18 +54,33 @@ export const janelaDaFatura = (fatura, periodo) =>
  * quando ela segue a régua do uso comum (e em todo ciclo medido).
  */
 export function regraDoCiclo(ciclo) {
-  if (ehMedido(ciclo)) return null;
-  if (ciclo?.rateio === "igual") return { tipo: "igual" };
-  if (ciclo?.rateio === "dias") return { tipo: "dias" };
-  if (ciclo?.rateio === "porcentagem") {
-    return {
-      tipo: "porcentagem",
-      porcentagens: Object.fromEntries(
-        Object.entries(ciclo.porcentagens ?? {}).map(([id, v]) => [id, num(v)]),
-      ),
-    };
+  // Registros + régua: o que os itens não explicam vai pela régua.
+  if (divisaoDoCiclo(ciclo) === "registros") return null;
+  const tabela = (campo) =>
+    Object.fromEntries(
+      Object.entries(ciclo?.[campo] ?? {})
+        .filter(([, v]) => String(v ?? "").trim() !== "")
+        .map(([id, v]) => [id, num(v)]),
+    );
+  switch (ciclo?.rateio) {
+    case "dias":
+      return { tipo: "dias" };
+    case "porcentagem":
+      return { tipo: "porcentagem", porcentagens: tabela("porcentagens") };
+    case "valor":
+      return { tipo: "valor", valores: tabela("valores") };
+    // Cotas: quem não escreveu nada tem uma (o domínio completa).
+    case "cotas":
+      return { tipo: "cotas", cotas: tabela("cotas") };
+    case "ajuste":
+      return { tipo: "ajuste", ajustes: tabela("ajustes") };
+    // Horas e uso: quanto cada um declarou nesta fatura.
+    case "horas":
+    case "uso":
+      return { tipo: ciclo.rateio, usos: tabela("usosPorPessoa") };
+    default:
+      return { tipo: "igual" };
   }
-  return null;
 }
 
 /**
@@ -79,6 +94,8 @@ export function faturaParaMotor(ciclo, periodo) {
   }));
 
   const rateio = regraDoCiclo(ciclo);
+  // Na calculadora, a fatura inteira (taxas junto) vai pela regra escolhida.
+  const naCalculadora = divisaoDoCiclo(ciclo) === "calculadora";
 
   return {
     id: ciclo.id,
@@ -86,8 +103,10 @@ export function faturaParaMotor(ciclo, periodo) {
     recurso: ehMedido(ciclo) ? ciclo.recurso : null,
     quantidade: ehMedido(ciclo) ? consumoDaFatura(ciclo) : 0,
     valor: totalDaFatura(ciclo),
-    taxas,
+    taxas: naCalculadora ? [] : taxas,
     dias: diasDaJanela(janelaDaFatura(ciclo, periodo), periodo),
     ...(rateio ? { rateio } : {}),
+    // Quem divide: só quando a conta marcou pessoas (sem marca, todo o conjunto).
+    ...(Array.isArray(ciclo.participantes) && ciclo.participantes.length > 0 ? { participantes: [...ciclo.participantes] } : {}),
   };
 }

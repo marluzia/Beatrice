@@ -1,19 +1,21 @@
-import TecladoDeDivisao from "../componentes/TecladoDeDivisao.jsx";
+import TecladoDeDivisao, { naOrdemDaCalculadora } from "../componentes/TecladoDeDivisao.jsx";
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
-import { Campo, CampoData, Rotulo, SeletorDePessoas } from "../componentes/index.js";
-import { dinheiro, mostrarAviso, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { Campo, CampoData, Rotulo } from "../componentes/index.js";
+import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
+import { dinheiro, mostrarAviso } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { EXPLICACOES_DOS_RATEIOS, TabelaDeclarada } from "../passos/CartaoItem.jsx";
 import QuemPagou from "../passos/QuemPagou.jsx";
 import { rateiosDoItem } from "../nucleo/adaptador.js";
 import { somarDias, ultimoDiaDaJanela } from "../nucleo/calendario.js";
 import { catalogoDe, criarItem, GRUPO_INDEPENDENTE, modeloPorChave } from "../nucleo/catalogo.js";
-import { naOrdemDaTela, RECURSOS, REGRAS_DO_CICLO, unidadeDoRecurso } from "../nucleo/ciclos.js";
+import { divisaoDoCiclo, naOrdemDaTela, RECURSOS, REGRAS_DA_CALCULADORA, unidadeDoRecurso } from "../nucleo/ciclos.js";
+import Segmentado from "../componentes/Segmentado.jsx";
 import { comRateioDoModo } from "../nucleo/estadoInicial.js";
 import { num } from "../nucleo/formato.js";
 import { simboloDe } from "../nucleo/moedas.js";
 import { hojeISO, nomeDe } from "../nucleo/resumo.js";
-import { sobrescritoDaTela } from "./Hub.jsx";
 
 /** As categorias de despesa avulsa deste conjunto: o catálogo do que sai do bolso. */
 export function categoriasAvulsas(modo) {
@@ -24,9 +26,24 @@ export function categoriasAvulsas(modo) {
 
 export const NOME_DA_REGRA_DO_CICLO = {
   igual: "igual",
+  cotas: "cotas",
+  porcentagem: "percentual",
+  valor: "valor",
+  ajuste: "ajuste",
   dias: "dias",
-  porcentagem: "%",
+  horas: "horas",
+  uso: "uso",
   comum: "pela régua do uso comum",
+};
+
+/** Em que campo do rascunho cada regra da calculadora guarda o número de cada um. */
+const TABELA_DA_REGRA = {
+  porcentagem: "porcentagens",
+  valor: "valores",
+  cotas: "cotas",
+  ajuste: "ajustes",
+  horas: "usosPorPessoa",
+  uso: "usosPorPessoa",
 };
 
 /** Um valor em dinheiro: o símbolo da moeda do conjunto dentro da caixa, antes do número. */
@@ -98,7 +115,10 @@ function rascunhoDaAvulsa(modelo, ids, modo, eu, data = null) {
     pagoPor: eu ?? null,
     rateio: base.rateio,
     participantes: [...ids],
-    data: data ?? hojeISO(),
+    // Data agendada e vencimento, os dois opcionais: sem data agendada, vale o
+    // dia do lançamento; sem vencimento, a despesa não vence.
+    data: data ?? null,
+    vencimento: null,
     porcentagens: {},
     valores: {},
     cotas: {},
@@ -112,7 +132,7 @@ const comVirgula = (v) => (/^-?\d+\.\d+$/.test(String(v ?? "")) ? String(v).repl
 
 /**
  * O rascunho de uma despesa avulsa que já existe: o que ela tem hoje. Sem
- * data própria, "quando foi" mostra o dia em que ela foi lançada.
+ * data agendada própria, o campo fica vazio (vale o dia do lançamento).
  */
 export function rascunhoDoItem(item) {
   return {
@@ -121,7 +141,8 @@ export function rascunhoDoItem(item) {
     pagoPor: item.pagoPor ?? null,
     rateio: item.rateio ?? "igual",
     participantes: [...(item.participantes ?? [])],
-    data: item.data ?? item.criadoEm?.slice(0, 10) ?? hojeISO(),
+    data: item.data ?? null,
+    vencimento: item.vencimento ?? null,
     porcentagens: { ...(item.porcentagens ?? {}) },
     valores: { ...(item.valores ?? {}) },
     cotas: { ...(item.cotas ?? {}) },
@@ -148,7 +169,7 @@ export function FormularioDaAvulsa({ app, aoLancar, data, edicao = null }) {
 
   // A despesa como item, para saber quais divisões ela aceita.
   const comoItem = { ...criarItem(modelo, ids), especie: "reais", ...r };
-  const regras = rateiosDoItem(comoItem, modo);
+  const regras = naOrdemDaCalculadora(rateiosDoItem(comoItem, modo));
   const custo = num(r.valor);
 
   const escolherCategoria = (chave) => {
@@ -164,7 +185,7 @@ export function FormularioDaAvulsa({ app, aoLancar, data, edicao = null }) {
 
   const lancar = () => {
     if (!(custo > 0)) return mostrarAviso("Escreva o valor da despesa.");
-    if (r.participantes.length === 0) return mostrarAviso("Marque quem paga a despesa.");
+    if (r.participantes.length === 0) return mostrarAviso("Marque quem divide a despesa.");
     const campos = {
       nome: r.nome.trim() || modelo.nome,
       especie: "reais",
@@ -172,7 +193,10 @@ export function FormularioDaAvulsa({ app, aoLancar, data, edicao = null }) {
       pagoPor: r.pagoPor,
       rateio: r.rateio,
       participantes: r.participantes,
-      data: r.data,
+      // Sem data agendada, a do lançamento: hoje, ou o dia em que a despesa
+      // editada foi lançada (a que nunca teve data continua sem).
+      data: r.data ?? (edicao ? (edicao.item.data ? edicao.item.criadoEm?.slice(0, 10) ?? hojeISO() : null) : hojeISO()),
+      vencimento: r.vencimento ?? null,
       porcentagens: r.porcentagens,
       valores: r.valores,
       cotas: r.cotas,
@@ -204,27 +228,25 @@ export function FormularioDaAvulsa({ app, aoLancar, data, edicao = null }) {
           indicePorId={indicePorId}
           valor={r.pagoPor}
           aoMudar={(id) => mudar("pagoPor", id)}
-          semNinguem="Ninguém marcado: a despesa fica em aberto. Se cada um pagou a própria parte direto, não gera dívida entre vocês."
-          comAlguem="Essa pessoa adiantou pelo grupo: os outros devem a ela no acerto."
         />
 
         <CampoDeValor rotulo="Valor" valor={r.valor} aoMudar={(v) => mudar("valor", v)} />
 
-        <div className="campo-novo">
-          <span className="rotulo">Como divide</span>
-          <TecladoDeDivisao opcoes={regras} valor={r.rateio} aoMudar={(v) => mudar("rateio", v)} />
-          <span className="ajuda-campo">{EXPLICACOES_DOS_RATEIOS[r.rateio]}</span>
-        </div>
-
         <div className="grupo">
-          <Rotulo>Quem paga</Rotulo>
-          <SeletorDePessoas
-            rotulo="Quem paga"
+          <Rotulo>Quem divide</Rotulo>
+          <ListaDePessoas
+            rotulo="Quem divide"
             pessoas={estado.moradores}
             indicePorId={indicePorId}
             selecionados={r.participantes}
             aoMudar={(sel) => mudar("participantes", sel)}
           />
+        </div>
+
+        <div className="campo-novo">
+          <span className="rotulo">Como divide</span>
+          <TecladoDeDivisao opcoes={regras} valor={r.rateio} aoMudar={(v) => mudar("rateio", v)} />
+          <span className="ajuda-campo">{EXPLICACOES_DOS_RATEIOS[r.rateio]}</span>
         </div>
 
         {naTabela && (
@@ -256,7 +278,18 @@ export function FormularioDaAvulsa({ app, aoLancar, data, edicao = null }) {
           </div>
         )}
 
-        <CampoData rotulo="Quando foi" valor={r.data} aoMudar={(v) => v && mudar("data", v)} etiqueta="Quando foi" />
+        <CampoData
+          rotulo="Data agendada (opcional)"
+          valor={r.data}
+          aoMudar={(v) => mudar("data", v || null)}
+          etiqueta="Data agendada"
+        />
+        <CampoData
+          rotulo="Vencimento (opcional)"
+          valor={r.vencimento}
+          aoMudar={(v) => mudar("vencimento", v || null)}
+          etiqueta="Vencimento"
+        />
       </div>
 
       {edicao?.rodape}
@@ -278,6 +311,21 @@ const OUTRA = "__outra";
  * A fatura começa em branco, mesmo que a conta já tenha valores neste
  * fechamento: lançar não mostra o que já foi lançado (isso é em Ver despesas).
  */
+/** Como a cíclica divide e quem divide, no rascunho. Conta nova começa na calculadora. */
+function comoDivide(ciclo) {
+  const divisao = ciclo ? divisaoDoCiclo(ciclo) : "calculadora";
+  return {
+    divisao,
+    rateio: REGRAS_DA_CALCULADORA.includes(ciclo?.rateio) ? ciclo.rateio : "igual",
+    porcentagens: { ...(ciclo?.porcentagens ?? {}) },
+    valores: { ...(ciclo?.valores ?? {}) },
+    cotas: { ...(ciclo?.cotas ?? {}) },
+    ajustes: { ...(ciclo?.ajustes ?? {}) },
+    usosPorPessoa: { ...(ciclo?.usosPorPessoa ?? {}) },
+    participantes: Array.isArray(ciclo?.participantes) && ciclo.participantes.length > 0 ? [...ciclo.participantes] : null,
+  };
+}
+
 function rascunhoDaCiclica(ciclo, eu) {
   return {
     linhas: {},
@@ -286,8 +334,7 @@ function rascunhoDaCiclica(ciclo, eu) {
     vencimento: null,
     pagoPor: eu ?? null,
     pagoEm: hojeISO(),
-    rateio: ciclo?.rateio ?? "comum",
-    porcentagens: ciclo?.porcentagens ?? {},
+    ...comoDivide(ciclo),
     // Só para uma conta nova.
     nome: "",
     recurso: "",
@@ -307,8 +354,7 @@ export function rascunhoDaFatura(ciclo) {
     vencimento: ciclo.vencimento ?? null,
     pagoPor: ciclo.pagoPor ?? null,
     pagoEm: ciclo.pagoEm ? ciclo.pagoEm.slice(0, 10) : hojeISO(),
-    rateio: ciclo.rateio ?? "comum",
-    porcentagens: { ...(ciclo.porcentagens ?? {}) },
+    ...comoDivide(ciclo),
     nome: "",
     recurso: "",
     total: "",
@@ -338,6 +384,13 @@ export function FormularioDaCiclica({ app, aoLancar, cicloInicial, edicao = null
     ? num(r.total)
     : (ciclo?.linhas ?? []).reduce((s, l) => s + num(r.linhas[l.id]?.valor), 0);
 
+  const todos = estado.moradores.map((m) => m.id);
+  const quemDivide = r.participantes ?? todos;
+  // Itens que hoje saem desta conta (na calculadora, deixam de sair).
+  const itensVinculados = nova || !ciclo
+    ? 0
+    : estado.itens.filter((i) => ["consumoPorCiclo", "porHoraPorCiclo", "porUsoPorCiclo"].some((k) => i[k] && ciclo.id in i[k])).length;
+
   const escolher = (id) => {
     setQual(id);
     setR(rascunhoDaCiclica(ciclos.find((c) => c.id === id) ?? null, eu));
@@ -346,6 +399,7 @@ export function FormularioDaCiclica({ app, aoLancar, cicloInicial, edicao = null
   const lancar = () => {
     if (nova && !r.nome.trim()) return mostrarAviso("Dê um nome à conta (gás, aluguel, condomínio).");
     if (!(total > 0)) return mostrarAviso("Escreva o valor da fatura.");
+    if (quemDivide.length === 0) return mostrarAviso("Marque quem divide a conta.");
     if (r.de && r.ate && r.ate < r.de) return mostrarAviso("O fim do consumo vem depois do começo.");
     const dados = {
       ...(nova ? { total: r.total, quantidade: r.quantidade } : { linhas: r.linhas }),
@@ -353,8 +407,12 @@ export function FormularioDaCiclica({ app, aoLancar, cicloInicial, edicao = null
       vencimento: r.vencimento ?? undefined,
       pagoPor: r.pagoPor,
       pagoEm: r.pagoPor ? r.pagoEm : null,
-      rateio: medido ? undefined : r.rateio,
-      porcentagens: !medido && r.rateio === "porcentagem" ? r.porcentagens : undefined,
+      divisao: r.divisao,
+      // Quem divide: todos marcados é o mesmo que ninguém marcado (o conjunto inteiro).
+      participantes: quemDivide.length === todos.length ? null : quemDivide,
+      rateio: r.divisao === "calculadora" ? r.rateio : "comum",
+      // A tabela da regra escolhida (percentual, valor, cotas, ajuste, horas ou uso de cada um).
+      ...(r.divisao === "calculadora" && TABELA_DA_REGRA[r.rateio] ? { [TABELA_DA_REGRA[r.rateio]]: r[TABELA_DA_REGRA[r.rateio]] } : {}),
     };
     if (edicao) return edicao.aoSalvar(dados, r);
     const id = nova ? acoes.adicionarCiclo(r.nome.trim(), r.recurso || null) : qual;
@@ -399,8 +457,6 @@ export function FormularioDaCiclica({ app, aoLancar, cicloInicial, edicao = null
           indicePorId={indicePorId}
           valor={r.pagoPor}
           aoMudar={(id) => mudar("pagoPor", id)}
-          semNinguem="Ninguém marcado: a conta fica em aberto até alguém pagar."
-          comAlguem="Essa pessoa pagou a conta: os outros devem a ela no acerto."
         />
 
         {nova ? (
@@ -436,37 +492,71 @@ export function FormularioDaCiclica({ app, aoLancar, cicloInicial, edicao = null
         )}
 
         <div className="grupo">
-          <Rotulo>Como divide</Rotulo>
-          {medido ? (
-            <p className="dica">
-              Pelo consumo de cada aparelho cadastrado em Itens; o que nenhum aparelho explica é uso comum, dividido pela
-              régua do conjunto.
-            </p>
-          ) : (
-            <>
-              <TecladoDeDivisao opcoes={REGRAS_DO_CICLO} valor={r.rateio} aoMudar={(v) => mudar("rateio", v)} />
-              {r.rateio === "porcentagem" && (
-                <div className="linha-campos">
-                  {estado.moradores.map((m) => (
-                    <Campo
-                      key={m.id}
-                      rotulo={nomeDe(estado, m.id)}
-                      valor={r.porcentagens[m.id] ?? ""}
-                      aoMudar={(v) => mudar("porcentagens", { ...r.porcentagens, [m.id]: v })}
-                      largura="campo--curto"
-                      sufixo="%"
-                      placeholder="0"
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+          <Rotulo>Quem divide</Rotulo>
+          <ListaDePessoas
+            rotulo="Quem divide"
+            pessoas={estado.moradores}
+            indicePorId={indicePorId}
+            selecionados={quemDivide}
+            aoMudar={(sel) => mudar("participantes", sel)}
+          />
         </div>
 
         <div className="grupo">
-          <Rotulo>Quem paga</Rotulo>
-          <p className="dica">Todas as pessoas do conjunto: {estado.moradores.map((m) => nomeDe(estado, m.id)).join(", ")}.</p>
+          <Rotulo>Como divide</Rotulo>
+          <Segmentado
+            rotuloDoGrupo="Como divide a conta"
+            opcoes={[
+              { valor: "calculadora", texto: "Calculadora" },
+              { valor: "registros", texto: "Registros + régua" },
+            ]}
+            valor={r.divisao}
+            aoMudar={(v) => mudar("divisao", v)}
+          />
+          {r.divisao === "registros" ? (
+            <p className="dica">
+              {medido
+                ? "Pelo consumo de cada item vinculado à conta; o que nenhum item explica vai pela régua do uso comum."
+                : "Pela régua do uso comum."}
+            </p>
+          ) : (
+            <>
+              <TecladoDeDivisao opcoes={REGRAS_DA_CALCULADORA} valor={r.rateio} aoMudar={(v) => mudar("rateio", v)} />
+              <span className="ajuda-campo">{EXPLICACOES_DOS_RATEIOS[r.rateio]}</span>
+              {["porcentagem", "valor", "cotas", "ajuste"].includes(r.rateio) && (
+                <TabelaDeclarada
+                  item={{ ...r, participantes: quemDivide }}
+                  moradores={estado.moradores}
+                  indicePorId={indicePorId}
+                  custoTotal={total}
+                  set={(campo, valor) => mudar(campo, valor)}
+                />
+              )}
+              {(r.rateio === "horas" || r.rateio === "uso") && (
+                <div className="grupo">
+                  <Rotulo>{r.rateio === "horas" ? "Horas de cada um" : "Usos de cada um"}</Rotulo>
+                  <div className="linha-campos">
+                    {quemDivide.map((id) => (
+                      <Campo
+                        key={id}
+                        rotulo={nomeDe(estado, id)}
+                        valor={r.usosPorPessoa[id] ?? ""}
+                        aoMudar={(v) => mudar("usosPorPessoa", { ...r.usosPorPessoa, [id]: v })}
+                        largura="campo--curto"
+                        sufixo={r.rateio === "horas" ? "h" : "usos"}
+                        placeholder="0"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {medido && itensVinculados > 0 && (
+                <p className="dica dica--alerta">
+                  Na calculadora, a conta não aceita itens: {itensVinculados === 1 ? "o item que sai dela deixa" : `os ${itensVinculados} itens que saem dela deixam`} de sair ao lançar.
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         <div className="grupo">
@@ -512,16 +602,7 @@ export default function LancarDespesa({ app, rota }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Nova <em>{ciclica ? "cíclica" : "avulsa"}</em>
-      </h1>
-      <p className="texto-apoio">
-        {ciclica
-          ? "Escolha a conta e preencha a fatura do ciclo."
-          : "Escolha a categoria e preencha. Cada despesa entra com quem pagou e como divide."}
-      </p>
+      <CabecalhoDaSecao app={app} secao="Lançar despesas" subsecao={ciclica ? "Cíclica" : "Avulsa"} />
 
       {lancadas > 0 && <Sucesso aoVer={() => ir("verDespesas")} />}
 

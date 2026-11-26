@@ -1,8 +1,10 @@
 // O que mais de uma tela nova precisa saber sobre os conjuntos salvos.
 
 import { MOEDA_PADRAO, moedaValida } from "../nucleo/moedas.js";
-import { atrasosDe, curta, eventosDoDia, hojeISO, nomeDe, quandoFoi, quandoNaLista } from "../nucleo/resumo.js";
+import { atrasosDe, curta, diasAte, eventosDoDia, hojeISO, nomeDe, quandoFoi, quandoNaLista } from "../nucleo/resumo.js";
+import { num } from "../nucleo/formato.js";
 import { modoDe, presetDe } from "../nucleo/modos.js";
+import { lembreteParaMim } from "../nucleo/lembretes.js";
 
 /** O último lançamento de dinheiro: despesa, conta paga, Pix. Lembrete, edição e o que mexe nas pessoas não contam. */
 export const ultimoLancamento = (p) =>
@@ -127,6 +129,21 @@ export function hojeEmTudo(panorama, hoje = hojeISO()) {
         ...doConjunto,
       });
     }
+    // Avulsas com vencimento que passou e ninguém pagou.
+    for (const i of e.itens ?? []) {
+      if (i.especie !== "reais" || !i.vencimento || i.vencimento >= hoje || i.pagoPor) continue;
+      const dias = diasAte(i.vencimento, hoje);
+      lista.push({
+        tipo: "atraso",
+        id: `aa-${i.id}`,
+        item: i.id,
+        titulo: `${i.nome?.trim() || "Despesa"} atrasada · ${dias} ${dias === 1 ? "dia" : "dias"}`,
+        valor: num(i.valor),
+        vencimento: i.vencimento,
+        dias,
+        ...doConjunto,
+      });
+    }
     // O Pix que você ainda deve fazer neste conjunto.
     if (eu) {
       for (const t of p.resumo?.transferencias ?? []) {
@@ -145,6 +162,8 @@ export function hojeEmTudo(panorama, hoje = hojeISO()) {
       if (ev.tipo === "ausencia") continue;
       if (ev.item) vistos.add(ev.item);
       if (ev.tipo === "despesa" && !envolve(e, eu, ev.item, ev.pagoPor)) continue;
+      // O lembrete é de quem foi marcado nele (sem ninguém marcado, de todos).
+      if (ev.tipo === "lembrete" && !lembreteParaMim(ev, eu)) continue;
       lista.push({ ...ev, ...doConjunto });
     }
     // Despesas lançadas hoje, mesmo sem data marcada.
@@ -184,6 +203,7 @@ export function detalheDoEvento(ev) {
 /** Para onde um evento do dia leva, dentro do conjunto dele. */
 export function destinoDoEvento(ev) {
   // Cada evento do dia abre o lançamento dele, sozinho.
+  if ((ev.tipo === "vencimento" || ev.tipo === "atraso") && ev.item) return { tela: "lancamento", tipo: "avulsa", id: ev.item };
   if (ev.tipo === "vencimento" || ev.tipo === "atraso") return { tela: "lancamento", tipo: "ciclica", id: ev.ciclo };
   if (ev.tipo === "registro") return { tela: "lancamento", tipo: "registro", item: ev.item, id: ev.registro };
   if (ev.tipo === "lembrete") return { tela: "lancamento", tipo: "lembrete", id: ev.lembrete };

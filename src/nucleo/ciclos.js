@@ -24,10 +24,49 @@ import { novoId } from "./formato.js";
 export const MAXIMO_DE_CICLOS = 8;
 
 /**
- * Como se divide uma conta só de valor: por igual, por dias, por porcentagem,
- * ou pela régua do uso comum (o jeito da v10, que contas antigas mantêm).
+ * As regras da calculadora de uma cíclica, na ordem do teclado: igual, cotas,
+ * percentual, valor, ajuste, dias, horas e uso.
  */
-export const REGRAS_DO_CICLO = ["igual", "dias", "porcentagem", "comum"];
+export const REGRAS_DA_CALCULADORA = ["igual", "cotas", "porcentagem", "valor", "ajuste", "dias", "horas", "uso"];
+
+/**
+ * As regras que uma conta pode guardar: as da calculadora e a régua do uso
+ * comum (o jeito da v10, que contas antigas mantêm).
+ */
+export const REGRAS_DO_CICLO = [...REGRAS_DA_CALCULADORA, "comum"];
+
+/**
+ * Como uma despesa cíclica se divide:
+ *
+ *  · calculadora           a fatura inteira por uma regra clássica (igual, por
+ *                          dias, porcentagem), entre quem divide. Nenhum item
+ *                          sai dela.
+ *  · registros             o consumo de cada item vinculado (registros de uso,
+ *                          horas, o total do mês) e, o que sobra, pela régua do
+ *                          uso comum. Só aqui uma conta aceita itens.
+ */
+export const DIVISOES_DO_CICLO = ["calculadora", "registros"];
+
+/**
+ * A divisão de um ciclo. Conta de antes da escolha: medida (luz, água) ou na
+ * régua ("comum") é de registros + régua; só de valor com regra própria
+ * (aluguel por igual, por porcentagem), da calculadora.
+ */
+export function divisaoDoCiclo(ciclo) {
+  if (DIVISOES_DO_CICLO.includes(ciclo?.divisao)) return ciclo.divisao;
+  if (ehMedido(ciclo)) return "registros";
+  return !ciclo?.rateio || ciclo.rateio === "comum" ? "registros" : "calculadora";
+}
+
+/** Só uma conta medida dividida por registros + régua aceita itens vinculados a ela. */
+export const aceitaItens = (ciclo) => ehMedido(ciclo) && divisaoDoCiclo(ciclo) === "registros";
+
+/** Quem divide a conta: os marcados nela, ou, sem marca, todo o conjunto. */
+export function quemDivideOCiclo(ciclo, estado) {
+  const todos = (estado?.moradores ?? []).map((m) => m.id);
+  const marcados = Array.isArray(ciclo?.participantes) ? ciclo.participantes.filter((id) => todos.includes(id)) : [];
+  return marcados.length > 0 ? marcados : todos;
+}
 
 export const RECURSOS = {
   kwh: { chave: "kwh", unidade: "kWh", nome: "energia, em kWh" },
@@ -111,8 +150,11 @@ export const cicloPorId = (estado, id) => ciclosDe(estado).find((c) => c.id === 
 /** Os ciclos ligados, na ordem do conjunto. */
 export const ciclosLigados = (estado) => ciclosDe(estado).filter((c) => c.ativa !== false);
 
-/** Os ciclos ligados que medem alguma coisa: são os únicos de onde um aparelho pode tirar consumo. */
-export const ciclosMedidos = (estado) => ciclosLigados(estado).filter(ehMedido);
+/**
+ * Os ciclos ligados de onde um aparelho pode tirar consumo: os que medem
+ * alguma coisa e se dividem por registros + régua (na calculadora, não).
+ */
+export const ciclosMedidos = (estado) => ciclosLigados(estado).filter(aceitaItens);
 
 /**
  * "da luz", "da água", "de Gás": como a frase se refere ao ciclo. Os de

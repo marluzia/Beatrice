@@ -1,8 +1,9 @@
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
-import { Avatar, emBreve, NomeComItalico, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
-import { LISTA_DE_MODOS, modoDe, PRESETS_DA_REPUBLICA, presetsDe, presetValido } from "../nucleo/modos.js";
+import { Avatar, emBreve } from "../componentes/Interface.jsx";
+import { CabecalhoDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
+import { LISTA_DE_MODOS, modoDe, presetsDe, presetValido } from "../nucleo/modos.js";
 import { hojeISO } from "../nucleo/resumo.js";
 import { somarDias } from "../nucleo/calendario.js";
 import { LISTA_DE_MOEDAS, MOEDA_PADRAO } from "../nucleo/moedas.js";
@@ -76,13 +77,13 @@ export function OpcoesDeAdicionar({ aoConvidar, escuro = false }) {
 }
 
 /**
- * Criar um conjunto, em duas telas: que tipo (e, na república, como dividir o
- * uso comum), e depois nome, descrição, data e pessoas.
+ * Criar um conjunto, em duas telas: que tipo (o evento vem marcado), e depois
+ * nome, moeda e pessoas   e, na moradia, como dividir o uso comum.
  */
 export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
   const { perfil, acoes } = app;
   const [passo, setPasso] = useState("tipo");
-  const [tipo, setTipo] = useState("moradia");
+  const [tipo, setTipo] = useState("evento");
   const [preset, setPreset] = useState(undefined);
 
   const [nome, setNome] = useState("");
@@ -93,14 +94,11 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
 
   const modo = modoDe(tipo);
   const presetAtual = presetValido(tipo, preset);
-  const presetObj = presetAtual ? PRESETS_DA_REPUBLICA[presetAtual] : null;
 
   if (passo === "tipo") {
     return (
       <div className="tela tela--com-rodape">
-        <TopoDaTela aoVoltar={aoCancelar} />
-        <Sobrescrito>Novo conjunto</Sobrescrito>
-        <h1 className="titulo-tela titulo-tela--grande">Que tipo de conjunto?</h1>
+        <CabecalhoDaAba titulo="Que tipo de conjunto?" aoVoltar={aoCancelar} />
         <p className="texto-apoio">O tipo não muda o cálculo: muda com o que o conjunto abre e como as telas perguntam.</p>
 
         <div className="pilha" role="radiogroup" aria-label="Tipo de conjunto">
@@ -134,38 +132,6 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
             );
           })}
         </div>
-
-        {presetsDe(tipo).length > 0 && (
-          <>
-            <h2 className="titulo-secao__texto titulo-secao__texto--solto">Como quer dividir o uso comum?</h2>
-            <p className="texto-apoio">O uso comum é a parte das faturas que nenhum aparelho explica. Dá para trocar depois.</p>
-            <div className="cartao-lista" role="radiogroup" aria-label="Como dividir o uso comum">
-              {presetsDe(tipo).map((p) => {
-                const ativo = p.chave === presetAtual;
-                return (
-                  <button
-                    key={p.chave}
-                    type="button"
-                    role="radio"
-                    aria-checked={ativo}
-                    className="opcao-radio"
-                    onClick={() => setPreset(p.chave)}
-                  >
-                    <span className={`radio ${ativo ? "radio--ativo" : ""}`} aria-hidden="true" />
-                    <span className="opcao-radio__textos">
-                      <span className="opcao-radio__nome">
-                        {p.curto}
-                        {p.chave === modo.presetPadrao ? " · padrão" : ""}
-                        {p.gratis && <span className="selo-gratis">grátis</span>}
-                      </span>
-                      <span>{p.resumo}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
 
         {tipo === "familia" && (
           <p className="nota-tipo">O uso comum começa dividido por igual. A régua para pesar os dias em casa fica no rateio.</p>
@@ -208,11 +174,7 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={() => setPasso("tipo")} />
-      <Sobrescrito partes={[modo.nome, presetObj?.curto]} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Criar <em>{nomeDoTipo}</em>
-      </h1>
+      <CabecalhoDaAba titulo={`Criar ${nomeDoTipo}`} aoVoltar={() => setPasso("tipo")} />
 
       <div className="formulario">
         <label className="campo-novo">
@@ -303,9 +265,43 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
         </div>
       </div>
 
+      {/* Na moradia, o jeito de dividir o uso comum fica no próprio formulário. */}
+      {presetsDe(tipo).length > 0 && (
+        <>
+          <h2 className="titulo-secao__texto titulo-secao__texto--solto">Como quer dividir o uso comum?</h2>
+          <p className="texto-apoio">O uso comum é a parte das faturas que nenhum aparelho explica. Dá para trocar depois.</p>
+          <div className="cartao-lista" role="radiogroup" aria-label="Como dividir o uso comum">
+            {presetsDe(tipo).map((p) => {
+              const ativo = p.chave === presetAtual;
+              return (
+                <button
+                  key={p.chave}
+                  type="button"
+                  role="radio"
+                  aria-checked={ativo}
+                  className="opcao-radio"
+                  onClick={() => setPreset(p.chave)}
+                >
+                  <span className={`radio ${ativo ? "radio--ativo" : ""}`} aria-hidden="true" />
+                  <span className="opcao-radio__textos">
+                    <span className="opcao-radio__nome">
+                      {p.curto}
+                      {p.chave === modo.presetPadrao ? " · padrão" : ""}
+                      {p.gratis && <span className="selo-gratis">grátis</span>}
+                    </span>
+                    <span>{p.resumo}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+
       <div className="rodape-fixo">
         <button type="button" className="botao botao--largo" onClick={criar}>
-          Criar {modo.palavras.conjunto}
+          Criar
         </button>
       </div>
     </div>

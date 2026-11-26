@@ -1,6 +1,8 @@
 import Icone from "../componentes/Icone.jsx";
-import { dinheiro, TopoDaTela } from "../componentes/Interface.jsx";
+import { dinheiro } from "../componentes/Interface.jsx";
+import { CabecalhoDaAba, CabecalhoDaSecao } from "../componentes/CabecalhoDoConjunto.jsx";
 import { AVISOS } from "../nucleo/perfil.js";
+import { dataAgendada, lembreteParaMim } from "../nucleo/lembretes.js";
 import { MESES } from "../nucleo/formato.js";
 import { curta, hojeISO, listaEmFrase, nomeDe, proximoVencimento } from "../nucleo/resumo.js";
 
@@ -44,10 +46,11 @@ function avisosDeHoje(panorama, perfil, hoje) {
       }
     }
 
-    // Lembretes do dia.
+    // Lembretes agendados para hoje (sem data agendada, o dia do lançamento),
+    // para quem foi marcado neles; sem ninguém marcado, para o grupo todo.
     if (perfil.avisos.lembrete !== false) {
       for (const l of e.lembretes ?? []) {
-        if (l.data === hoje) {
+        if (dataAgendada(l) === hoje && lembreteParaMim(l, r?.eu ?? null)) {
           lista.push({ id: `l-${l.id}`, tipo: "lembrete", conjunto: p.ficha.id, titulo: l.texto || l.titulo || "Lembrete", texto: p.ficha.nome });
         }
       }
@@ -95,8 +98,11 @@ export default function Notificacoes({ app, rota, aoVoltar }) {
 
   return (
     <div className="tela">
-      <TopoDaTela aoVoltar={aoVoltar ?? voltar} semSino />
-      <h1 className="titulo-tela titulo-tela--grande">{rota?.soEste ? "Histórico" : "Notificações"}</h1>
+      {app.estado && !aoVoltar ? (
+        <CabecalhoDaSecao app={app} secao={rota?.soEste ? "Histórico" : "Notificações"} />
+      ) : (
+        <CabecalhoDaAba titulo={rota?.soEste ? "Histórico" : "Notificações"} aoVoltar={aoVoltar ?? voltar} />
+      )}
       <p className="texto-apoio">Os avisos nascem do que acontece nas despesas: vencimentos, pagamentos, registros e fechamentos.</p>
 
       <p className="rotulo-secao">Hoje</p>

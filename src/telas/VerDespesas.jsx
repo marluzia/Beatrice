@@ -1,9 +1,9 @@
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
-import { AbasDePasta, dinheiro, mostrarAviso, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { AbasDePasta, dinheiro, mostrarAviso } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { hojeISO, todasAsDespesas } from "../nucleo/resumo.js";
 import { destinoDaDespesa, LinhaDaDespesa, OpcoesDoLancamento } from "./linhasDeDespesa.jsx";
-import { sobrescritoDaTela } from "./Hub.jsx";
 
 const normal = (s) =>
   String(s ?? "")
@@ -60,11 +60,7 @@ export default function VerDespesas({ app, rota }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Ver <em>despesas</em>
-      </h1>
+      <CabecalhoDaSecao app={app} secao="Ver despesas" subsecao={rotuloDaAba(filtros, tipo)} />
 
       <label className="busca">
         <Icone nome="busca" tamanho={22} />
@@ -96,12 +92,6 @@ export default function VerDespesas({ app, rota }) {
         )}
       </AbasDePasta>
 
-      {lista.some((d) => d.tipo === "registrada") && (
-        <p className="ajuda-campo">
-          Registradas de aparelho valem o uso pelo preço do kWh ou do m³ do ciclo; já estão dentro das cíclicas, então não
-          somam no total.
-        </p>
-      )}
 
       {escolhida && (
         <OpcoesDoLancamento

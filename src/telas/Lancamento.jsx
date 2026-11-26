@@ -1,9 +1,12 @@
-import { dinheiro, LinhaDeMenu, mostrarAviso, SetaComBarra, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { NOME_DA_REGRA_DO_CICLO } from "./LancarDespesa.jsx";
+import { dataAgendada, registrosDaNota } from "../nucleo/lembretes.js";
+import { dinheiro, LinhaDeMenu, mostrarAviso, SetaComBarra } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { autoriaDe, podeEditar } from "../nucleo/autoria.js";
 import { registrosDe } from "../nucleo/adaptador.js";
 import { ultimoDiaDaJanela } from "../nucleo/calendario.js";
 import { modeloPorChave } from "../nucleo/catalogo.js";
-import { RECURSOS, unidadeDoRecurso } from "../nucleo/ciclos.js";
+import { divisaoDoCiclo, quemDivideOCiclo, RECURSOS, unidadeDoRecurso } from "../nucleo/ciclos.js";
 import { num, reais } from "../nucleo/formato.js";
 import { foraDaConta } from "../nucleo/naConta.js";
 import {
@@ -32,7 +35,6 @@ const NOME_DO_TIPO = {
 /** A edição aponta para o lançamento editado: a mesma referência da rota. */
 const mesmaRef = (a, b) => a?.tipo === b?.tipo && a?.id === b?.id && (a?.item ?? null) === (b?.item ?? null);
 
-const NOME_DA_REGRA_DO_CICLO = { igual: "igual", dias: "dias", porcentagem: "%", comum: "pela régua do uso comum" };
 
 /** "04/11/2026, 10:20", no fuso de quem olha. */
 export function momento(iso) {
@@ -81,8 +83,18 @@ export function acharLancamento(app, rota) {
         ["Categoria", modeloPorChave(item.modelo)?.nome ?? null],
         ["Quem pagou", item.pagoPor ? pessoa(item.pagoPor) : "ninguém ainda"],
         ["Como divide", nomeDaRegra(item.rateio)],
-        ["Quem paga", listaEmFrase((item.participantes ?? []).map(pessoa))],
-        ["Quando foi", item.data ? (item.ate && item.ate > item.data ? `${curta(item.data)} a ${curta(item.ate)}` : momento(item.data)) : null],
+        ["Quem divide", listaEmFrase((item.participantes ?? []).map(pessoa))],
+        [
+          "Data agendada",
+          item.data
+            ? item.ate && item.ate > item.data
+              ? `${curta(item.data)} a ${curta(item.ate)}`
+              : momento(item.data)
+            : item.criadoEm
+              ? `${momento(item.criadoEm.slice(0, 10))} (a do lançamento)`
+              : null,
+        ],
+        ["Vencimento", item.vencimento ? momento(item.vencimento) : "sem vencimento"],
       ],
     };
   }
@@ -102,8 +114,15 @@ export function acharLancamento(app, rota) {
       dados: [
         ["Quem pagou", c.pagoPor ? `${pessoa(c.pagoPor)}${c.pagoEm ? `, em ${momento(c.pagoEm.slice(0, 10))}` : ""}` : "ninguém ainda"],
         ["Consumo", medido && consumo > 0 ? `${reais(consumo).replace(",00", "")} ${unidadeDoRecurso(c.recurso)}` : null],
-        ["Como divide", medido ? "pelos aparelhos; o resto pela régua do uso comum" : NOME_DA_REGRA_DO_CICLO[c.rateio] ?? "igual"],
-        ["Quem paga", "todas as pessoas do conjunto"],
+        ["Quem divide", listaEmFrase(quemDivideOCiclo(c, estado).map(pessoa))],
+        [
+          "Como divide",
+          divisaoDoCiclo(c) === "registros"
+            ? medido
+              ? "registros + régua: pelos itens; o resto pela régua do uso comum"
+              : "registros + régua: pela régua do uso comum"
+            : `calculadora: ${NOME_DA_REGRA_DO_CICLO[c.rateio] ?? "igual"}`,
+        ],
         ["Quando foi", c.janela ? `consumo de ${curta(c.janela.de)} a ${curta(ultimoDiaDaJanela(c.janela))}` : null],
         ["Vencimento", c.vencimento ? momento(c.vencimento) : null],
       ],
@@ -124,7 +143,7 @@ export function acharLancamento(app, rota) {
       duplicavel: true,
       dados: [
         ["Quanto", PALAVRA_DO_USO(item, q)],
-        ["Quem usou", listaEmFrase((r.participantes ?? []).map(pessoa))],
+        ["Quem divide", listaEmFrase((r.participantes ?? []).map(pessoa))],
         ["Quando foi", momento(r.data)],
       ],
     };
@@ -140,7 +159,11 @@ export function acharLancamento(app, rota) {
       duplicavel: true,
       dados: [
         ["Tipo", l.tipo === "lista" ? `lista · ${feitos} de ${(l.itens ?? []).length} feitos` : "nota"],
-        ["Na agenda", l.data ? momento(l.data) : null],
+        ["Data agendada", momento(dataAgendada(l))],
+        ["Pessoas marcadas", (l.pessoas ?? []).length ? listaEmFrase(l.pessoas.map((id) => nomeDe(estado, id))) : "o grupo todo"],
+        ...(l.tipo === "nota"
+          ? [["Registros vinculados", registrosDaNota(estado, l.id).map(({ item, registro }) => `${item.nome} · ${momento(registro.data)}`).join("; ") || null]]
+          : []),
       ],
     };
   }
@@ -200,8 +223,7 @@ export default function Lancamento({ app, rota }) {
   if (!lancamento) {
     return (
       <div className="tela">
-        <TopoDaTela aoVoltar={voltar} />
-        <h1 className="titulo-tela titulo-tela--grande">Lançamento</h1>
+        <CabecalhoDaSecao app={app} secao="Lançamento" />
         <p className="vazio-suave">Este lançamento não existe mais: foi apagado.</p>
       </div>
     );
@@ -232,9 +254,7 @@ export default function Lancamento({ app, rota }) {
 
   return (
     <div className="tela">
-      <TopoDaTela aoVoltar={voltar} acoes={icones} />
-      <Sobrescrito partes={[NOME_DO_TIPO[rota.tipo], nomeDoConjunto]} />
-      <h1 className="titulo-tela titulo-tela--grande">{lancamento.nome}</h1>
+      <CabecalhoDaSecao app={app} secao={NOME_DO_TIPO[rota.tipo]} subsecao={lancamento.nome} acoes={icones} />
 
       {(status || lancamento.fora) && (
         <div className="selos-do-lancamento">

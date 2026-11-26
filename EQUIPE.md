@@ -114,7 +114,7 @@ Abra a CEDER, toque no **+** da barra de baixo → **Novo conjunto** (ou
 | Evento | compra, festa, vaquinha, transporte   sem fatura, sem ciclo, sem dias |
 | Temporada | viagem, acampamento, espaço alugado   marca a estadia na agenda e divide por dias, sem fatura |
 | Familiar | casal ou família, até 5 pessoas   uso comum por igual de partida |
-| Moradia compartilhada | república, coliving, alojamento, flat dividido   uso comum Moderado, Comunal, Temporal ou Livre; marca sempre os dias fora |
+| Moradia | república, coliving, alojamento, flat dividido   uso comum Moderado, Comunal, Temporal ou Livre; marca sempre os dias fora |
 | Multi | casa de praia, chalé, lancha, imóvel de temporada   a calculadora completa; na agenda, escolhe marcar a estadia ou os dias fora |
 
 Na tela seguinte vão só o **nome**, a **moeda** e as **pessoas**: você entra
@@ -147,7 +147,7 @@ embaixo da própria despesa). É por ali que se responde "quem mudou esse
 valor?". As correções feitas dentro de Fechar contas não aparecem como edição.
 
 **O tipo não muda depois de criado.** Evento não vira Temporada, nem o
-contrário; escolha certo na criação. Só a Moradia compartilhada troca depois o
+contrário; escolha certo na criação. Só a Moradia troca depois o
 jeito de dividir o uso comum, em Configurar conjunto. Evento e Temporada
 começam sem nenhuma despesa.
 
@@ -331,7 +331,7 @@ E dois avisos amarelos que **devem ir no relatório, não ser escondidos**:
 ## Passo 5   entregar e pedir o feedback
 
 Exporte pelo botão da tela de Rateio (PDF ou texto) e mande. O cabeçalho do
-relatório traz o R. e **diz que tipo de conjunto é**   moradia compartilhada,
+relatório traz o R. e **diz que tipo de conjunto é**   moradia,
 multipropriedade, casa ou família, evento   e se a presença foi marcada por
 ausência ou por estadia. Quem recebe lê os mesmos números de jeitos diferentes
 conforme isso, então confira se o modo está certo antes de enviar.

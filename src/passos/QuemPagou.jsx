@@ -1,8 +1,9 @@
-import { Rotulo, SeletorDePessoas } from "../componentes/index.js";
+import { Rotulo } from "../componentes/index.js";
+import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
 
 /**
- * "Quem pagou", igual em toda despesa e em toda fatura: os botões das pessoas,
- * um só marcado por vez. Vem sempre logo depois do nome da despesa, porque é a
+ * "Quem pagou", igual em toda despesa e em toda fatura: a lista das pessoas,
+ * que se abre, com uma só marcada por vez (ou "Ninguém"). Vem sempre logo depois do nome da despesa, porque é a
  * pergunta que decide se existe acerto.
  *
  * Ninguém marcado tem sentido próprio, que a frase embaixo diz: numa despesa,
@@ -12,7 +13,7 @@ export default function QuemPagou({ pessoas, indicePorId, valor, aoMudar, semNin
   return (
     <div className="grupo quem-pagou">
       <Rotulo>Quem pagou</Rotulo>
-      <SeletorDePessoas
+      <ListaDePessoas
         uma
         rotulo="Quem pagou"
         pessoas={pessoas}
@@ -20,7 +21,7 @@ export default function QuemPagou({ pessoas, indicePorId, valor, aoMudar, semNin
         selecionados={valor ? [valor] : []}
         aoMudar={(ids) => aoMudar(ids[0] ?? null)}
       />
-      <p className="dica">{valor ? comAlguem : semNinguem}</p>
+      {(valor ? comAlguem : semNinguem) && <p className="dica">{valor ? comAlguem : semNinguem}</p>}
     </div>
   );
 }

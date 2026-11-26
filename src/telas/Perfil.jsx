@@ -1,12 +1,12 @@
 import { useRef } from "react";
 import Icone from "../componentes/Icone.jsx";
-import MarcaR from "../componentes/MarcaR.jsx";
-import { Avatar, BotaoSino, emBreve } from "../componentes/Interface.jsx";
+import { Avatar, emBreve } from "../componentes/Interface.jsx";
+import { CabecalhoDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { AVISOS } from "../nucleo/perfil.js";
 
 /** Perfil: o seu nome, os avisos e os dados deste navegador. */
 export default function Perfil({ app }) {
-  const { perfil, acoes, panorama, abrir } = app;
+  const { perfil, acoes, panorama, abrir, escolherAba } = app;
   const arquivo = useRef(null);
 
   const escolherArquivo = (evento) => {
@@ -28,12 +28,7 @@ export default function Perfil({ app }) {
 
   return (
     <div className="tela">
-      <div className="perfil-topo">
-        <MarcaR tamanho={44} titulo="CEDER" />
-        <span className="sobrescrito sobrescrito--sem-margem">juntos dividimos justo</span>
-        <BotaoSino />
-      </div>
-      <h1 className="titulo-tela titulo-tela--grande">Perfil</h1>
+      <CabecalhoDaAba titulo="Perfil" aoVoltar={() => escolherAba("inicio")} />
 
       <section className="cartao cartao--perfil">
         <Avatar nome={perfil.nome || "?"} indice={0} tamanho={64} />

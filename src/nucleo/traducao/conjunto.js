@@ -15,13 +15,21 @@ import {
   janelaDoFechamento,
   ultimoDiaDaJanela,
 } from "../calendario.js";
-import { ciclosLigados, doCiclo } from "../ciclos.js";
+import { aceitaItens, ciclosLigados, doCiclo } from "../ciclos.js";
 import { faturaParaMotor, janelaDaFatura } from "./fatura.js";
 import { diasForaNaJanela, polaridadeDoConjunto, presentesPorDia } from "./morador.js";
 import { itemParaMotor } from "./item.js";
 import { alertaDeLavagens } from "./uso.js";
 import { estadoDaConta } from "../naConta.js";
 import { MOEDA_PADRAO, moedaValida, trocarSimbolo } from "../moedas.js";
+
+/** O item sem o consumo que ele tiraria das contas que não aceitam itens. */
+function semContasDaCalculadora(item, naCalculadora) {
+  const porCiclo = item.custo?.porCiclo;
+  if (!porCiclo || naCalculadora.size === 0) return item;
+  const fica = Object.fromEntries(Object.entries(porCiclo).filter(([id]) => !naCalculadora.has(id)));
+  return { ...item, custo: { ...item.custo, porCiclo: fica } };
+}
 
 export function paraMotor(estado) {
   const { mes, ano } = estado.periodo;
@@ -32,6 +40,8 @@ export function paraMotor(estado) {
   const polaridade = polaridadeDoConjunto(estado);
 
   const porCiclo = (f) => Object.fromEntries(ligados.map((c) => [c.id, f(janelas[c.id])]));
+  // As contas na calculadora não aceitam itens: o consumo deles nelas não conta.
+  const naCalculadora = new Set(ligados.filter((c) => !aceitaItens(c)).map((c) => c.id));
 
   return {
     calibragem: num(estado.calibragem),
@@ -43,7 +53,7 @@ export function paraMotor(estado) {
       diasFora: diasForaNaJanela(m, doFechamento, polaridade),
       diasForaPorCiclo: porCiclo((janela) => diasForaNaJanela(m, janela, polaridade)),
     })),
-    itens: estado.itens.map((i) => itemParaMotor(i, janelas, doFechamento)),
+    itens: estado.itens.map((i) => semContasDaCalculadora(itemParaMotor(i, janelas, doFechamento), naCalculadora)),
     // Quem estava em casa em cada dia de cada ciclo. Só existe quando todo
     // mundo marcou as datas; sem isso a divisão por presença volta a estimar.
     presencas: {

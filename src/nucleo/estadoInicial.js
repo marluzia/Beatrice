@@ -28,8 +28,10 @@ export function novoLembrete(tipo = "nota", campos = {}) {
     texto: "",
     itens: [],
     autor: null,
+    // O dia agendado (o da agenda e da notificação). Sem ele, vale o do lançamento.
     data: null,
-    registro: null,
+    // Quem o lembrete marca: a notificação vai para elas (ninguém marcado, para todos).
+    pessoas: [],
     criadoEm: new Date().toISOString(),
     ...campos,
   };

@@ -49,3 +49,25 @@ describe("as novidades de cada conjunto", () => {
     expect(novidadesDe({ ficha: {}, atividade })).toBe(0);
   });
 });
+
+describe("o vencimento de uma avulsa", () => {
+  it("sem pagador e com o vencimento passado, é atraso no Hoje e atrasada na lista", async () => {
+    const { todasAsDespesas } = await import("../nucleo/resumo.js");
+    const panorama = panoramaCom([{ nome: "Aluguel do salão", valor: 300, pagou: "ana", entre: ["ana", "bia", "caio"] }]);
+    const e = panorama[0].estado;
+    e.itens[0].pagoPor = null;
+    e.itens[0].vencimento = "2026-11-20";
+    const atraso = hojeEmTudo(panorama, HOJE).find((ev) => ev.tipo === "atraso");
+    expect(atraso).toMatchObject({ item: "d0", dias: 6 });
+    expect(todasAsDespesas(e, null, HOJE).find((d) => d.id === "d0").status).toBe("atrasada");
+  });
+
+  it("sem vencimento, não vence: fica aberta", async () => {
+    const { todasAsDespesas } = await import("../nucleo/resumo.js");
+    const panorama = panoramaCom([{ nome: "Gelo", valor: 20, pagou: "ana", entre: ["ana", "bia"] }]);
+    const e = panorama[0].estado;
+    e.itens[0].pagoPor = null;
+    expect(hojeEmTudo(panorama, HOJE).some((ev) => ev.tipo === "atraso")).toBe(false);
+    expect(todasAsDespesas(e, null, HOJE).find((d) => d.id === "d0").status).toBe("aberta");
+  });
+});

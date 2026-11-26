@@ -1,7 +1,10 @@
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import { Campo, Segmentado } from "../componentes/index.js";
-import { AbasDePasta, Avatar, mostrarAviso, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { AbasDePasta, mostrarAviso } from "../componentes/Interface.jsx";
+import { notasDe } from "../nucleo/lembretes.js";
+import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { ciclosDoRegistro, registravel } from "../nucleo/adaptador.js";
 import { deConta } from "../nucleo/ciclos.js";
 import TecladoDeDivisao from "../componentes/TecladoDeDivisao.jsx";
@@ -9,7 +12,6 @@ import QuemPagou from "../passos/QuemPagou.jsx";
 import { ehEquipamento } from "../nucleo/catalogo.js";
 import { num } from "../nucleo/formato.js";
 import { hojeISO, nomeDe } from "../nucleo/resumo.js";
-import { sobrescritoDaTela } from "./Hub.jsx";
 import { porHora } from "./VerRegistros.jsx";
 import { temPrecos, unidadeDePreco, unidadesDe } from "../nucleo/precos.js";
 
@@ -28,6 +30,25 @@ const SOBRE_O_TIPO = {
   ciclicos: "Aparelhos que saem das faturas de luz e água: cada uso puxa kWh ou m³ do ciclo em que caiu.",
   avulsos: "Equipamentos fora das faturas, como embarcação e gerador: cada hora ou uso vale em dinheiro.",
 };
+
+/** A nota a que o registro se vincula (opcional). O vínculo é do registro, não da nota. */
+export function CampoNotaDoRegistro({ estado, valor, aoMudar }) {
+  const notas = notasDe(estado);
+  if (notas.length === 0) return null;
+  return (
+    <label className="campo-novo">
+      <span className="rotulo">Vincular a uma nota (opcional)</span>
+      <select className="caixa caixa--texto" value={valor ?? ""} onChange={(e) => aoMudar(e.target.value || null)} aria-label="Nota do registro">
+        <option value="">Nenhuma</option>
+        {notas.map((l) => (
+          <option key={l.id} value={l.id}>
+            {(l.texto || "Nota").slice(0, 60)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export default function LancarRegistro({ app, rota }) {
   const { estado, modo, acoes, ir, voltar, indicePorId } = app;
@@ -52,6 +73,7 @@ export default function LancarRegistro({ app, rota }) {
   const [divisao, setDivisao] = useState("igual");
   const [pesos, setPesos] = useState({});
   const [pagoPor, setPagoPor] = useState(null);
+  const [nota, setNota] = useState(null);
   const avulso = Boolean(escolhido && ehEquipamento(escolhido));
   // No cíclico, quem pagou é quem pagou cada fatura de onde o item puxa.
   const contasDoItem = escolhido && !avulso ? ciclosDoRegistro(escolhido, estado) : [];
@@ -81,7 +103,7 @@ export default function LancarRegistro({ app, rota }) {
     if (!item) return mostrarAviso("Escolha o item ou aparelho.");
     if (!data) return mostrarAviso("Escolha o dia do uso.");
     if (!(num(quantidade) > 0)) return mostrarAviso(`${rotuloDaQuantidade}? Escreva um número.`);
-    if (quem.length === 0) return mostrarAviso("Escolha quem paga.");
+    if (quem.length === 0) return mostrarAviso("Escolha quem divide.");
     if (divisao === "porcentagem" && Math.abs(somaDosPercentuais - 100) > 0.005)
       return mostrarAviso("Os percentuais precisam somar 100%.");
     acoes.lancarRegistro(item, {
@@ -93,6 +115,7 @@ export default function LancarRegistro({ app, rota }) {
         ? { divisao: { tipo: divisao, pesos: Object.fromEntries(quem.map((id) => [id, pesos[id] ?? ""])) } }
         : {}),
       ...(avulso ? { pagoPor } : {}),
+      ...(nota ? { nota } : {}),
     });
     setQuantidade("1");
     setLancados((n) => n + 1);
@@ -101,11 +124,7 @@ export default function LancarRegistro({ app, rota }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Lançar <em>registros</em>
-      </h1>
+      <CabecalhoDaSecao app={app} secao="Lançar registros" subsecao={rotuloDaAba(tipos, tipo)} />
       <p className="texto-apoio">Cada lavagem, cada vez que o ar ligar. O que já foi lançado fica em Ver registros.</p>
 
       {lancados > 0 && (
@@ -175,8 +194,6 @@ export default function LancarRegistro({ app, rota }) {
                 indicePorId={indicePorId}
                 valor={pagoPor}
                 aoMudar={setPagoPor}
-                semNinguem="Ninguém marcado: o uso fica em aberto. Se cada um pagou a própria parte direto, não gera dívida entre vocês."
-                comAlguem="Essa pessoa adiantou pelo grupo: quem usou deve a ela no acerto."
               />
             ) : (
               <div className="grupo">
@@ -192,28 +209,20 @@ export default function LancarRegistro({ app, rota }) {
             )}
 
             <div className="grupo">
+              <span className="rotulo">Quem divide</span>
+              <ListaDePessoas
+                rotulo="Quem divide"
+                pessoas={estado.moradores}
+                indicePorId={indicePorId}
+                selecionados={quem}
+                aoMudar={setQuem}
+              />
+            </div>
+
+            <div className="grupo">
               <span className="rotulo">Como divide</span>
               <TecladoDeDivisao opcoes={["igual", "porcentagem", "cotas"]} valor={divisao} aoMudar={setDivisao} />
               <p className="ajuda-campo">{EXPLICACOES[divisao]}</p>
-            </div>
-
-            <span className="rotulo">Quem paga</span>
-            <div className="fichas-de-pessoa">
-              {estado.moradores.map((m, i) => {
-                const ativo = quem.includes(m.id);
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={`ficha-pessoa ficha-pessoa--escolha ${ativo ? "ficha-pessoa--ativa" : ""}`}
-                    aria-pressed={ativo}
-                    onClick={() => setQuem((q) => (ativo ? q.filter((x) => x !== m.id) : [...q, m.id]))}
-                  >
-                    <Avatar nome={nomeDe(estado, m.id)} indice={i} tamanho={28} />
-                    {nomeDe(estado, m.id)}
-                  </button>
-                );
-              })}
             </div>
 
             {divisao !== "igual" && quem.length > 0 && (
@@ -239,6 +248,7 @@ export default function LancarRegistro({ app, rota }) {
                 )}
               </div>
             )}
+            <CampoNotaDoRegistro estado={estado} valor={nota} aoMudar={setNota} />
           </div>
         )}
       </AbasDePasta>

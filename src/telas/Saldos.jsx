@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Avatar, dinheiro, Sobrescrito, TopoDaTela, tomDoSaldo } from "../componentes/Interface.jsx";
+import { Avatar, dinheiro, tomDoSaldo } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { CATEGORIAS_DA_PARTE, composicaoPorPessoa, listaEmFrase, nomeDe, oQueCadaUmPagou } from "../nucleo/resumo.js";
 import { despesasCiclicas, despesasAvulsas } from "../nucleo/resumo.js";
 import { reais } from "../nucleo/formato.js";
-import { sobrescritoDaTela } from "./Hub.jsx";
 
 const COR_DA_CATEGORIA = {
   aparelhos: "var(--azul)",
@@ -40,9 +40,7 @@ export default function Saldos({ app }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} acoes={[{ icone: "sino", rotulo: "Notificações", aoClicar: abrirNotificacoes }]} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">Saldos</h1>
+      <CabecalhoDaSecao app={app} secao="Ver saldos" />
       <p className="texto-apoio">
         Saldo = o que a pessoa pagou − a parte dela.{" "}
         {semFaturas ? "A barra mostra o tamanho da parte de cada um." : "Cada barra mostra de que é feita a parte de cada um."}

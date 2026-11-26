@@ -277,9 +277,25 @@ export function useCDR() {
             ? { ...l, valor: String(dados.total), quantidade: String(dados.quantidade ?? l.quantidade ?? "") }
             : l,
       ),
-      ...(dados.rateio && !RECURSOS[c.recurso] ? { rateio: dados.rateio } : {}),
-      ...(dados.porcentagens && !RECURSOS[c.recurso] ? { porcentagens: dados.porcentagens } : {}),
+      ...(dados.divisao ? { divisao: dados.divisao } : {}),
+      ...(dados.participantes !== undefined ? { participantes: dados.participantes } : {}),
+      ...(dados.rateio && (dados.divisao === "calculadora" || !RECURSOS[c.recurso]) ? { rateio: dados.rateio } : {}),
+      // As tabelas da calculadora (percentual, valor, cotas, ajuste, horas e uso de cada um).
+      ...Object.fromEntries(
+        ["porcentagens", "valores", "cotas", "ajustes", "usosPorPessoa"].filter((k) => dados[k]).map((k) => [k, dados[k]]),
+      ),
     }));
+    // Na calculadora, a conta não aceita itens: os que saíam dela deixam de sair.
+    if (dados.divisao === "calculadora") {
+      const campos = ["consumoPorCiclo", "porHoraPorCiclo", "porUsoPorCiclo"];
+      novo.itens = novo.itens.map((i) =>
+        campos.some((k) => i[k] && id in i[k])
+          ? Object.fromEntries(
+              Object.entries(i).map(([k, v]) => (campos.includes(k) && v && id in v ? [k, Object.fromEntries(Object.entries(v).filter(([c]) => c !== id))] : [k, v])),
+            )
+          : i,
+      );
+    }
     const periodo = dados.janela ? { ...e.periodo, ...periodoDasFaturas(novo.ciclos, e.periodo) } : e.periodo;
     return { ...novo, periodo };
   };
@@ -882,6 +898,7 @@ export function useCDR() {
           })),
         })),
         tarefas: (e.tarefas ?? []).map((t) => ({ ...t, responsaveis: t.responsaveis.filter((r) => r !== id) })),
+        lembretes: (e.lembretes ?? []).map((l) => (Array.isArray(l.pessoas) && l.pessoas.includes(id) ? { ...l, pessoas: l.pessoas.filter((p) => p !== id) } : l)),
       };
     });
   }, []);
@@ -989,7 +1006,7 @@ export function useCDR() {
   }, []);
 
   /** Um uso com data, já com quantidade e quem usou: a tela Registros. */
-  const lancarRegistro = useCallback((idDoItem, { data, quantidade = "1", participantes, unidade, divisao, pagoPor } = {}) => {
+  const lancarRegistro = useCallback((idDoItem, { data, quantidade = "1", participantes, unidade, divisao, pagoPor, nota } = {}) => {
     definir((e) => ({
       ...e,
       itens: e.itens.map((i) =>
@@ -1012,6 +1029,8 @@ export function useCDR() {
                   ...(divisao && divisao.tipo !== "igual" ? { divisao } : {}),
                   // Só no avulso: quem pagou este uso (no cíclico, é quem pagou a fatura).
                   ...(pagoPor !== undefined ? { pagoPor } : {}),
+                  // A nota a que este registro se vincula (o vínculo mora no registro).
+                  ...(nota ? { nota } : {}),
                   participantes: participantes?.length ? [...participantes] : [...i.participantes],
                   ...carimbo(autorDe(e)),
                 },

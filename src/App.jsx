@@ -321,13 +321,10 @@ export default function App() {
       {comBarra && barraDoConjunto && (
         <BarraDoConjunto
           secao={secaoDoConjunto}
-          semAgenda={modo.chave === "evento"}
           aoCriar={() => setFolha((f) => !f)}
           criando={folha}
           aoEscolher={(tela) =>
-            tela === "agenda" && modo.chave === "evento"
-              ? mostrarAviso("Evento não conta dias. Para marcar estadias na agenda, crie uma Temporada.")
-              : tela === "hub"
+            tela === "hub"
                 ? irAoPainel()
                 : irParaSecao(tela)
           }

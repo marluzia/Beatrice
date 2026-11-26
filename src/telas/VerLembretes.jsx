@@ -1,10 +1,11 @@
+import { dataAgendada } from "../nucleo/lembretes.js";
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
-import { AbasDePasta, mostrarAviso, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { AbasDePasta, mostrarAviso } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { autoriaDe } from "../nucleo/autoria.js";
 import { curta, nomeDe } from "../nucleo/resumo.js";
 import { OpcoesDoLancamento } from "./linhasDeDespesa.jsx";
-import { sobrescritoDaTela } from "./Hub.jsx";
 
 const normal = (s) =>
   String(s ?? "")
@@ -35,7 +36,9 @@ export default function VerLembretes({ app }) {
     const { por, em } = autoriaDe(l);
     const feitos = (l.itens ?? []).filter((x) => x.feito).length;
     return [
-      l.tipo === "lista" ? `${feitos} de ${(l.itens ?? []).length} feitos` : l.data ? `para ${curta(l.data)}` : null,
+      l.tipo === "lista" ? `${feitos} de ${(l.itens ?? []).length} feitos` : null,
+      dataAgendada(l) ? `para ${curta(dataAgendada(l))}` : null,
+      (l.pessoas ?? []).length ? (l.pessoas ?? []).map((id) => nomeDe(estado, id)).join(", ") : null,
       por ? nomeDe(estado, por) : null,
       em ? curta(em.slice(0, 10)) : null,
     ]
@@ -45,11 +48,7 @@ export default function VerLembretes({ app }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={sobrescritoDaTela(app)} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        Ver <em>lembretes</em>
-      </h1>
+      <CabecalhoDaSecao app={app} secao="Ver lembretes" subsecao={{ todos: "Todos", lista: "Listas", nota: "Notas" }[tipo]} />
 
       <label className="busca">
         <Icone nome="busca" tamanho={22} />

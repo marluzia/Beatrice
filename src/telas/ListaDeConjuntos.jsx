@@ -1,6 +1,7 @@
 import Icone from "../componentes/Icone.jsx";
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
 import { dinheiro, tomDoSaldo } from "../componentes/Interface.jsx";
+import { CabecalhoDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { hojeISO } from "../nucleo/resumo.js";
 import { fraseDoConjunto, novidadesDe, porAtividade } from "./comum.js";
 
@@ -11,13 +12,13 @@ import { fraseDoConjunto, novidadesDe, porAtividade } from "./comum.js";
  * pessoa abriu o conjunto.
  */
 export default function ListaDeConjuntos({ app }) {
-  const { panorama, abrir, abrirBusca } = app;
+  const { panorama, abrir, abrirBusca, escolherAba } = app;
   const hoje = hojeISO();
   const lista = porAtividade(panorama);
 
   return (
     <div className="tela">
-      <h1 className="titulo-tela titulo-tela--grande titulo-tela--sem-topo">Conjuntos</h1>
+      <CabecalhoDaAba titulo="Conjuntos" aoVoltar={() => escolherAba("inicio")} comSino />
 
       <button type="button" className="busca busca--botao" onClick={() => abrirBusca({ aba: "conjuntos", animar: true })}>
         <Icone nome="busca" tamanho={22} />

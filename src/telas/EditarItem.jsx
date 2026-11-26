@@ -1,4 +1,5 @@
-import { mostrarAviso, Sobrescrito, TopoDaTela } from "../componentes/Interface.jsx";
+import { mostrarAviso } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import CartaoItem from "../passos/CartaoItem.jsx";
 import { ehEquipamento } from "../nucleo/catalogo.js";
 
@@ -13,11 +14,7 @@ export default function EditarItem({ app, rota }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <TopoDaTela aoVoltar={voltar} />
-      <Sobrescrito partes={[nomeDoConjunto, "Itens"]} />
-      <h1 className="titulo-tela titulo-tela--grande">
-        {rota?.novo ? "Novo" : "Editar"} <em>item</em>
-      </h1>
+      <CabecalhoDaSecao app={app} secao="Itens" subsecao={rota?.novo ? "Novo item" : "Editar item"} />
 
       {!item ? (
         <p className="vazio-suave">Este item não existe mais.</p>

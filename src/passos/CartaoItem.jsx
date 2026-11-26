@@ -1,3 +1,4 @@
+import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
 import { simboloDe } from "../nucleo/moedas.js";
 import { useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   Rotulo,
   Segmentado,
   SeletorDeDia,
-  SeletorDePessoas,
   SimboloDoCiclo,
 } from "../componentes/index.js";
 import QuemPagou from "./QuemPagou.jsx";
@@ -564,9 +564,9 @@ export default function CartaoItem({
 
           {!soConfiguracao && (
           <div className="grupo">
-            <Rotulo>Quem paga</Rotulo>
-            <SeletorDePessoas
-              rotulo="Quem paga"
+            <Rotulo>Quem divide</Rotulo>
+            <ListaDePessoas
+              rotulo="Quem divide"
               pessoas={moradores}
               indicePorId={indicePorId}
               selecionados={item.participantes}
@@ -639,7 +639,7 @@ export default function CartaoItem({
                         </button>
                       </div>
 
-                      <SeletorDePessoas
+                      <ListaDePessoas
                         rotulo="Quem usou"
                         pessoas={participantes}
                         indicePorId={indicePorId}

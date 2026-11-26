@@ -177,7 +177,7 @@ export default function Inicio({ app }) {
 
       <p className="rotulo-secao">Ação rápida</p>
       <div className="acoes-rapidas">
-        <button type="button" className="acao-rapida acao-rapida--escura" onClick={() => emBreve("Cobrar")}>
+        <button type="button" className="acao-rapida" onClick={() => emBreve("Cobrar")}>
           <Icone nome="receber" tamanho={28} />
           <strong>Cobrar</strong>
         </button>

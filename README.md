@@ -30,10 +30,10 @@ conjunto de padrões, nunca um cálculo diferente:
 | `evento` | Evento | não | não | sem régua | não conta dias |
 | `temporada` | Temporada | sim (no **período**) | não | sem régua | marca a **estadia**; despesas nascem por dias |
 | `familia` | Familiar | sim | sim | régua, começa por igual | marca os dias **fora** |
-| `moradia` | Moradia compartilhada | sim | sim | Moderado, Comunal, Temporal ou Livre | marca sempre os dias **fora** |
+| `moradia` | Moradia | sim | sim | Moderado, Comunal, Temporal ou Livre | marca sempre os dias **fora** |
 | `multipro` | Multi | sim | sim | régua livre | **escolha**: estadia (padrão) ou dias fora |
 
-O que separa uma Moradia compartilhada Livre da Multi é a marcação: a república
+O que separa uma Moradia Livre da Multi é a marcação: a república
 marca sempre quem saiu; a Multi escolhe (`estado.marcacao`, em Configurar
 conjunto ou no topo da agenda). Trocar converte as marcas de cada pessoa
 dia a dia dentro do período, sem mudar os dias contados (`nucleo/marcacao.js`).
@@ -47,7 +47,7 @@ interruptor do evento (`eventoLongo`). A migração v11 → v12
 (`persistencia.js`) troca `temporada` por `multipro` e o evento longo por
 `temporada`, sem mudar número nenhum; as fichas do índice são refeitas uma vez.
 O tipo fica fixo depois de criado: Evento não vira Temporada nem o contrário.
-Só a Moradia compartilhada muda alguma coisa depois, o jeito de dividir o uso
+Só a Moradia muda alguma coisa depois, o jeito de dividir o uso
 comum. Evento e Temporada nascem **sem nenhuma despesa** (`itens: []`): cada
 uma é lançada com o nome dela.
 
