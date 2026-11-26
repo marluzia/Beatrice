@@ -140,7 +140,7 @@ export function acharLancamento(app, rota) {
       duplicavel: true,
       dados: [
         ["Tipo", l.tipo === "lista" ? `lista · ${feitos} de ${(l.itens ?? []).length} feitos` : "nota"],
-        ["No calendário", l.data ? momento(l.data) : null],
+        ["Na agenda", l.data ? momento(l.data) : null],
       ],
     };
   }
@@ -295,7 +295,7 @@ export default function Lancamento({ app, rota }) {
       {rota.tipo === "ciclica" && (
         <div className="cartao-lista">
           <LinhaDeMenu
-            icone="calendario"
+            icone="agenda"
             titulo="Composição e datas"
             subtitulo="as linhas da fatura e a linha do tempo do consumo"
             aoClicar={() => ir("ciclo", { id: rota.id })}

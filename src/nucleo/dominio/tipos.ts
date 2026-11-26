@@ -174,7 +174,7 @@ export interface Periodo {
  * Para cada dia de um ciclo, quem estava em casa naquele dia.
  *
  * O domínio recebe isto já resolvido, como listas de ids   nenhuma data entra
- * aqui, porque o motor não sabe de calendário. É a tradução que converte as
+ * aqui, porque o motor não sabe de agenda. É a tradução que converte as
  * ausências e as estadias marcadas na tela nestas listas.
  *
  * Quando existe, a divisão por presença é exata: dá para saber se duas viagens

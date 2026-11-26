@@ -1,63 +1,38 @@
-import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import IconeDoTipo from "../componentes/IconeDoTipo.jsx";
-import { BotaoSino, dinheiro, tomDoSaldo } from "../componentes/Interface.jsx";
+import { dinheiro, tomDoSaldo } from "../componentes/Interface.jsx";
 import { hojeISO } from "../nucleo/resumo.js";
-import { codigoSeNaoForReal, fraseDoConjunto, porLancamento, TEXTO_DA_SITUACAO } from "./comum.js";
+import { fraseDoConjunto, novidadesDe, porAtividade } from "./comum.js";
 
-const normal = (s) =>
-  String(s ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-
-/** A aba Conjuntos: busca, criar e todos os conjuntos, o de lançamento mais recente primeiro. */
+/**
+ * A aba Conjuntos: a barra de busca (que leva à Busca, já na aba Conjuntos) e
+ * todos os conjuntos, o de atividade mais recente primeiro. Embaixo do saldo,
+ * um quadrado preto com quantas movimentações houve desde a última vez que a
+ * pessoa abriu o conjunto.
+ */
 export default function ListaDeConjuntos({ app }) {
-  const { panorama, abrir, comecarACriar } = app;
-  const [busca, setBusca] = useState("");
+  const { panorama, abrir, abrirBusca } = app;
   const hoje = hojeISO();
-
-  const lista = porLancamento(panorama).filter((p) => !busca.trim() || normal(p.ficha.nome).includes(normal(busca.trim())));
+  const lista = porAtividade(panorama);
 
   return (
     <div className="tela">
-      <div className="topo-tela topo-tela--so-direita">
-        <span />
-        <div className="topo-tela__acoes">
-          <BotaoSino />
-        </div>
-      </div>
+      <h1 className="titulo-tela titulo-tela--grande titulo-tela--sem-topo">Conjuntos</h1>
 
-      <h1 className="titulo-tela titulo-tela--grande">Conjuntos</h1>
-
-      <label className="busca">
+      <button type="button" className="busca busca--botao" onClick={() => abrirBusca({ aba: "conjuntos", animar: true })}>
         <Icone nome="busca" tamanho={22} />
-        <input
-          type="search"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar conjunto"
-          aria-label="Buscar conjunto"
-        />
-      </label>
-
-      <button type="button" className="botao botao--fantasma botao--largo" onClick={comecarACriar}>
-        <Icone nome="mais" tamanho={20} espessura={2} /> Novo conjunto
+        <span>Buscar conjunto</span>
       </button>
 
-      {panorama.length > 0 && <p className="rotulo-secao">Lançamento mais recente primeiro</p>}
-
       {lista.length === 0 ? (
-        <p className="vazio-suave">
-          {panorama.length === 0
-            ? "Nenhum conjunto ainda. Crie o primeiro: um evento, uma temporada, a casa ou a república."
-            : "Nenhum conjunto com esse nome."}
-        </p>
+        <p className="vazio-suave">Nenhum conjunto ainda. Crie o primeiro: um evento, uma temporada, a casa ou a república.</p>
       ) : (
         <div className="cartao-lista">
           {lista.map((p) => {
             const r = p.resumo;
             const valor = r?.eu ? r.aberto / 100 : null;
+            const tom = valor === null ? "zero" : tomDoSaldo(valor);
+            const novidades = novidadesDe(p);
             return (
               <button key={p.ficha.id} type="button" className="linha-conjunto" onClick={() => abrir(p.ficha.id)}>
                 <IconeDoTipo tipo={p.estado.modo} tamanho={52} />
@@ -66,10 +41,17 @@ export default function ListaDeConjuntos({ app }) {
                   <span>{fraseDoConjunto(p, hoje)}</span>
                 </span>
                 <span className="linha-conjunto__valor">
-                  <strong className={`valor--${valor === null ? "zero" : tomDoSaldo(valor)}`}>
-                    {valor === null ? "—" : dinheiro(valor, { sinal: true, simbolo: Boolean(codigoSeNaoForReal(p.estado)), moeda: p.estado.moeda })}
+                  <strong className={`valor--${tom}`}>
+                    {tom === "zero" ? "—" : dinheiro(valor, { sinal: true, simbolo: true, moeda: p.estado.moeda })}
                   </strong>
-                  <span>{TEXTO_DA_SITUACAO[r?.situacao] ?? ""}</span>
+                  {novidades > 0 && (
+                    <span
+                      className="contador-novidades"
+                      aria-label={`${novidades} ${novidades === 1 ? "movimentação nova" : "movimentações novas"}`}
+                    >
+                      {novidades > 99 ? "99+" : novidades}
+                    </span>
+                  )}
                 </span>
               </button>
             );

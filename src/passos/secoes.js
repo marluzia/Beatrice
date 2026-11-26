@@ -43,7 +43,7 @@ export function secoesDaEtapa(chave, estado, modo) {
             { chave: "coleta", titulo: "Juntar os dados" },
           ];
 
-    case "calendario":
+    case "agenda":
       return [
         { chave: "mes", titulo: "Mês" },
         { chave: "historico", titulo: "Histórico" },

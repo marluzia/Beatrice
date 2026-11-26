@@ -2,7 +2,7 @@
 //
 // O conjunto inteiro, como a tela o guarda, vira o `Estado` que o domínio
 // fecha. É aqui que as datas viram tamanhos de ciclo: o domínio não sabe de
-// calendário, só de quantos dias.
+// agenda, só de quantos dias.
 //
 // Só os ciclos ligados chegam ao motor, na ordem do conjunto. Um ciclo
 // desligado não existe para o cálculo: nem fatura, nem uso comum, nem taxa.

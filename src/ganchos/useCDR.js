@@ -9,7 +9,8 @@ import {
   novoLembrete,
   proximoMes,
 } from "../nucleo/estadoInicial.js";
-import { atividadeDe, hojeISO, medeHoras, quemSouEu, resumoDoConjunto } from "../nucleo/resumo.js";
+import { atividadeDe, hojeISO, medeHoras, nomeDe, quemSouEu, resumoDoConjunto } from "../nucleo/resumo.js";
+import { comMovimento } from "../nucleo/movimentos.js";
 import { carimbo } from "../nucleo/autoria.js";
 import { comMarcacao } from "../nucleo/marcacao.js";
 import { guardarPerfil, lerPerfil } from "../nucleo/perfil.js";
@@ -35,6 +36,7 @@ import {
   exportarConjunto,
   importarConjunto,
   listarConjuntos,
+  marcarComoVisto,
   removerConjunto,
   renomearConjunto,
   salvarConjunto,
@@ -58,6 +60,11 @@ export function useCDR() {
   const perfilAgora = useRef(perfil);
   perfilAgora.current = perfil;
   const autorDe = (e) => quemSouEu(e, perfilAgora.current);
+  /** O conjunto recém-criado, com o "fulano criou o conjunto" e a hora. */
+  const criado = (e) => {
+    const quem = autorDe(e) ?? e.admin ?? null;
+    return comMovimento(e, { tipo: "criou", quem, nomeDeQuem: quem ? nomeDe(e, quem) : perfilAgora.current?.nome?.trim() || "" });
+  };
   const mudarPerfil = useCallback((mudar) => {
     definirPerfilBruto((p) => {
       const novo = mudar(p);
@@ -117,6 +124,7 @@ export function useCDR() {
     if (!carregada) return false;
 
     definirConjuntoAtual(id);
+    marcarComoVisto(id);
     setIdDoConjunto(id);
     definir(carregada);
     revisar((n) => n + 1);
@@ -124,7 +132,7 @@ export function useCDR() {
   }, []);
 
   const novoConjunto = useCallback((nome, chaveDoModo, quantasPessoas, chaveDoPreset) => {
-    const inicial = estadoInicial(chaveDoModo, quantasPessoas, chaveDoPreset);
+    const inicial = criado(estadoInicial(chaveDoModo, quantasPessoas, chaveDoPreset));
     const id = criarConjunto(nome, inicial);
 
     setIdDoConjunto(id);
@@ -138,7 +146,7 @@ export function useCDR() {
    * pessoas pelo nome (a primeira é você).
    */
   const criarConjuntoNovo = useCallback(({ nome, ...pedido }) => {
-    const inicial = estadoDeCriacao(pedido);
+    const inicial = criado(estadoDeCriacao(pedido));
     const id = criarConjunto(nome, inicial);
     setIdDoConjunto(id);
     definir(inicial);
@@ -674,7 +682,7 @@ export function useCDR() {
 
   // ── o que acontece num dia ───────────────────────────────────────────────
   //
-  // Tudo aqui é lançado pelo calendário. Nenhuma destas ações fala com o
+  // Tudo aqui é lançado pela agenda. Nenhuma destas ações fala com o
   // motor: elas mexem no mesmo estado de sempre, nos campos que o motor já
   // sabia ler. Tarefa é a única entidade nova, e ela não tem dinheiro.
 
@@ -784,7 +792,7 @@ export function useCDR() {
         ? mexerNoCiclo(e, id, (c) => ({
             ...c,
             pagoPor: quemPagou,
-            // Quando foi marcada como paga: é o que a atividade e o calendário mostram.
+            // Quando foi marcada como paga: é o que a atividade e a agenda mostram.
             pagoEm: quemPagou ? (c.pagoPor === quemPagou && c.pagoEm ? c.pagoEm : new Date().toISOString()) : null,
           }))
         : {
@@ -837,11 +845,13 @@ export function useCDR() {
       const teto = modoDoConjunto(e).maximoDeMoradores;
       if (e.moradores.length >= teto) return e;
       const m = novaPessoa(String(nome ?? "").trim(), convidado);
-      return {
+      const quem = autorDe(e);
+      const com = {
         ...e,
         moradores: [...e.moradores, m],
         itens: e.itens.map((i) => ({ ...i, participantes: [...i.participantes, m.id] })),
       };
+      return comMovimento(com, { tipo: "adicionou", quem, nomeDeQuem: quem ? nomeDe(e, quem) : perfilAgora.current?.nome?.trim() || "", alvo: m.id });
     });
   }, []);
 
@@ -850,6 +860,11 @@ export function useCDR() {
     definir((e) => {
       if (!e.moradores.some((m) => m.id === id)) return e;
       const fica = (quem) => (quem === id ? null : quem);
+      const autor = autorDe(e);
+      e = comMovimento(
+        e,
+        autor === id ? { tipo: "saiu", quem: id, alvo: id } : { tipo: "removeu", quem: autor, alvo: id, nomeDeQuem: autor ? undefined : perfilAgora.current?.nome?.trim() || "" },
+      );
       return {
         ...e,
         moradores: e.moradores.filter((m) => m.id !== id),
@@ -872,7 +887,7 @@ export function useCDR() {
   }, []);
 
   /**
-   * Na Multi: o calendário marca a estadia ("presenca") ou os dias fora
+   * Na Multi: a agenda marca a estadia ("presenca") ou os dias fora
    * ("ausencia"). As marcas de cada um são convertidas, sem mudar os dias.
    */
   const definirMarcacao = useCallback((nova) => {
@@ -881,7 +896,11 @@ export function useCDR() {
 
   /** Quem é você neste conjunto. */
   const definirVoce = useCallback((id) => {
-    definir((e) => ({ ...e, voce: id || null }));
+    // Dizer "sou eu" é entrar no conjunto: o "fulano adicionou" dá lugar ao "entrou".
+    definir((e) => {
+      const com = { ...e, voce: id || null };
+      return id && e.moradores.some((m) => m.id === id) ? comMovimento(com, { tipo: "entrou", quem: id, alvo: id }) : com;
+    });
   }, []);
 
   /** Campos do conjunto que o cálculo não lê: descrição, desde quando. */
@@ -1088,7 +1107,7 @@ export function useCDR() {
       alternarCorte,
       definirValorDoCiclo,
       definirPagador,
-      // calendário
+      // agenda
       alternarDiaDaPessoa,
       lancarDespesaNoDia,
       lancarUsoNoDia,

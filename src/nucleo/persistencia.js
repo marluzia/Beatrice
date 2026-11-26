@@ -26,6 +26,7 @@ import { calibragemFixa, CHAVES_ANTIGAS, PADRAO, presetValido } from "./modos.js
 import { RECURSOS, REGRAS_DO_CICLO } from "./ciclos.js";
 import { corteValido } from "./calendario.js";
 import { especiesDe } from "./catalogo.js";
+import { movimentosLimpos } from "./movimentos.js";
 
 const tabela = (t) => (t && typeof t === "object" && !Array.isArray(t) ? t : {});
 
@@ -93,7 +94,7 @@ function lerIndice(guarda, chave = INDICE) {
 }
 
 /** A ficha que o painel mostra, derivada do estado do conjunto. */
-function fichaDe(id, nome, estado, antes) {
+function fichaDe(id, nome, estado, antes, { visto = false } = {}) {
   return {
     id,
     nome: nome || "Conjunto sem nome",
@@ -103,6 +104,8 @@ function fichaDe(id, nome, estado, antes) {
     pessoas: Array.isArray(estado?.moradores) ? estado.moradores.length : 0,
     criadaEm: antes?.criadaEm ?? agora(),
     salvaEm: agora(),
+    // A última vez que alguém o abriu neste aparelho: o que veio depois é novidade.
+    vistoEm: visto ? agora() : antes?.vistoEm ?? null,
   };
 }
 
@@ -243,6 +246,19 @@ export function definirConjuntoAtual(id) {
   guardarIndice(guarda, { ...indice, atual: id ?? null });
 }
 
+/** Marca o conjunto como visto agora: as novidades dele zeram. */
+export function marcarComoVisto(id) {
+  const guarda = deposito();
+  if (!guarda || !id) return;
+
+  const indice = indiceVivo(guarda);
+  if (!indice.conjuntos.some((c) => c.id === id)) return;
+  guardarIndice(guarda, {
+    ...indice,
+    conjuntos: indice.conjuntos.map((c) => (c.id === id ? { ...c, vistoEm: agora() } : c)),
+  });
+}
+
 /** O estado de um conjunto, ou null se ele não existe ou não presta. */
 export function carregarConjunto(id) {
   const guarda = deposito();
@@ -272,7 +288,7 @@ export function salvarConjunto(id, estado) {
   guardarIndice(guarda, {
     ...indice,
     conjuntos: indice.conjuntos.map((c) =>
-      c.id === id ? fichaDe(id, antes.nome, estado, antes) : c,
+      c.id === id ? fichaDe(id, antes.nome, estado, antes, { visto: true }) : c,
     ),
   });
 
@@ -286,7 +302,7 @@ export function criarConjunto(nome, estado) {
   if (!guarda) return id;
 
   const indice = indiceVivo(guarda);
-  const ficha = fichaDe(id, nome, estado, null);
+  const ficha = fichaDe(id, nome, estado, null, { visto: true });
 
   escrever(guarda, PREFIXO + id, { versao: VERSAO, estado });
   guardarIndice(guarda, {
@@ -694,7 +710,7 @@ export function sanear(estado) {
         : estado.corte
       : null,
     eventoLongo: Boolean(estado.eventoLongo),
-    // Na Multi, o que o calendário marca; nos outros tipos fica sem efeito.
+    // Na Multi, o que a agenda marca; nos outros tipos fica sem efeito.
     marcacao: estado.marcacao === "presenca" || estado.marcacao === "ausencia" ? estado.marcacao : null,
     // Campos da v12 que o motor não lê: quem é você, a descrição, desde
     // quando o conjunto existe, os lembretes e os Pix já confirmados.
@@ -706,6 +722,7 @@ export function sanear(estado) {
     moeda: moedaValida(estado.moeda),
     lembretes: lembretesLimpos(estado.lembretes),
     edicoes: edicoesLimpas(estado.edicoes),
+    movimentos: movimentosLimpos(estado.movimentos),
     pagamentos: tabela(estado.pagamentos),
     historicoDeCiclos: Array.isArray(estado.historicoDeCiclos)
       ? estado.historicoDeCiclos.filter((h) => h && typeof h === "object" && h.valores)

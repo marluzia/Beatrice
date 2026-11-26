@@ -76,8 +76,8 @@ export const polaridadeDoConjunto = (estado) => polaridadeDoConjuntoNoModo(estad
 // ── quem estava em casa em cada dia ────────────────────────────────────────
 //
 // A divisão por presença quer saber mais do que "ficou 5 dias fora": ela quer
-// saber QUAIS cinco, para saber se duas viagens coincidiram. Desde que o
-// calendário existe, a tela sabe disso   e era só não estar contando a ninguém.
+// saber QUAIS cinco, para saber se duas viagens coincidiram. Desde que a
+// agenda existe, a tela sabe disso   e era só não estar contando a ninguém.
 
 /**
  * Este morador tem as datas marcadas, ou só um total digitado?

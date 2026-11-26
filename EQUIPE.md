@@ -36,7 +36,7 @@ guarde.
 ### Mandar o conjunto para o cliente
 
 **Baixar** gera um `.ceder.json` com o fechamento inteiro: moradores, faturas,
-calendário, itens, quem pagou e quem cedeu. O cliente abre o link da CEDER no
+agenda, itens, quem pagou e quem cedeu. O cliente abre o link da CEDER no
 navegador dele, vai em **Perfil → Trazer de um arquivo**, escolhe o `.ceder.json`, e o
 conjunto abre já carregado   ele pode mexer na régua, trocar quem cede e refazer
 a conta por conta própria.
@@ -112,10 +112,10 @@ Abra a CEDER, toque no **+** da barra de baixo → **Novo conjunto** (ou
 | tipo | quando usar |
 | --- | --- |
 | Evento | compra, festa, vaquinha, transporte   sem fatura, sem ciclo, sem dias |
-| Temporada | viagem, acampamento, espaço alugado   marca a estadia no calendário e divide por dias, sem fatura |
+| Temporada | viagem, acampamento, espaço alugado   marca a estadia na agenda e divide por dias, sem fatura |
 | Familiar | casal ou família, até 5 pessoas   uso comum por igual de partida |
 | Moradia compartilhada | república, coliving, alojamento, flat dividido   uso comum Moderado, Comunal, Temporal ou Livre; marca sempre os dias fora |
-| Multi | casa de praia, chalé, lancha, imóvel de temporada   a calculadora completa; no calendário, escolhe marcar a estadia ou os dias fora |
+| Multi | casa de praia, chalé, lancha, imóvel de temporada   a calculadora completa; na agenda, escolhe marcar a estadia ou os dias fora |
 
 Na tela seguinte vão só o **nome**, a **moeda** e as **pessoas**: você entra
 primeiro, e os outros entram como **Convidado** (pelo nome, sem conta no app).
@@ -124,7 +124,7 @@ depois**: um conjunto em euro fica em euro. Se o grupo tiver gastos em duas
 moedas, são dois conjuntos. A data do conjunto é a de criação; o período da
 temporada se ajusta depois, na aba Período.
 
-Dentro do conjunto, a barra de baixo troca de seções e tem **Calendário**,
+Dentro do conjunto, a barra de baixo troca de seções e tem **Agenda**,
 **Pessoas** e **Análise**. Lembretes e Registros ficam nas abas do painel, ao
 lado de Despesas e Período. Para voltar ao resto do app, a seta do topo.
 
@@ -134,8 +134,8 @@ quem paga e quando foi. O que foi lançado se confere em **Ver despesas**, onde
 cada despesa abre ou se duplica. Lembretes têm o mesmo jeito: na aba Lembretes,
 **Lançar lembretes** (Lista ou Nota) e **Ver lembretes**.
 
-Tocar num lançamento fora de "Ver" (Recente, Histórico, Hoje, o dia do
-calendário) mostra só ele, com **quem lançou** e **quando**. O lápis (editar)
+Tocar num lançamento fora de "Ver" (Recente, Histórico, Hoje, o dia da
+agenda) mostra só ele, com **quem lançou** e **quando**. O lápis (editar)
 só aparece para quem lançou e para o admin; os outros podem **duplicar**, e a
 cópia passa a ser deles. Se o cliente disser que "não consegue editar", é
 isso: peça a quem lançou, ao admin, ou duplique.
@@ -166,7 +166,7 @@ aquilo já foi acertado no mês anterior? Se sim, fica de fora.
 O modo não muda o cálculo. Muda com o que o conjunto abre, e **como a tela pergunta
 a presença**: na moradia marcam-se os dias **fora**; na Multi, os
 dias de **estadia** (ou os dias fora, se o conjunto escolher em Configurar ou
-no calendário). Quem marca estadia e não tem dia marcado conta zero, e isso é
+na agenda). Quem marca estadia e não tem dia marcado conta zero, e isso é
 proposital.
 
 Dê um nome ao conjunto que você reconheça daqui a um mês: `República da Serra  
@@ -225,7 +225,7 @@ lugar nenhum e o erro só aparece três telas depois.
 **Pessoas.** Quantas pessoas e os dias de cada uma, conforme o modo. (Na
 tela, moradores, cotistas e participantes são todos "pessoas".)
 
-**Marque os dias no calendário, um a um**   não só o total. Com as datas, a
+**Marque os dias na agenda, um a um**   não só o total. Com as datas, a
 divisão por presença passa a ser exata: o app sabe se duas viagens coincidiram.
 Só com o total ele precisa supor que não coincidiram, e avisa em amarelo que
 supôs. A diferença é dinheiro de verdade: num ar-condicionado de R$ 300 com
@@ -253,8 +253,8 @@ cartão só mostra quem pagou a conta de luz ou de água, e a troca é feita em
 Contas.
 
 **Quando foi** tem três opções: *sem data*, *dia* e *período*. Ela não muda a
-divisão   serve para o item aparecer no calendário e no histórico. Um período
-entra no calendário uma vez só, no dia em que começa.
+divisão   serve para o item aparecer na agenda e no histórico. Um período
+entra na agenda uma vez só, no dia em que começa.
 
 Para cada item, escolha a regra de divisão. A regra é da casa, não nossa   a
 aba 4 da planilha diz como eles dividem hoje, e esse é o ponto de partida.
@@ -322,7 +322,7 @@ E dois avisos amarelos que **devem ir no relatório, não ser escondidos**:
   decisão que ele pede, e não mais na pilha do topo. Esse texto é a marca do
   produto; não apague.
 - **A estimativa de presença.** Só aparece quando os dias **não** foram
-  marcados no calendário. Se aparecer, volte ao Calendário e marque os dias de
+  marcados na agenda. Se aparecer, volte à Agenda e marque os dias de
   cada um: o aviso some e a conta fica exata. Não mande relatório com esse
   aviso quando você tem as datas   é trabalho de um minuto.
 

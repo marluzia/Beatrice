@@ -7,7 +7,7 @@
 // conta, nenhum ciclo, nenhum dia contado). Entre os dois muda o que o
 // conjunto abre, não o cálculo:
 //
-//   modo        calendário  despesa cíclica  régua do uso comum
+//   modo        agenda  despesa cíclica  régua do uso comum
 //   evento      não         não              não
 //   temporada   sim         não              não
 //   familia     sim         sim              sim, começa por igual
@@ -34,7 +34,7 @@ export const PADRAO = "moradia";
 export const POLARIDADES = ["ausencia", "presenca", "nenhuma"];
 
 // A ordem do "Fechar contas": quem, as contas, os itens, os dias e o rateio.
-const PASSOS_COM_CONTAS = ["moradores", "contas", "itens", "calendario", "rateio"];
+const PASSOS_COM_CONTAS = ["moradores", "contas", "itens", "agenda", "rateio"];
 
 /**
  * Presets da República: o jeito da casa dividir o USO COMUM   a sobra da luz
@@ -110,7 +110,7 @@ export const MODOS = {
     faturas: false,
     calibragem: 1,
     moradores: 4,
-    maximoDeMoradores: 20,
+    maximoDeMoradores: 30,
     // Nasce sem despesa nenhuma: cada uma é lançada com o nome dela.
     itens: [],
     passos: ["moradores", "itens", "rateio"],
@@ -135,7 +135,7 @@ export const MODOS = {
     tipo: "Temporada",
     exemplo: "Viagem, acampamento, espaço alugado",
     descricao:
-      "Cada um fica dias diferentes. Tem calendário para pesar os dias. Sem ciclos de fatura.",
+      "Cada um fica dias diferentes. Tem agenda para pesar os dias. Sem ciclos de fatura.",
     pago: false,
 
     // Marca-se quem esteve: o normal é não estar.
@@ -145,10 +145,10 @@ export const MODOS = {
     // As despesas nascem divididas por dias: é o motivo de existir o tipo.
     rateioPadrao: "dias",
     moradores: 4,
-    maximoDeMoradores: 20,
+    maximoDeMoradores: 30,
     // Nasce sem despesa nenhuma: cada uma é lançada com o nome dela.
     itens: [],
-    passos: ["moradores", "itens", "calendario", "rateio"],
+    passos: ["moradores", "itens", "agenda", "rateio"],
 
     palavras: {
       pessoa: "pessoa",
@@ -162,7 +162,7 @@ export const MODOS = {
     },
 
     nota:
-      "A temporada tem um período (início e fim). Marque no calendário os dias de estadia de cada pessoa: dentro do período, eles dão o peso das divisões por dias e por presença.",
+      "A temporada tem um período (início e fim). Marque na agenda os dias de estadia de cada pessoa: dentro do período, eles dão o peso das divisões por dias e por presença.",
   },
 
   familia: {
@@ -208,7 +208,7 @@ export const MODOS = {
     faturas: true,
     calibragem: 0,
     moradores: 3,
-    maximoDeMoradores: 20,
+    maximoDeMoradores: 30,
     itens: ["faxina", "geladeira", "maquina", "gas", "internet"],
     passos: PASSOS_COM_CONTAS,
     // Quatro jeitos de dividir o uso comum. Mesmo na Livre, a república marca
@@ -240,7 +240,7 @@ export const MODOS = {
     pago: true,
 
     // Marca-se a estadia por padrão; o conjunto pode trocar para dias fora
-    // (`estado.marcacao`), em Configurar ou no próprio calendário.
+    // (`estado.marcacao`), em Configurar ou na própria agenda.
     presenca: "presenca",
     marcacaoEscolhida: true,
     faturas: true,
@@ -248,7 +248,7 @@ export const MODOS = {
     equipamentos: true,
     calibragem: 0,
     moradores: 4,
-    maximoDeMoradores: 20,
+    maximoDeMoradores: 30,
     itens: ["faxina", "geladeira", "ar", "gas", "internet"],
     passos: PASSOS_COM_CONTAS,
 
@@ -340,7 +340,7 @@ export function passosDe(modoOuChave) {
     contas: "Contas",
     moradores: modo.palavras.Pessoas,
     itens: semFaturas ? "Despesas" : "Itens",
-    calendario: "Calendário",
+    agenda: "Agenda",
     rateio: "Rateio",
   };
 
@@ -350,13 +350,13 @@ export function passosDe(modoOuChave) {
 /**
  * O modo como ESTE conjunto o usa. Um evento salvo como "evento longo" antes
  * da v12 é uma temporada: conta os dias marcados de cada pessoa e tem o passo
- * do calendário. A migração já troca o modo gravado; isto cobre um estado que
+ * da agenda. A migração já troca o modo gravado; isto cobre um estado que
  * chegue sem passar por ela.
  */
 export function modoDoConjunto(estado) {
   const modo = modoDe(estado?.modo ?? PADRAO);
   if (modo.chave === "evento" && estado?.eventoLongo) return MODOS.temporada;
-  // Na Multi, o conjunto escolhe o que o calendário marca: a estadia (o
+  // Na Multi, o conjunto escolhe o que a agenda marca: a estadia (o
   // padrão) ou os dias fora. Nos outros tipos a marcação é a do tipo.
   if (modo.marcacaoEscolhida && MARCACOES.includes(estado?.marcacao) && estado.marcacao !== modo.presenca) {
     return { ...modo, presenca: estado.marcacao };
@@ -364,7 +364,7 @@ export function modoDoConjunto(estado) {
   return modo;
 }
 
-/** O que o calendário de um conjunto pode marcar: a estadia ou os dias fora. */
+/** O que a agenda de um conjunto pode marcar: a estadia ou os dias fora. */
 export const MARCACOES = ["presenca", "ausencia"];
 
 /** Como este conjunto pergunta a presença, considerando o evento longo. */

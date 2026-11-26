@@ -250,10 +250,10 @@ export default function Configurar({ app }) {
       {modo.marcacaoEscolhida && (
         <>
           <h2 className="titulo-secao__texto titulo-secao__texto--solto">
-            No calendário, <em>marcar</em>
+            Na agenda, <em>marcar</em>
           </h2>
           <p className="texto-apoio">Trocar converte o que já foi marcado: os dias de cada um continuam os mesmos.</p>
-          <div className="cartao-lista" role="radiogroup" aria-label="O que o calendário marca">
+          <div className="cartao-lista" role="radiogroup" aria-label="O que a agenda marca">
             {[
               { valor: "presenca", nome: "Estadia", texto: "Marca-se quem esteve. Quem não marcou nenhum dia conta zero." },
               { valor: "ausencia", nome: "Dias fora", texto: "Marca-se quem saiu. Quem não marcou nada esteve o período inteiro." },

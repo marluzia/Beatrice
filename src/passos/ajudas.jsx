@@ -54,7 +54,7 @@ export function AjudaMoradores({ polaridade = "ausencia" }) {
       {polaridade === "presenca" ? (
         <p>
           <strong>Estadia</strong> são os dias em que a pessoa esteve no
-          espaço (ou no evento). Marque um a um no calendário. Quem não tem dia
+          espaço (ou no evento). Marque um a um na agenda. Quem não tem dia
           marcado conta zero: numa multipropriedade o normal é não estar lá, e o que
           ninguém usou continua sendo de todos.
         </p>
@@ -62,7 +62,7 @@ export function AjudaMoradores({ polaridade = "ausencia" }) {
         <p>
           <strong>Dias fora</strong> são os dias em que a pessoa não dormiu em
           casa: viagem, feriado na casa da família, intercâmbio. Marque um a um
-          no calendário, inclusive fins de semana soltos. Quem não tem nada
+          na agenda, inclusive fins de semana soltos. Quem não tem nada
           marcado ficou o ciclo inteiro.
         </p>
       )}

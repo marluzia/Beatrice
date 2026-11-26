@@ -6,6 +6,7 @@ import { ehEmReais } from "../nucleo/catalogo.js";
 import { modoDe } from "../nucleo/modos.js";
 import { nomeDe, todasAsDespesas } from "../nucleo/resumo.js";
 import { destinoDaDespesa } from "./linhasDeDespesa.jsx";
+import { porAtividade } from "./comum.js";
 
 const ABAS = [
   { valor: "conjuntos", rotulo: "Conjuntos" },
@@ -24,8 +25,19 @@ const normal = (s) =>
 /** Um item da seção Itens: aparelho que sai da fatura ou equipamento da Multi. */
 const ehItemConfigurado = (item) => !ehEmReais(item) || Boolean(item.equipamento);
 
+const achadoDoConjunto = (p) => ({
+  chave: p.ficha.id,
+  conjunto: p.ficha.id,
+  titulo: p.ficha.nome,
+  detalhe: modoDe(p.estado.modo).nome,
+  modo: p.estado.modo,
+});
+
+/** Com o campo vazio, a aba Conjuntos mostra todos, o de atividade mais recente primeiro. */
+export const todosOsConjuntos = (panorama) => porAtividade(panorama).map(achadoDoConjunto);
+
 /**
- * Tudo o que a busca encontra, por aba. Cada achado sabe de qual conjunto
+ * Tudo o que a busca encontra, por aba. Conjunto bate pelo título. Cada achado sabe de qual conjunto
  * veio e para onde leva.
  */
 export function achados(panorama, termo) {
@@ -39,9 +51,7 @@ export function achados(panorama, termo) {
     const id = p.ficha.id;
     const nomeDoConjunto = p.ficha.nome;
 
-    if (bate(p.ficha.nome, e.descricao, modoDe(e.modo).nome)) {
-      r.conjuntos.push({ chave: id, conjunto: id, titulo: p.ficha.nome, detalhe: modoDe(e.modo).nome, modo: e.modo });
-    }
+    if (bate(p.ficha.nome)) r.conjuntos.push(achadoDoConjunto(p));
 
     for (const d of todasAsDespesas(e, p.resumo?.resultado)) {
       if (d.tipo === "registrada" || !bate(d.nome, d.detalhe)) continue;
@@ -95,16 +105,17 @@ export function achados(panorama, termo) {
 }
 
 /** A busca geral do Início: um campo e as abas de pasta. */
-export default function Busca({ app, aoVoltar }) {
+export default function Busca({ app, aoVoltar, abaInicial = "conjuntos", animar = false }) {
   const { panorama, abrir } = app;
   const [termo, setTermo] = useState("");
-  const [aba, setAba] = useState("conjuntos");
+  const [aba, setAba] = useState(abaInicial);
 
+  const vazio = !termo.trim();
   const tudo = achados(panorama, termo);
-  const lista = tudo[aba];
+  const lista = vazio && aba === "conjuntos" ? todosOsConjuntos(panorama) : tudo[aba];
 
   return (
-    <div className="tela">
+    <div className={`tela tela--busca ${animar ? "tela--busca-entrando" : ""}`}>
       <TopoDaTela aoVoltar={aoVoltar} />
       <h1 className="titulo-tela titulo-tela--grande">Buscar</h1>
 
@@ -122,16 +133,18 @@ export default function Busca({ app, aoVoltar }) {
 
       <div className="pasta--compacta">
         <AbasDePasta opcoes={ABAS} valor={aba} aoMudar={setAba} rotulo="Onde buscar">
-          {!termo.trim() ? (
+          {vazio && aba !== "conjuntos" ? (
             <p className="vazio-suave vazio-suave--na-pasta">
               Escreva um nome: de um conjunto, de uma despesa, de um aparelho, de um lembrete ou de uma pessoa.
             </p>
           ) : lista.length === 0 ? (
-            <p className="vazio-suave vazio-suave--na-pasta">Nada encontrado aqui.</p>
+            <p className="vazio-suave vazio-suave--na-pasta">{vazio ? "Nenhum conjunto ainda." : "Nada encontrado aqui."}</p>
           ) : (
             <>
             <p className="rotulo-secao rotulo-secao--na-pasta">
-              {lista.length} {lista.length === 1 ? "achado" : "achados"}
+              {vazio
+                ? `${lista.length} ${lista.length === 1 ? "conjunto" : "conjuntos"}`
+                : `${lista.length} ${lista.length === 1 ? "achado" : "achados"}`}
             </p>
             <div className="cartao-lista">
               {lista.map((a) => (

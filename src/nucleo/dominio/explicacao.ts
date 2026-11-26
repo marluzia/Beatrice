@@ -85,7 +85,7 @@ export const ninguemEmCasa = (): Alerta => ({
 });
 
 /**
- * Só aparece quando as datas NÃO foram marcadas no calendário.
+ * Só aparece quando as datas NÃO foram marcadas na agenda.
  *
  * Com as datas, a divisão por presença é uma conta direta, dia a dia, e nada é
  * suposto   por isso a mensagem diz o que fazer para ela sumir, em vez de
@@ -93,7 +93,7 @@ export const ninguemEmCasa = (): Alerta => ({
  */
 export const presencaSuposta = (item: Item): Alerta => ({
   nivel: "aviso",
-  texto: `"${item.nome}" divide por presença, mais de uma pessoa ficou fora e o calendário não diz quais dias foram. Sem isso a CEDER não sabe se as ausências coincidiram, e supôs que não. Marque os dias de cada um no calendário e esta divisão passa a ser exata.`,
+  texto: `"${item.nome}" divide por presença, mais de uma pessoa ficou fora e a agenda não diz quais dias foram. Sem isso a CEDER não sabe se as ausências coincidiram, e supôs que não. Marque os dias de cada um na agenda e esta divisão passa a ser exata.`,
 });
 
 /**

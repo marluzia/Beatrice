@@ -10,7 +10,7 @@
 //
 // Este arquivo é o único lugar que junta os quatro numa lista só. Cada entrada
 // dela é uma MARCAÇÃO: algo que aconteceu num dia. ("Evento" é só o tipo de
-// conjunto.) O calendário usa a lista para marcar os dias, e o histórico para
+// conjunto.) A agenda usa a lista para marcar os dias, e o histórico para
 // contar o mês em ordem.
 //
 // Nada aqui calcula dinheiro. A agenda é uma leitura do estado; quem divide é
@@ -110,7 +110,7 @@ export function agendaDe(estado) {
 
     // 3. As despesas avulsas. Um período entra uma vez só, no dia em que
     //    começa, dizendo até quando vai   espalhar a mesma despesa por trinta
-    //    dias do calendário encheria o mês de repetição sem acrescentar nada.
+    //    dias da agenda encheria o mês de repetição sem acrescentar nada.
     if (ehDespesaDatada(item)) {
       const valor = num(item.valor);
       const ate = fimDoItem(item);
@@ -171,7 +171,7 @@ const diaLongo = (iso) => {
 /**
  * O histórico em texto, para entrar no relatório.
  *
- * É a mesma lista do calendário, escrita em linhas. Serve para a casa conferir
+ * É a mesma lista da agenda, escrita em linhas. Serve para a casa conferir
  * o que foi lançado sem precisar abrir o app   e é onde um desencontro
  * aparece ("ninguém marcou nada no dia 20").
  */

@@ -8,7 +8,7 @@ import { MESES } from "../nucleo/formato.js";
 import PassoContas from "../passos/PassoContas.jsx";
 import PassoMoradores from "../passos/PassoMoradores.jsx";
 import PassoItens from "../passos/PassoItens.jsx";
-import PassoCalendario from "../passos/PassoCalendario.jsx";
+import PassoAgenda from "../passos/PassoAgenda.jsx";
 import PassoRateio from "../passos/PassoRateio.jsx";
 import { secoesDaEtapa, vizinha } from "../passos/secoes.js";
 
@@ -16,7 +16,7 @@ const TELAS = {
   contas: PassoContas,
   moradores: PassoMoradores,
   itens: PassoItens,
-  calendario: PassoCalendario,
+  agenda: PassoAgenda,
   rateio: PassoRateio,
 };
 
@@ -29,7 +29,7 @@ function aoTopo() {
 }
 
 /**
- * Fechar contas: o assistente de sempre (pessoas, contas, itens, calendário,
+ * Fechar contas: o assistente de sempre (pessoas, contas, itens, agenda,
  * rateio), uma seção por vez, com a linha de etapas no topo.
  */
 export default function FecharContas({ app, rota }) {

@@ -70,7 +70,7 @@ export function CamposDaLista({ lista, setLista }) {
   );
 }
 
-/** O texto da nota, o dia no calendário e o registro a que ela se liga. */
+/** O texto da nota, o dia na agenda e o registro a que ela se liga. */
 export function CamposDaNota({ nota, setNota, estado }) {
   const comUso = estado.itens.filter((i) => i.especie === "porUso" || i.especie === "porHora");
   return (
@@ -87,10 +87,10 @@ export function CamposDaNota({ nota, setNota, estado }) {
         />
       </label>
       <CampoData
-        rotulo="No calendário (opcional)"
+        rotulo="Na agenda (opcional)"
         valor={nota.data}
         aoMudar={(v) => setNota((n) => ({ ...n, data: v }))}
-        etiqueta="Dia da nota no calendário"
+        etiqueta="Dia da nota na agenda"
       />
       {comUso.length > 0 && (
         <label className="campo-novo">

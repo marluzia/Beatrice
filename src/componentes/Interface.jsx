@@ -50,7 +50,7 @@ export function Avatar({ nome, indice, tamanho = 44 }) {
  * Um anel de partes: `partes = [{ valor, cor }]`. Com uma parte só, é o anel
  * cheio. O miolo recebe o que vier como filho.
  */
-export function Anel({ partes, tamanho = 200, espessura = 22, folga = 0.018, children, fundo = "var(--areia)" }) {
+export function Anel({ partes, tamanho = 200, espessura = 9, folga = 0.018, children, fundo = "var(--areia)" }) {
   const r = (tamanho - espessura) / 2;
   const c = tamanho / 2;
   const total = partes.reduce((s, p) => s + Math.max(0, p.valor), 0);
@@ -424,7 +424,7 @@ export function SetaComBarra({ tamanho = 18 }) {
   );
 }
 
-/** Ladrilho quadrado com ícone e nome (Calendário, Lembretes, Registros). */
+/** Ladrilho quadrado com ícone e nome (Agenda, Lembretes, Registros). */
 export function Ladrilho({ icone, titulo, subtitulo, aoClicar, apagado = false }) {
   return (
     <button type="button" className={`ladrilho ${apagado ? "ladrilho--apagado" : ""}`} onClick={aoClicar}>

@@ -28,7 +28,7 @@ import VerRegistros from "./telas/VerRegistros.jsx";
 import BarraDoConjunto from "./componentes/BarraDoConjunto.jsx";
 import Saldos from "./telas/Saldos.jsx";
 import FecharContas from "./telas/FecharContas.jsx";
-import CalendarioDoConjunto from "./telas/CalendarioDoConjunto.jsx";
+import AgendaDoConjunto from "./telas/AgendaDoConjunto.jsx";
 import Lembretes from "./telas/Lembretes.jsx";
 import Registros from "./telas/Registros.jsx";
 import DespesaCiclica from "./telas/DespesaCiclica.jsx";
@@ -56,7 +56,7 @@ const TELAS_DO_CONJUNTO = {
   lancar: LancarDespesa,
   saldos: Saldos,
   fechar: FecharContas,
-  calendario: CalendarioDoConjunto,
+  agenda: AgendaDoConjunto,
   pessoas: Pessoas,
   itens: Itens,
   analise: Analise,
@@ -75,13 +75,13 @@ const TELAS_DO_CONJUNTO = {
 };
 
 /**
- * Dentro de um conjunto, a barra de baixo é a do conjunto (Início, Calendário,
+ * Dentro de um conjunto, a barra de baixo é a do conjunto (Início, Agenda,
  * Análise, Pessoas) e só aparece no painel e nessas seções. Toda outra
  * tela   Lançar despesas, Ver despesas, Ver saldos, lançar à mão, a
  * composição, Fechar contas, Configurar   esconde a barra, para a pessoa
  * ficar só no que veio fazer.
  */
-const SECOES_DO_CONJUNTO = ["calendario", "analise", "pessoas"];
+const SECOES_DO_CONJUNTO = ["agenda", "analise", "pessoas"];
 const COM_BARRA_DO_CONJUNTO = new Set(["hub", ...SECOES_DO_CONJUNTO]);
 
 /** Lembretes, Registros e Período são abas do painel: ir para eles é voltar ao painel com a aba aberta. */
@@ -100,6 +100,9 @@ export default function App() {
   // Telas que não são de conjunto nenhum: criar, notificações.
   const [fora, setFora] = useState(null);
   const [folha, setFolha] = useState(false);
+  // Uma tela pode tirar a barra de baixo por um tempo (a agenda, com um dia escolhido).
+  const [barraOculta, setBarraOculta] = useState(false);
+  const esconderBarra = useCallback((sim) => setBarraOculta(Boolean(sim)), []);
 
   const ir = useCallback((tela, params = {}) => {
     if (ABAS_DO_PAINEL.has(tela)) setPilha([naAba({ tela, ...params })]);
@@ -110,12 +113,14 @@ export default function App() {
   /** Uma das seções da barra do conjunto: fica logo acima do painel. */
   const irParaSecao = useCallback((tela) => {
     setPilha([{ tela: "hub" }, { tela }]);
+    setFolha(false);
     aoTopo();
   }, []);
 
-  /** Início, na barra do conjunto: o painel, sem nada empilhado. */
+  /** Conjunto, na barra do conjunto: o painel, sem nada empilhado. */
   const irAoPainel = useCallback(() => {
     setPilha([{ tela: "hub" }]);
+    setFolha(false);
     aoTopo();
   }, []);
 
@@ -245,8 +250,9 @@ export default function App() {
     sairDoConjunto,
     escolherAba,
     comecarACriar,
-    abrirBusca: () => {
-      setFora({ tela: "busca" });
+    esconderBarra,
+    abrirBusca: ({ aba: abaDaBusca = "conjuntos", animar = false } = {}) => {
+      setFora({ tela: "busca", aba: abaDaBusca, animar });
       aoTopo();
     },
     abrirNotificacoes: () => {
@@ -279,7 +285,7 @@ export default function App() {
     );
   } else if (fora?.tela === "busca") {
     comBarra = false;
-    corpo = <Busca app={app} aoVoltar={() => setFora(null)} />;
+    corpo = <Busca app={app} abaInicial={fora.aba} animar={fora.animar} aoVoltar={() => setFora(null)} />;
   } else if (fora?.tela === "notificacoes" && !estado) {
     comBarra = false;
     corpo = <Notificacoes app={app} aoVoltar={() => setFora(null)} />;
@@ -301,6 +307,8 @@ export default function App() {
     corpo = <Inicio app={app} />;
   }
 
+  if (barraOculta) comBarra = false;
+
   const sino = { abrir: app.abrirNotificacoes, pendente: panorama.some((p) => p.resumo?.aPagar > 0) };
 
   return (
@@ -313,10 +321,12 @@ export default function App() {
       {comBarra && barraDoConjunto && (
         <BarraDoConjunto
           secao={secaoDoConjunto}
-          semCalendario={modo.chave === "evento"}
+          semAgenda={modo.chave === "evento"}
+          aoCriar={() => setFolha((f) => !f)}
+          criando={folha}
           aoEscolher={(tela) =>
-            tela === "calendario" && modo.chave === "evento"
-              ? mostrarAviso("Evento não conta dias. Para marcar estadias no calendário, crie uma Temporada.")
+            tela === "agenda" && modo.chave === "evento"
+              ? mostrarAviso("Evento não conta dias. Para marcar estadias na agenda, crie uma Temporada.")
               : tela === "hub"
                 ? irAoPainel()
                 : irParaSecao(tela)

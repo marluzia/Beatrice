@@ -1,4 +1,4 @@
-// Marcação: na Multi, o calendário marca a estadia ou os dias fora.
+// Marcação: na Multi, a agenda marca a estadia ou os dias fora.
 //
 // As duas listas moram em cada pessoa (`presencas` e `ausencias`) e o tipo do
 // conjunto diz qual delas vale (ver `traducao/morador.js`). Trocar a marcação

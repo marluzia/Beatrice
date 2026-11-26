@@ -76,7 +76,7 @@ describe("moradores", () => {
   it("respeita o teto e o piso de moradores", () => {
     const { result } = montar();
     act(() => result.current.acoes.ajustarQuantidadeDeMoradores(999));
-    expect(result.current.estado.moradores).toHaveLength(20);
+    expect(result.current.estado.moradores).toHaveLength(30);
 
     act(() => result.current.acoes.ajustarQuantidadeDeMoradores(-5));
     expect(result.current.estado.moradores).toHaveLength(0);
@@ -444,12 +444,12 @@ describe("as histórias de 02/11", () => {
     expect(result.current.estado.periodo).toMatchObject({ mes: 8, ano: 2026 });
   });
 
-  it("evento longo liga o calendário e passa o igual para por dias", () => {
+  it("evento longo liga a agenda e passa o igual para por dias", () => {
     const { result } = abrirPainel();
     act(() => result.current.acoes.novoConjunto("Praia", "evento", 3));
-    expect(result.current.modo.passos).not.toContain("calendario");
+    expect(result.current.modo.passos).not.toContain("agenda");
     act(() => result.current.acoes.definirEventoLongo(true));
-    expect(result.current.modo.passos).toContain("calendario");
+    expect(result.current.modo.passos).toContain("agenda");
     expect(result.current.estado.itens.every((i) => i.rateio === "dias")).toBe(true);
     act(() => result.current.acoes.definirEventoLongo(false));
     expect(result.current.estado.itens.every((i) => i.rateio === "igual")).toBe(true);

@@ -89,7 +89,7 @@ function PeriodoDaTemporada({ estado, acoes, limites }) {
         />
       </div>
       <p className="ajuda-campo">
-        As estadias marcadas no calendário dentro deste período dão o peso de cada um nas divisões por dias e por
+        As estadias marcadas na agenda dentro deste período dão o peso de cada um nas divisões por dias e por
         presença. O início vai até 40 dias para trás; o fim, até 2 anos para a frente.
       </p>
     </section>

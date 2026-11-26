@@ -24,13 +24,13 @@ describe("modos", () => {
     }
   });
 
-  it("todo modo menos o evento tem calendário; evento longo antigo vira temporada", () => {
+  it("todo modo menos o evento tem agenda; evento longo antigo vira temporada", () => {
     for (const chave of ["moradia", "temporada", "familia", "multipro"]) {
-      expect(passosDe(chave).map((p) => p.chave), chave).toContain("calendario");
+      expect(passosDe(chave).map((p) => p.chave), chave).toContain("agenda");
     }
-    expect(passosDe("evento").map((p) => p.chave)).not.toContain("calendario");
+    expect(passosDe("evento").map((p) => p.chave)).not.toContain("agenda");
     const longo = modoDoConjunto({ modo: "evento", eventoLongo: true });
-    expect(passosDe(longo).map((p) => p.chave)).toContain("calendario");
+    expect(passosDe(longo).map((p) => p.chave)).toContain("agenda");
   });
 
   it("o evento longo conta os dias marcados de cada pessoa", () => {
@@ -52,7 +52,7 @@ describe("modos", () => {
     expect(passosDe("temporada")[0].titulo).toBe("Pessoas");
     expect(passosDe("moradia")[0].titulo).toBe("Pessoas");
     // A ordem do Fechar contas, como no Figma.
-    expect(passosDe("moradia").map((p) => p.chave)).toEqual(["moradores", "contas", "itens", "calendario", "rateio"]);
+    expect(passosDe("moradia").map((p) => p.chave)).toEqual(["moradores", "contas", "itens", "agenda", "rateio"]);
     expect(passosDe("evento")[0].titulo).toBe("Pessoas");
     expect(passosDe("evento").map((p) => p.titulo)).toEqual(["Pessoas", "Despesas", "Rateio"]);
   });
@@ -159,32 +159,32 @@ describe("os cinco tipos de conjunto", () => {
     expect(LISTA_DE_MODOS.map((m) => m.chave)).toEqual(["evento", "temporada", "familia", "moradia", "multipro"]);
   });
 
-  it("evento: sem calendário, sem despesa cíclica, sem dias, sem régua", async () => {
+  it("evento: sem agenda, sem despesa cíclica, sem dias, sem régua", async () => {
     const { reguaVisivel } = await import("./modos.js");
     const m = MODOS.evento;
     expect(m.faturas).toBe(false);
     expect(m.presenca).toBe("nenhuma");
-    expect(m.passos).not.toContain("calendario");
+    expect(m.passos).not.toContain("agenda");
     expect(reguaVisivel(estadoInicial("evento"))).toBe(false);
   });
 
-  it("temporada: calendário e dias, sem despesa cíclica e sem régua", async () => {
+  it("temporada: agenda e dias, sem despesa cíclica e sem régua", async () => {
     const { reguaVisivel } = await import("./modos.js");
     const m = MODOS.temporada;
     expect(m.faturas).toBe(false);
     expect(m.presenca).toBe("presenca");
-    expect(m.passos).toContain("calendario");
+    expect(m.passos).toContain("agenda");
     expect(m.passos).not.toContain("contas");
     expect(reguaVisivel(estadoInicial("temporada"))).toBe(false);
     // As despesas nascem divididas por dias.
     expect(estadoInicial("temporada").itens.every((i) => i.rateio === "dias")).toBe(true);
   });
 
-  it("familiar: calendário, despesa cíclica e uso comum por igual de partida", () => {
+  it("familiar: agenda, despesa cíclica e uso comum por igual de partida", () => {
     const e = estadoInicial("familia");
     expect(MODOS.familia.nome).toBe("Familiar");
     expect(MODOS.familia.faturas).toBe(true);
-    expect(MODOS.familia.passos).toContain("calendario");
+    expect(MODOS.familia.passos).toContain("agenda");
     expect(e.calibragem).toBe(1);
   });
 

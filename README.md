@@ -25,7 +25,7 @@ escalas diferentes: a multipropriedade é a calculadora completa e o evento é o
 caso degenerado (nenhuma conta, nenhum ciclo, nenhum dia contado). Um tipo é um
 conjunto de padrões, nunca um cálculo diferente:
 
-| chave | nome na tela | calendário | despesa cíclica | uso comum | presença |
+| chave | nome na tela | agenda | despesa cíclica | uso comum | presença |
 | --- | --- | --- | --- | --- | --- |
 | `evento` | Evento | não | não | sem régua | não conta dias |
 | `temporada` | Temporada | sim (no **período**) | não | sem régua | marca a **estadia**; despesas nascem por dias |
@@ -35,7 +35,7 @@ conjunto de padrões, nunca um cálculo diferente:
 
 O que separa uma Moradia compartilhada Livre da Multi é a marcação: a república
 marca sempre quem saiu; a Multi escolhe (`estado.marcacao`, em Configurar
-conjunto ou no topo do calendário). Trocar converte as marcas de cada pessoa
+conjunto ou no topo da agenda). Trocar converte as marcas de cada pessoa
 dia a dia dentro do período, sem mudar os dias contados (`nucleo/marcacao.js`).
 
 Todos os tipos estão em `nucleo/modos.js`, um objeto cada, na ordem de
@@ -138,7 +138,7 @@ Notas e, ao tocar, Abrir ou Duplicar.
 **Um lançamento sozinho** (`telas/Lancamento.jsx`, a rota `lancamento` com
 `tipo` avulsa, cíclica, registro ou lembrete): fora das seções "Ver", tocar em
 qualquer lançamento (Recente, Histórico, Hoje, atrasos, notificações, busca
-geral, Atividade, o dia do calendário, Registros) abre só ele, com os dados,
+geral, Atividade, o dia da agenda, Registros) abre só ele, com os dados,
 **Lançado por** e **Lançado em**. No topo, o lápis no papel (editar) para quem
 tem direito e o ícone de duplicar. Quem lançou e o admin editam
 (`podeEditar`, `nucleo/autoria.js`); o que foi lançado antes de existir autoria
@@ -182,8 +182,8 @@ para a mais antiga, `todasAsDespesas`), **Histórico** (nos três pontos do topo
 filtros Despesas, Lembretes e Registros; nas despesas, filtro por status),
 **Saldos** (a parte de cada um em
 aparelhos, uso comum, taxas e avulsas), **Fechar contas** (o assistente de
-sempre: Pessoas, Contas, Itens, Calendário, Rateio), a **despesa cíclica por
-dentro**, **Calendário**, **Lembretes**, **Registros**, **Notificações** e
+sempre: Pessoas, Contas, Itens, Agenda, Rateio), a **despesa cíclica por
+dentro**, **Agenda**, **Lembretes**, **Registros**, **Notificações** e
 **Configurar conjunto** (Dados gerais | Itens; Itens é onde se cadastram os
 aparelhos que saem da fatura e recebem registros   evento e temporada não têm
 essa parte). As telas antigas de `passos/` continuam sendo os editores de
@@ -212,15 +212,15 @@ do período. Sem escolha, tudo entra, como sempre.
 **A barra de baixo do conjunto** (`componentes/BarraDoConjunto.jsx`) toma o
 lugar da barra do app enquanto se navega por um conjunto: na cor da barra
 padrão, com
-**Calendário**, **Pessoas** e **Análise** (círculos concêntricos), todas com
+**Agenda**, **Pessoas** e **Análise** (círculos concêntricos), todas com
 ícone. Ela aparece no painel e nessas três seções; para sair do conjunto, a
-seta do topo. No evento, Calendário avisa que evento não conta dias. Lançar
+seta do topo. No evento, a Agenda avisa que evento não conta dias. Lançar
 despesas, Ver despesas, Ver saldos e toda tela de ação (lançar à mão, a
 despesa cíclica por dentro, Fechar contas, Configurar, Histórico) não têm
 barra nenhuma (`COM_BARRA_DO_CONJUNTO` em `App.jsx`). Não há mais os botões
-de Calendário, Lembretes e Registros no painel: Lembretes e Registros são
+de Agenda, Lembretes e Registros no painel: Lembretes e Registros são
 abas do toggle (`ABAS_DO_PAINEL`; ir para eles, de qualquer lugar, abre o
-painel com a aba certa), e o calendário está na barra. **Pessoas**
+painel com a aba certa), e a agenda está na barra. **Pessoas**
 (`telas/Pessoas.jsx`) tem os membros, adicionar convidado, "Sou eu" e admin.
 **Análise** (`telas/Analise.jsx`) mostra o em aberto e o pago, a parte de cada
 um, os ciclos e para onde foi.
@@ -231,7 +231,7 @@ Início também usa abas de pasta (com um ponto vermelho em Atrasos quando há
 conta atrasada). O toggle do painel faz o mesmo: partes iguais enquanto cabe,
 e a que não cabe desce.
 
-No calendário a legenda começa oculta ("Mostrar legenda"), em duas colunas,
+Na agenda a legenda começa oculta ("Mostrar legenda"), em duas colunas,
 Ciclos e Ações; o botão do rodapé é "+ Lançar no dia N"; dia fora e estadia
 são laranja. Tarefa não existe mais na tela: o que se marca num dia é despesa,
 registro ou lembrete (tarefas antigas continuam guardadas, só não aparecem).
@@ -282,7 +282,7 @@ Nenhum entra no cálculo:
 | `descricao` | escrita em Configurar |
 | `desde` | o dia em que o conjunto foi criado (não se edita) |
 | `moeda` | o código da moeda (`BRL`, `USD`, `EUR`…), escolhido ao criar e fixo |
-| `lembretes` | listas (`itens` para riscar) e notas, com data opcional (aparecem no calendário) |
+| `lembretes` | listas (`itens` para riscar) e notas, com data opcional (aparecem na agenda) |
 | `pagamentos` | os Pix do acerto marcados como feitos, pela chave `de>para:centavos` |
 | `historicoDeCiclos` | quanto cada ciclo custou nos fechamentos anteriores (o gráfico "Os ciclos") |
 | `ciclo.pagoEm`, `item.criadoEm`, `morador.convidado` | datas para a atividade e a marca de convidado |
@@ -342,7 +342,7 @@ como Temporada (`modoDoConjunto`), e a migração já grava `modo: "temporada"`.
 
 ### Etapas e seções (Fechar contas)
 
-As etapas, na ordem do Figma: Pessoas, Contas, Itens, Calendário e Rateio.
+As etapas, na ordem do Figma: Pessoas, Contas, Itens, Agenda e Rateio.
 Cada etapa mostra uma macrosseção por vez. A lista de cada uma está em
 `passos/secoes.js` (`secoesDaEtapa`); `telas/FecharContas.jsx` guarda a seção
 aberta, passa `secao` para a tela e anda com `vizinha`: o botão da direita vai

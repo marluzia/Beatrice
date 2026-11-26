@@ -24,6 +24,7 @@ import { totalDaFatura } from "./traducao/fatura.js";
 import { quantidadeNaJanela, registrosDe, temUsoDatado, usosPorJanela } from "./traducao/uso.js";
 import { saiDoBolso } from "./acerto.js";
 import { foraDaConta } from "./naConta.js";
+import { autorDoMovimento, movimentosLimpos, textoDoMovimento } from "./movimentos.js";
 
 // ── datas ──────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,21 @@ export function quandoFoi(iso, hoje = hojeISO()) {
   if (diferenca === 0) return relogio ? `hoje, ${relogio}` : "hoje";
   if (diferenca === 1) return "ontem";
   return curta(dia);
+}
+
+/** Quando, numa lista: hoje só a hora ("10:42"), "ontem", e antes a data inteira ("12/10/2026"). */
+export function quandoNaLista(iso, hoje = hojeISO()) {
+  if (!iso) return "";
+  const dia = iso.slice(0, 10);
+  const diferenca = diasAte(dia, hoje);
+  if (diferenca === 0) {
+    const hora = iso.length > 10 ? new Date(iso) : null;
+    return hora && !Number.isNaN(hora.getTime())
+      ? `${String(hora.getHours()).padStart(2, "0")}:${String(hora.getMinutes()).padStart(2, "0")}`
+      : "hoje";
+  }
+  if (diferenca === 1) return "ontem";
+  return `${dia.slice(8, 10)}/${dia.slice(5, 7)}/${dia.slice(0, 4)}`;
 }
 
 // ── quem é você ────────────────────────────────────────────────────────────
@@ -340,7 +356,7 @@ export function linhaDoMembro(estado, morador) {
 }
 
 /**
- * O que acontece num dia, de todas as naturezas. É o que o calendário marca
+ * O que acontece num dia, de todas as naturezas. É o que a agenda marca
  * e o que o Início lista em "Hoje".
  */
 export function eventosDoDia(estado, dia) {
@@ -389,7 +405,7 @@ export function eventosDoDia(estado, dia) {
   return eventos;
 }
 
-/** Quais naturezas um dia tem, para as marquinhas do calendário. */
+/** Quais naturezas um dia tem, para as marquinhas da agenda. */
 export function marcasDoDia(estado, dia) {
   const tipos = new Set(eventosDoDia(estado, dia).map((e) => e.tipo));
   return {
@@ -449,6 +465,7 @@ export function atividadeDe(estado, { resultado = null } = {}) {
       titulo,
       valor,
       quem: i.pagoPor ?? null,
+      autor: i.lancadoPor ? nome(i.lancadoPor) : i.pagoPor ? nome(i.pagoPor) : quemLancou,
       regra: nomeDaRegra(i.rateio),
       participantes: (i.participantes ?? []).length,
     });
@@ -464,6 +481,7 @@ export function atividadeDe(estado, { resultado = null } = {}) {
         titulo: c.nome,
         valor: totalDaFatura(c),
         quem: c.pagoPor,
+        autor: nome(c.pagoPor),
       });
     }
   }
@@ -478,6 +496,7 @@ export function atividadeDe(estado, { resultado = null } = {}) {
       texto: `${nome(para) || "Alguém"} confirmou o Pix de ${nome(de) || "alguém"}`,
       valor: Number(centavos) / 100,
       quem: para,
+      autor: nome(para) || "Alguém",
     });
   }
 
@@ -492,6 +511,7 @@ export function atividadeDe(estado, { resultado = null } = {}) {
       titulo: sobre,
       texto: `${l.autor ? `${nome(l.autor)} criou ${l.tipo === "lista" ? "a lista" : "a nota"}` : l.tipo === "lista" ? "Lista criada" : "Nota criada"}${sobre ? ` “${curtoDe(sobre)}”` : ""}`,
       quem: l.autor,
+      autor: l.autor ? nome(l.autor) : quemLancou,
     });
   }
 
@@ -506,8 +526,14 @@ export function atividadeDe(estado, { resultado = null } = {}) {
       titulo,
       texto: `${ed.lancadoPor ? nome(ed.lancadoPor) : quemLancou} editou ${O_QUE_FOI_EDITADO[ed.ref?.tipo] ?? ""}${titulo}`,
       quem: ed.lancadoPor ?? null,
+      autor: ed.lancadoPor ? nome(ed.lancadoPor) : quemLancou,
       mudancas: ed.mudancas ?? [],
     });
+  }
+
+  // O conjunto em si: quem o criou, adicionou, entrou, saiu.
+  for (const m of movimentosLimpos(estado.movimentos)) {
+    lista.push({ quando: m.quando, tipo: "conjunto", movimento: m.tipo, texto: textoDoMovimento(m), autor: autorDoMovimento(m) });
   }
 
   return lista.sort((a, b) => String(b.quando).localeCompare(String(a.quando)));

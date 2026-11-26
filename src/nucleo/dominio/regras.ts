@@ -81,7 +81,7 @@ export const regraDeclarada = (item: Item): boolean =>
 //
 // O custo de cada dia é dividido entre quem estava em casa naquele dia.
 //
-// Com as datas marcadas no calendário, isso é uma conta direta: percorre-se os
+// Com as datas marcadas na agenda, isso é uma conta direta: percorre-se os
 // dias do ciclo, e cada dia é dividido entre quem estava. Nada é suposto.
 //
 // Sem as datas   a casa informou só "ficou 5 dias fora", sem dizer quais   não

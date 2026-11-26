@@ -1,5 +1,5 @@
 /**
- * O símbolo de cada ciclo no calendário e na linha do tempo: gota para a água,
+ * O símbolo de cada ciclo na agenda e na linha do tempo: gota para a água,
  * raio para a luz, círculo para os ciclos criados pelo grupo.
  */
 export default function SimboloDoCiclo({ ciclo, tamanho = 10, titulo }) {

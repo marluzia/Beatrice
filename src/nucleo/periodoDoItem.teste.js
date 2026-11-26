@@ -45,7 +45,7 @@ describe("a data do item pode ser um dia ou um período", () => {
     const i = item({ data: "2026-06-02", ate: "2026-06-09" });
     expect(fimDoItem(i)).toBe("2026-06-09");
 
-    // Espalhar a mesma despesa por oito dias encheria o calendário de
+    // Espalhar a mesma despesa por oito dias encheria a agenda de
     // repetição sem acrescentar informação nenhuma.
     const agenda = agendaDe(casa([i]));
     expect(agenda).toHaveLength(1);

@@ -98,7 +98,7 @@ export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
   const registro = lembrete.registro ? estado.itens.find((i) => i.id === lembrete.registro) : null;
   const comUso = estado.itens.filter((i) => i.especie === "porUso");
   const autor = lembrete.autor ? nomeDe(estado, lembrete.autor) : null;
-  const rodape = [autor, diaEMes((lembrete.criadoEm ?? "").slice(0, 10)), lembrete.data ? "aparece no calendário" : null]
+  const rodape = [autor, diaEMes((lembrete.criadoEm ?? "").slice(0, 10)), lembrete.data ? "aparece na agenda" : null]
     .filter(Boolean)
     .join(" · ");
 
@@ -116,7 +116,7 @@ export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
             aria-label="Texto da nota"
           />
           <label className="nota-papel__campo">
-            <span className="rotulo">No calendário</span>
+            <span className="rotulo">Na agenda</span>
             <input
               type="date"
               className="caixa caixa--texto caixa--compacta"

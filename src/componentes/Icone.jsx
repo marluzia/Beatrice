@@ -19,6 +19,7 @@ const DESENHOS = {
       <circle cx="12" cy="12" r="1.9" />
     </>
   ),
+  circulo: <circle cx="12" cy="12" r="8" />,
   mais: <path d="M12 5v14M5 12h14" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
   atualizar: (
@@ -90,7 +91,7 @@ const DESENHOS = {
       <path d="M9 10V7a3 3 0 0 1 6 0v3" />
     </>
   ),
-  calendario: (
+  agenda: (
     <>
       <rect x="4" y="5.5" width="16" height="14.5" rx="2" />
       <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />

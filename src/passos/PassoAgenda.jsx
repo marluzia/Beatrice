@@ -42,15 +42,15 @@ const CORES = {
 /** O que a legenda chama cada natureza. */
 const NOME_NA_LEGENDA = { uso: "Registro", despesa: "Despesa" };
 
-/** Tarefa não existe mais: o calendário só lança despesa, registro e lembrete. */
+/** Tarefa não existe mais: a agenda só lança despesa, registro e lembrete. */
 const semTarefa = (lista) => lista.filter((e) => e.natureza !== "tarefa");
 
 /**
- * O calendário do conjunto: um mês, e o que aconteceu em cada dia.
+ * A agenda do conjunto: um mês, e o que aconteceu em cada dia.
  *
  * É o passo onde tudo que tem data é lançado   quem esteve (ou não esteve),
- * que aparelho rodou, que despesa caiu e que tarefa foi feita. O que o
- * calendário escreve são os mesmos campos que o motor já lia antes; ele é uma
+ * que aparelho rodou, que despesa caiu e que tarefa foi feita. O que a
+ * agenda escreve são os mesmos campos que o motor já lia antes; ela é uma
  * porta de entrada, não um cálculo novo.
  *
  * A lista embaixo é o histórico: o mês em ordem, para a casa conferir o que
@@ -58,7 +58,7 @@ const semTarefa = (lista) => lista.filter((e) => e.natureza !== "tarefa");
  */
 /**
  * Um lançamento do dia como linha só de ver: tocar abre o lançamento sozinho.
- * É o que o calendário do conjunto usa; dentro de Fechar contas, os
+ * É o que a agenda do conjunto usa; dentro de Fechar contas, os
  * lançamentos do dia continuam editáveis ali mesmo.
  */
 function LinhaDoDia({ selo, titulo, detalhe, valor, cor, aoAbrir }) {
@@ -78,19 +78,20 @@ function LinhaDoDia({ selo, titulo, detalhe, valor, cor, aoAbrir }) {
   );
 }
 
-export default function PassoCalendario({
+export default function PassoAgenda({
   estado,
   acoes,
   modo,
   secao,
   irParaSecao,
   diaAberto,
+  diaInicial = null,
   aoAbrirDia,
   solto = false,
   aoAbrirLancamento = null,
   aoLancarNoDia = null,
 }) {
-  // Com faturas, o calendário vai dos ciclos; na temporada, do período dela
+  // Com faturas, a agenda vai dos ciclos; na temporada, do período dela
   // (as estadias fora dele não contam); no evento, não há limite.
   const temporada = modo.chave === "temporada";
   const limite = modo.faturas
@@ -100,13 +101,13 @@ export default function PassoCalendario({
       : null;
   const [comLegenda, setComLegenda] = useState(false);
 
-  // Solto (a tela Calendário), abre no mês do dia aberto   hoje   e anda livre
+  // Solto (a tela Agenda), abre no mês do dia aberto   hoje   e anda livre
   // pelos meses; dentro do Fechar contas, fica nos meses que as faturas cobrem.
-  const inicio = solto && diaAberto ? partesDoDia(diaAberto) : limite?.de ? partesDoDia(limite.de) : null;
+  const inicio = solto && (diaAberto ?? diaInicial) ? partesDoDia(diaAberto ?? diaInicial) : limite?.de ? partesDoDia(limite.de) : null;
   const [visivel, setVisivel] = useState(
     inicio ? { mes: inicio.mes, ano: inicio.ano } : { mes: estado.periodo.mes, ano: estado.periodo.ano },
   );
-  // O dia aberto pode vir de fora (a tela Calendário controla e põe o botão
+  // O dia aberto pode vir de fora (a tela Agenda controla e põe o botão
   // "+ Lançar no dia" embaixo); sem isso, fica aqui dentro.
   const [abertoAqui, setAbertoAqui] = useState(null);
   const aberto = aoAbrirDia ? diaAberto ?? null : abertoAqui;
@@ -137,7 +138,7 @@ export default function PassoCalendario({
 
   const tarefaPorId = (id) => (estado.tarefas ?? []).find((t) => t.id === id);
 
-  // Um dia tocado no histórico abre no calendário, no mês dele.
+  // Um dia tocado no histórico abre na agenda, no mês dele.
   const abrirDoHistorico = (dia) => {
     const p = partesDoDia(dia);
     if (p) setVisivel({ mes: p.mes, ano: p.ano });
@@ -146,7 +147,7 @@ export default function PassoCalendario({
   };
 
   return (
-    <div className={`coluna ${solto ? "calendario-solto" : ""}`}>
+    <div className={`coluna ${solto ? "agenda-solta" : ""}`}>
       {mostra(secao, "mes") && (
       <>
       <Ficha>
@@ -164,10 +165,10 @@ export default function PassoCalendario({
 
         {/* Na Multi o conjunto escolhe o que marcar: a estadia ou os dias fora. */}
         {modo.marcacaoEscolhida && acoes.definirMarcacao && (
-          <div className="marcacao-do-calendario">
-            <span className="rotulo">Marcar no calendário</span>
+          <div className="marcacao-da-agenda">
+            <span className="rotulo">Marcar na agenda</span>
             <Segmentado
-              rotuloDoGrupo="O que o calendário marca"
+              rotuloDoGrupo="O que a agenda marca"
               opcoes={[
                 { valor: "presenca", texto: "Estadia" },
                 { valor: "ausencia", texto: "Dias fora" },
@@ -656,7 +657,7 @@ function Historico({ porDia, polaridade, aoAbrir }) {
 
       {dias.length === 0 ? (
         <p className="vazio">
-          Nenhum lançamento ainda. Toque num dia do calendário para começar.
+          Nenhum lançamento ainda. Toque num dia da agenda para começar.
         </p>
       ) : (
         <ol className="historico">

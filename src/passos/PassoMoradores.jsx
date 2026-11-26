@@ -122,7 +122,7 @@ export default function PassoMoradores({ estado, acoes, modo, secao }) {
               {fala.janela(diaCurto(limite.de), diaCurto(ultimoDiaDaJanela(limite)))}
             </p>
             <p className="dica">
-              Os dias de cada um são marcados no <strong>Calendário</strong>, o
+              Os dias de cada um são marcados na <strong>Agenda</strong>, o
               passo depois de Itens. Aqui ficam só os nomes e a contagem.
             </p>
           </>

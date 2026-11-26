@@ -143,7 +143,7 @@ describe("casos extremos", () => {
   });
 });
 
-// Com o calendário preenchido, "presença" deixa de ser estimativa e vira uma
+// Com a agenda preenchida, "presença" deixa de ser estimativa e vira uma
 // conta direta: percorre os dias do ciclo e divide cada dia entre quem estava.
 // A diferença não é cosmética   ela muda quanto cada um paga, e é exatamente
 // por isso que o aviso de estimativa não pode mais aparecer aqui.
@@ -192,7 +192,7 @@ describe("com as datas marcadas: presença é exata, não estimada", () => {
     expect(juntas).toBeGreaterThan(separadas);
   });
 
-  it("não avisa mais que supôs: com o calendário, não supôs nada", () => {
+  it("não avisa mais que supôs: com a agenda, não supôs nada", () => {
     const r = calcular(comDatas([diasDe(0, 4), diasDe(0, 4), []]));
     expect(r.alertas.some((a) => a.texto.includes("não diz quais dias"))).toBe(false);
   });

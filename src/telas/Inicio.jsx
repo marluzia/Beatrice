@@ -14,20 +14,27 @@ import {
 } from "../componentes/Interface.jsx";
 import { LISTA_DE_MOEDAS, MOEDA_PADRAO, MOEDAS, moedaValida } from "../nucleo/moedas.js";
 import { diaCurtoPorExtenso, hojeISO } from "../nucleo/resumo.js";
-import { detalheDoEvento, destinoDoEvento, hojeEmTudo } from "./comum.js";
+import { detalheDoEvento, destinoDoEvento, EH_DESPESA_DE_HOJE, hojeEmTudo } from "./comum.js";
 
 const FILTROS = [
   { valor: "tudo", rotulo: "Tudo" },
-  { valor: "atraso", rotulo: "Atrasos" },
   { valor: "despesa", rotulo: "Despesas" },
-  { valor: "lembrete", rotulo: "Lembretes" },
   { valor: "vencimento", rotulo: "Vencimentos" },
+  { valor: "lembrete", rotulo: "Lembretes" },
 ];
+
+/** Em Despesas, até sete; o resto fica na Atividade. */
+const LIMITE_DE_DESPESAS = 7;
+
+/** O que cada filtro do Hoje deixa passar. */
+const passaNoFiltro = (filtro, ev) =>
+  filtro === "tudo" || (filtro === "despesa" ? EH_DESPESA_DE_HOJE.has(ev.tipo) : ev.tipo === filtro);
 
 const ICONE_DO_EVENTO = {
   atraso: { icone: "relogio", classe: "evento-icone--atraso" },
   vencimento: { icone: "raio", classe: "evento-icone--ouro" },
   despesa: { icone: "sacola", classe: "evento-icone--vermelho" },
+  transferencia: { icone: "trocar", classe: "evento-icone--vermelho" },
   lembrete: { icone: "sino", classe: "evento-icone--azul" },
   registro: { icone: "registro", classe: "evento-icone--cinza" },
 };
@@ -85,20 +92,23 @@ export default function Inicio({ app }) {
   const deHoje = hojeEmTudo(panorama, hoje);
   const atrasos = deHoje.filter((e) => e.tipo === "atraso").length;
   const filtros = FILTROS.map((f) =>
-    f.valor === "atraso" && atrasos > 0
+    f.valor === "despesa" && atrasos > 0
       ? {
           ...f,
           rotulo: (
             <>
-              Atrasos
+              Despesas
               <i className="pasta__ponto" aria-label={`${atrasos} ${atrasos === 1 ? "atrasada" : "atrasadas"}`} />
             </>
           ),
         }
       : f,
   );
-  const eventos = deHoje.filter((e) => filtro === "tudo" || e.tipo === filtro);
-  const visiveis = tudoDeHoje ? eventos : eventos.slice(0, 3);
+  const eventos = deHoje.filter((e) => passaNoFiltro(filtro, e));
+  const emDespesas = filtro === "despesa";
+  const limite = emDespesas ? LIMITE_DE_DESPESAS : 3;
+  const visiveis = tudoDeHoje && !emDespesas ? eventos : eventos.slice(0, limite);
+  const sobra = eventos.length - limite;
 
   return (
     <div className="tela tela--inicio">
@@ -116,7 +126,7 @@ export default function Inicio({ app }) {
           >
             <Icone nome="atualizar" tamanho={24} />
           </button>
-          <button type="button" className="icone-botao" aria-label="Buscar" onClick={abrirBusca}>
+          <button type="button" className="icone-botao" aria-label="Buscar" onClick={() => abrirBusca()}>
             <Icone nome="busca" tamanho={24} />
           </button>
           <BotaoSino />
@@ -134,7 +144,7 @@ export default function Inicio({ app }) {
                 </option>
               ))}
             </select>
-            <Icone nome="baixo" tamanho={18} />
+            <Icone nome="baixo" tamanho={14} />
           </label>
           <button type="button" className="link-mono" onClick={() => escolherAba("atividade")}>
             Atividade ›
@@ -143,8 +153,7 @@ export default function Inicio({ app }) {
 
         <div className="cartao-saldo__anel">
           <Anel
-            tamanho={150}
-            espessura={16}
+            tamanho={184}
             partes={[
               { valor: aPagar, cor: "var(--vermelho)" },
               { valor: aReceber, cor: "var(--verde)" },
@@ -183,14 +192,14 @@ export default function Inicio({ app }) {
       </div>
 
       <TituloDeSecao direita={diaCurtoPorExtenso(hoje)}>Hoje</TituloDeSecao>
-      <div className="pasta--compacta">
+      <div className="pasta--compacta pasta--hoje">
       <AbasDePasta opcoes={filtros} valor={filtro} aoMudar={setFiltro} rotulo="Filtrar o que é de hoje">
       {visiveis.length === 0 ? (
         <p className="vazio-suave vazio-suave--na-pasta">
           {panorama.length === 0
             ? "Quando houver conjuntos, o que vence e o que for lançado hoje aparece aqui."
-            : filtro === "atraso"
-              ? "Nenhuma conta atrasada."
+            : emDespesas
+              ? "Nenhuma despesa sua para hoje."
               : "Nada para hoje."}
         </p>
       ) : (
@@ -224,11 +233,16 @@ export default function Inicio({ app }) {
         </div>
       )}
 
-      {eventos.length > 3 && (
-        <button type="button" className="link-mono link-mono--centro" onClick={() => setTudoDeHoje((v) => !v)}>
-          {tudoDeHoje ? "mostrar menos" : `+ ${eventos.length - 3} lançamentos de hoje`}
-        </button>
-      )}
+      {sobra > 0 &&
+        (emDespesas ? (
+          <button type="button" className="link-mono link-mono--centro" onClick={() => escolherAba("atividade")}>
+            {`+ ${sobra} ${sobra === 1 ? "despesa" : "despesas"} na Atividade ›`}
+          </button>
+        ) : (
+          <button type="button" className="link-mono link-mono--centro" onClick={() => setTudoDeHoje((v) => !v)}>
+            {tudoDeHoje ? "mostrar menos" : `+ ${sobra} lançamentos de hoje`}
+          </button>
+        ))}
       </AbasDePasta>
       </div>
 

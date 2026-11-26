@@ -149,7 +149,7 @@ export function estadoDeCriacao({
   const eu = moradores[0]?.id ?? null;
   const data = typeof desde === "string" && /^\d{4}-\d{2}-\d{2}$/.test(desde) ? desde : null;
   // Sem faturas (evento, temporada), o mês do conjunto é o da data dele: é
-  // nele que o calendário abre. Com faturas, o período vem dos ciclos.
+  // nele que a agenda abre. Com faturas, o período vem dos ciclos.
   const periodo =
     data && modoDe(chaveDoModo).faturas === false
       ? { mes: Number(data.slice(5, 7)), ano: Number(data.slice(0, 4)) }

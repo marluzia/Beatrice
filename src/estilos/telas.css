@@ -86,9 +86,99 @@
   margin-top: 30px;
 }
 
-.titulo-tela--conjunto {
-  font-size: 36px;
-  margin-top: -6px;
+/*
+ * O cabeçalho do conjunto, como o de um grupo de conversa: caixa creme com a
+ * seta, o nome, os membros embaixo do nome e os três pontos à direita. Cada
+ * círculo ocupa um lugar que encolhe quando não cabe: com pouca gente, eles
+ * mal se tocam; com muita, sobra de cada um só a borda.
+ */
+/* De ponta a ponta, encostado no topo, como a barra de baixo: sem cantos e com um fio embaixo. */
+.cabecalho-conjunto {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: calc(-14px - env(safe-area-inset-top)) -16px 0;
+  padding: calc(8px + env(safe-area-inset-top)) 6px 8px;
+  background: var(--areia);
+  border-bottom: 1px solid var(--linha);
+}
+
+.cabecalho-conjunto__meio {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cabecalho-conjunto__titulo {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--sans);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tinta);
+}
+
+.cabecalho-conjunto__titulo em {
+  font-style: normal;
+}
+
+.membros-em-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--tinta-2);
+  text-align: left;
+}
+
+.membros-em-fila__rolo {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding: 2px 0 2px 2px;
+}
+
+/* O lugar de cada círculo: 20px (o círculo tem 24), e encolhe até 3px. */
+.membros-em-fila__lugar {
+  position: relative;
+  flex: 0 1 20px;
+  min-width: 3px;
+  height: 24px;
+}
+
+.membros-em-fila__lugar:last-child {
+  flex: none;
+  width: 24px;
+}
+
+.membros-em-fila__lugar .avatar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--areia);
+}
+
+/* Quantos são, encostado na direita: os círculos ficam com todo o resto. */
+.membros-em-fila__quantos {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: nowrap;
 }
 
 .titulo-tela--acerto {
@@ -789,6 +879,62 @@
   color: var(--tinta-3);
 }
 
+/* Em Conjuntos, a barra é um botão: leva à Busca, já na aba Conjuntos. */
+.busca--botao {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: text;
+}
+
+.busca--botao span {
+  color: var(--tinta-3);
+}
+
+/*
+ * Vindo de Conjuntos, a barra sobe até o lugar dela na Busca e o resto
+ * aparece logo depois.
+ */
+.tela--busca-entrando .busca {
+  animation: busca-sobe 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.tela--busca-entrando .titulo-tela,
+.tela--busca-entrando .pasta--compacta,
+.tela--busca-entrando .topo-tela {
+  animation: busca-aparece 260ms ease-out 140ms both;
+}
+
+@keyframes busca-sobe {
+  from {
+    transform: translateY(28px) scale(0.98);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes busca-aparece {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tela--busca-entrando .busca,
+  .tela--busca-entrando .titulo-tela,
+  .tela--busca-entrando .pasta--compacta,
+  .tela--busca-entrando .topo-tela {
+    animation: none;
+  }
+}
+
 .botao--largo {
   width: 100%;
 }
@@ -823,8 +969,24 @@
 }
 
 .linha-conjunto__valor strong {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
+}
+
+/* Quantas movimentações houve desde a última vez que a pessoa abriu o conjunto. */
+.linha-conjunto__valor .contador-novidades {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  background: var(--tinta);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--cartao);
 }
 
 /* ------------------------------------------------------------ barra de baixo --- */
@@ -2338,9 +2500,9 @@ button.cartao-anel__nota {
   font-size: 16px;
 }
 
-/* ------------------------------------------------------------ calendário --- */
+/* ------------------------------------------------------------ agenda --- */
 
-.embutido--calendario .ficha {
+.embutido--agenda .ficha {
   border-radius: 22px;
 }
 
@@ -2369,8 +2531,8 @@ button.cartao-anel__nota {
   background: linear-gradient(225deg, var(--ouro) 0 30%, transparent 30%);
 }
 
-/* O mês da agenda (calendário do conjunto e passo Calendário). */
-.marcacao-do-calendario {
+/* O mês da agenda (agenda do conjunto e passo Agenda). */
+.marcacao-da-agenda {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2511,7 +2673,7 @@ button.cartao-anel__nota {
   right: 0;
 }
 
-.calendario-solto .calendario-ciclos {
+.agenda-solta .calendario-ciclos {
   display: none;
 }
 
@@ -3664,6 +3826,38 @@ button.cartao-anel__nota {
   background: var(--ouro);
 }
 
+.legenda-anel__ponto--vermelho {
+  background: var(--vermelho);
+}
+
+.legenda-anel__ponto--verde {
+  background: var(--verde);
+}
+
+/* A legenda de cada anel do painel: bolinha, nome e valor, um embaixo do outro. */
+.legenda-do-anel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 0 6px;
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.legenda-do-anel__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legenda-do-anel__item strong {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--tinta);
+}
+
 /* Histórico do conjunto. */
 .chips-secundarios {
   margin: -2px 0 0;
@@ -4096,13 +4290,15 @@ button.cartao-anel__nota {
 .seletor-moeda select {
   appearance: none;
   -webkit-appearance: none;
-  padding: 4px 26px 4px 0;
+  padding: 4px 20px 4px 0;
   background: transparent;
   border: none;
-  font-family: var(--sans);
-  font-size: 19px;
+  /* Do tamanho do "Atividade ›" ao lado. */
+  font-family: var(--mono);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--tinta);
   cursor: pointer;
 }
@@ -4122,6 +4318,12 @@ button.cartao-anel__nota {
 .pasta--compacta .pasta__aba {
   padding: 0 6px;
   font-size: 12px;
+}
+
+/* O Hoje do Início: quatro abas, cabem com a letra um pouco maior. */
+.pasta--hoje .pasta__aba {
+  padding: 0 10px;
+  font-size: 14px;
 }
 
 /* Um pontinho vermelho na aba quando há o que ver (os atrasos). */
@@ -4200,7 +4402,7 @@ button.cartao-anel__nota {
  * (mesma fonte, folga e ícone), em quantas colunas houver seções.
  */
 .barra-do-conjunto {
-  grid-template-columns: repeat(var(--secoes, 4), minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .barra-do-conjunto__secao {
@@ -4364,7 +4566,7 @@ button.cartao-anel__nota {
   line-height: 1.4;
 }
 
-/* O calendário do conjunto: cada lançamento do dia é uma linha que abre o lançamento. */
+/* A agenda do conjunto: cada lançamento do dia é uma linha que abre o lançamento. */
 .linha-do-dia {
   display: flex;
   align-items: center;
@@ -4474,6 +4676,12 @@ button.cartao-anel__nota {
 
 .ponto-atividade--edicao {
   background: var(--tinta-2);
+}
+
+/* Criar o conjunto, adicionar, entrar, sair: um anel, não um ponto cheio. */
+.ponto-atividade--conjunto {
+  background: transparent;
+  border: 2px solid var(--tinta);
 }
 
 .tipo-despesa--edicao {

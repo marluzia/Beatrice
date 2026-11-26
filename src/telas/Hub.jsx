@@ -9,9 +9,7 @@ import {
   LinhaDeMenu,
   NomeComItalico,
   SeloPilula,
-  Sobrescrito,
   TituloDeSecao,
-  TopoDaTela,
   tomDoSaldo,
 } from "../componentes/Interface.jsx";
 import { OpcoesDeAdicionar } from "./NovoConjunto.jsx";
@@ -25,12 +23,10 @@ import {
   hojeISO,
   linhaDoMembro,
   nomeDe,
-  periodoDe,
   proximoVencimento,
   quandoFoi,
   atividadeDe,
 } from "../nucleo/resumo.js";
-import { codigoSeNaoForReal, partesDoTipo } from "./comum.js";
 import { MESES } from "../nucleo/formato.js";
 
 /** O selo da linha "Fechar contas": quitado, em andamento, em aberto. */
@@ -174,18 +170,78 @@ export function Membros({ app }) {
   );
 }
 
+/**
+ * O cabeçalho do conjunto, como o de um grupo de conversa: numa caixa creme,
+ * a seta de voltar, o nome e, embaixo dele, os membros (círculos um por cima
+ * do outro, da esquerda para a direita, e quantos são); à direita, os três
+ * pontos com o menu. Quanto mais gente, mais os círculos se sobrepõem para
+ * caber na largura (até sobrar só a borda de cada um).
+ */
+export function CabecalhoDoConjunto({ estado, nome, aoVoltar, aoVerPessoas, menuAberto, aoAbrirMenu }) {
+  const n = estado.moradores.length;
+  const quantos = `${n} ${n === 1 ? "pessoa" : "pessoas"}`;
+  return (
+    <header className="cabecalho-conjunto">
+      <button type="button" className="icone-botao" onClick={aoVoltar} aria-label="Voltar">
+        <Icone nome="voltar" tamanho={24} />
+      </button>
+      <div className="cabecalho-conjunto__meio">
+        <h1 className="cabecalho-conjunto__titulo">
+          <NomeComItalico texto={nome} />
+        </h1>
+        <button type="button" className="membros-em-fila" onClick={aoVerPessoas} aria-label={`${quantos}: ver pessoas`}>
+          {n > 0 && (
+            <span className="membros-em-fila__rolo" aria-hidden="true">
+              {estado.moradores.map((m, i) => (
+                <span className="membros-em-fila__lugar" key={m.id} style={{ zIndex: n - i }}>
+                  <Avatar nome={nomeDe(estado, m.id)} indice={i} tamanho={24} />
+                </span>
+              ))}
+            </span>
+          )}
+          <span className="membros-em-fila__quantos">{quantos}</span>
+        </button>
+      </div>
+      <button
+        type="button"
+        className="icone-botao"
+        onClick={aoAbrirMenu}
+        aria-label="Mais opções"
+        aria-expanded={menuAberto}
+      >
+        <Icone nome="pontos" tamanho={24} />
+      </button>
+    </header>
+  );
+}
+
+/** A legenda de um anel: a bolinha da cor, o nome e o valor. */
+function Legenda({ itens }) {
+  return (
+    <span className="legenda-do-anel">
+      {itens.map((i) => (
+        <span key={i.rotulo} className="legenda-do-anel__item">
+          <i className={`legenda-anel__ponto legenda-anel__ponto--${i.cor}`} aria-hidden="true" />
+          <span>{i.rotulo}</span>
+          <strong>{dinheiro(i.valor, { simbolo: false })}</strong>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** O painel de um conjunto: saldos, o próximo vencimento, despesas ou pessoas, e o resto. */
 /**
- * As abas do painel. Evento: Despesas e Lembretes. Temporada: mais Período.
- * As casas e a Multi: Despesas, Lembretes, Registros e Período.
+ * As abas do painel. Evento: Despesas e Lembretes. Temporada: Período antes.
+ * As casas e a Multi: Período, Despesas, Lembretes e Registros.
  */
 export function abasDoPainel(modo) {
   const semFaturas = modo.faturas === false;
   return [
+    ...(temPeriodo(modo) ? [{ valor: "periodo", rotulo: "Período" }] : []),
     { valor: "despesas", rotulo: "Despesas" },
     { valor: "lembretes", rotulo: "Lembretes" },
     ...(semFaturas ? [] : [{ valor: "registros", rotulo: "Registros" }]),
-    ...(temPeriodo(modo) ? [{ valor: "periodo", rotulo: "Período" }] : []),
   ];
 }
 
@@ -198,35 +254,19 @@ export default function Hub({ app, rota }) {
   const [menu, setMenu] = useState(false);
   const hoje = hojeISO();
   const semFaturas = modo.faturas === false;
-  const periodo = periodoDe(estado);
   const mes = MESES[estado.periodo.mes - 1];
 
   const total = (resumo?.total ?? 0) / 100;
   const aberto = (resumo?.aberto ?? 0) / 100;
   const tom = eu ? tomDoSaldo(aberto) : "zero";
-  const corDoAnel = tom === "pagar" ? "var(--vermelho)" : tom === "receber" ? "var(--verde)" : "var(--tinta)";
 
   const atividade = atividadeDe(estado, { resultado });
   const vencimento = semFaturas ? null : proximoVencimento(estado, hoje);
   const situacao = situacaoDoFechamento(resumo);
   const quantosPix = resumo?.transferencias?.length ?? 0;
 
-  const admin = estado.admin ? nomeDe(estado, estado.admin) : null;
-
-  const subtitulo = semFaturas
-    ? modo.chave === "temporada"
-      ? `${periodo.texto}${admin ? ` · organizada por ${admin}` : ""}`
-      : situacao?.texto === "quitado"
-        ? `Contas fechadas${admin ? ` · organizado por ${admin}` : ""}`
-        : `Aberto para lançamentos${admin ? ` · organizado por ${admin}` : ""}`
-    : `Fechamento de ${mes} · ${periodo.texto}`;
-
-  const sobrescrito = semFaturas
-    ? [modo.nome, `${estado.moradores.length} ${estado.moradores.length === 1 ? "pessoa" : "pessoas"}`, codigoSeNaoForReal(estado)]
-    : partesDoTipo(estado);
-
   const atrasos = atrasosDe(estado, hoje);
-  const recente = atividade[0] ?? null;
+  const recentes = atividade.slice(0, 5);
 
   // O anel do total: o que está em aberto (amarelo) e o que já foi pago
   // (verde-água). Quando tudo foi pago e o acerto entre vocês terminou, preto.
@@ -240,23 +280,15 @@ export default function Hub({ app, rota }) {
         { valor: balanco.pago, cor: "var(--agua)" },
         { valor: balanco.aberto, cor: "var(--ouro)" },
       ];
-  const notaDoTotal = quitado
-    ? "tudo quitado"
-    : balanco.aberto > 0 && balanco.pago > 0
-      ? `${dinheiro(balanco.pago, { simbolo: false })} pago · ${dinheiro(balanco.aberto, { simbolo: false })} em aberto`
-      : balanco.aberto > 0
-        ? "tudo em aberto"
-        : balanco.pago > 0
-          ? "tudo pago · falta o acerto"
-          : semFaturas
-            ? "lançado até agora"
-            : "do período";
-
   return (
     <div className="tela">
-      <TopoDaTela
+      <CabecalhoDoConjunto
+        estado={estado}
+        nome={nomeDoConjunto}
         aoVoltar={voltar}
-        acoes={[{ icone: "pontos", rotulo: "Mais opções", aoClicar: () => setMenu((v) => !v) }]}
+        aoVerPessoas={() => ir("pessoas")}
+        menuAberto={menu}
+        aoAbrirMenu={() => setMenu((v) => !v)}
       />
 
       {menu && (
@@ -299,39 +331,42 @@ export default function Hub({ app, rota }) {
         </div>
       )}
 
-      <Sobrescrito partes={sobrescrito} />
-      <h1 className="titulo-tela titulo-tela--conjunto">
-        <NomeComItalico texto={nomeDoConjunto} />
-      </h1>
-      <p className="texto-apoio texto-apoio--colado">{subtitulo}</p>
 
       <div className="aneis">
         <div className="cartao-anel">
-          <Anel tamanho={140} espessura={13} partes={partesDoTotal}>
+          <Anel tamanho={140} partes={partesDoTotal}>
             <span className="rotulo">Total</span>
             <strong className="valor-anel">{dinheiro(total)}</strong>
           </Anel>
-          <span className={`cartao-anel__nota ${quitado ? "" : "cartao-anel__nota--balanco"}`}>
-            {!quitado && balanco.aberto + balanco.pago > 0 && (
-              <span className="legenda-anel" aria-hidden="true">
-                {balanco.pago > 0 && <i className="legenda-anel__ponto legenda-anel__ponto--agua" />}
-                {balanco.aberto > 0 && <i className="legenda-anel__ponto legenda-anel__ponto--ouro" />}
-              </span>
-            )}
-            {notaDoTotal}
-          </span>
+          <Legenda
+            itens={[
+              { cor: "agua", rotulo: "pago", valor: balanco.pago },
+              { cor: "ouro", rotulo: "aberto", valor: balanco.aberto },
+            ]}
+          />
         </div>
         <div className="cartao-anel">
-          <Anel tamanho={140} espessura={13} partes={[{ valor: 1, cor: corDoAnel }]}>
+          <Anel
+            tamanho={140}
+            partes={
+              eu
+                ? [
+                    { valor: resumo.aPagar, cor: "var(--vermelho)" },
+                    { valor: resumo.aReceber, cor: "var(--verde)" },
+                  ]
+                : [{ valor: 1, cor: "var(--tinta)" }]
+            }
+          >
             <span className="rotulo">Meu saldo</span>
             <strong className={`valor-anel valor--${tom}`}>{eu ? centavosEmDinheiro(resumo.aberto, { sinal: true }) : "—"}</strong>
           </Anel>
           {eu ? (
-            <span className="cartao-anel__nota">
-              {semFaturas
-                ? `parte ${dinheiro(resumo.minhaParte / 100, { simbolo: false })} · pagou ${dinheiro(resumo.euPaguei / 100, { simbolo: false })}`
-                : `pagar ${dinheiro(resumo.aPagar / 100, { simbolo: false })} · receber ${dinheiro(resumo.aReceber / 100, { simbolo: false })}`}
-            </span>
+            <Legenda
+              itens={[
+                { cor: "vermelho", rotulo: "pagar", valor: resumo.aPagar / 100 },
+                { cor: "verde", rotulo: "receber", valor: resumo.aReceber / 100 },
+              ]}
+            />
           ) : (
             <button type="button" className="cartao-anel__nota link-sublinhado" onClick={() => ir("pessoas")}>
               Quem é você aqui?
@@ -339,34 +374,6 @@ export default function Hub({ app, rota }) {
           )}
         </div>
       </div>
-
-      {recente && (
-        <section className="recente" aria-label="Recente">
-          <h2 className="recente__titulo">Recente</h2>
-          <button
-            type="button"
-            className="faixa-aviso"
-            onClick={() => (recente.ref ? ir("lancamento", recente.ref) : ir("historico"))}
-          >
-            <span className={`ponto-atividade ponto-atividade--${recente.tipo}`} aria-hidden="true" />
-            <span className="faixa-aviso__duas">
-              <strong>{recente.texto}</strong>
-              <span>
-                {quandoFoi(recente.quando, hoje)}
-                {recente.tipo === "despesa" && recente.regra
-                  ? ` · ${recente.regra}${recente.regra === "igual" ? ` entre ${recente.participantes}` : ""}`
-                  : ""}
-              </span>
-            </span>
-            {recente.valor > 0 && <strong className="faixa-aviso__valor">{dinheiro(recente.valor)}</strong>}
-          </button>
-          {atividade.length > 1 && (
-            <button type="button" className="link-mono link-mono--centro" onClick={() => ir("historico")}>
-              mostrar mais
-            </button>
-          )}
-        </section>
-      )}
 
       {atrasos.map((a) => (
         <button
@@ -462,6 +469,35 @@ export default function Hub({ app, rota }) {
             aoClicar={() => ir("fechar")}
           />
         </div>
+      )}
+
+      {recentes.length > 0 && (
+        <section className="recente" aria-label="Recente">
+          <h2 className="recente__titulo">Recente</h2>
+          {recentes.map((r, i) => (
+            <button
+              key={`${r.quando}-${i}`}
+              type="button"
+              className="faixa-aviso"
+              onClick={() => (r.ref ? ir("lancamento", r.ref) : ir("historico"))}
+            >
+              <span className={`ponto-atividade ponto-atividade--${r.tipo}`} aria-hidden="true" />
+              <span className="faixa-aviso__duas">
+                <strong>{r.texto}</strong>
+                <span>
+                  {quandoFoi(r.quando, hoje)}
+                  {r.tipo === "despesa" && r.regra ? ` · ${r.regra}${r.regra === "igual" ? ` entre ${r.participantes}` : ""}` : ""}
+                </span>
+              </span>
+              {r.valor > 0 && <strong className="faixa-aviso__valor">{dinheiro(r.valor)}</strong>}
+            </button>
+          ))}
+          {atividade.length > recentes.length && (
+            <button type="button" className="link-mono link-mono--centro" onClick={() => ir("historico")}>
+              mostrar mais
+            </button>
+          )}
+        </section>
       )}
 
       {!eu && estado.moradores.length > 0 && (

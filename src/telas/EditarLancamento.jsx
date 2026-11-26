@@ -391,7 +391,7 @@ export default function EditarLancamento({ app, rota }) {
             salvar(
               soOQueMudou([
                 ["Texto", original.texto ?? "", r.texto.trim()],
-                ["No calendário", momento(original.data) ?? "", momento(r.data) ?? ""],
+                ["Na agenda", momento(original.data) ?? "", momento(r.data) ?? ""],
                 ["Registro", nomeDoItem(original.registro), nomeDoItem(r.registro)],
               ]),
               (m) =>

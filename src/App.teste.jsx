@@ -125,7 +125,10 @@ describe("a aplicação abre", () => {
   it("as abas de baixo trocam de tela", () => {
     render(<App />);
     fireEvent.click(screen.getAllByText("Conjuntos")[0]);
-    expect(screen.getByPlaceholderText("Buscar conjunto")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Buscar conjunto" })).toBeTruthy();
+    // Sem sino e sem "Novo conjunto": criar é pelo + da barra.
+    expect(screen.queryByRole("button", { name: "Notificações" })).toBeNull();
+    expect(screen.queryByText("Novo conjunto")).toBeNull();
     fireEvent.click(screen.getByText("Perfil"));
     expect(screen.getByText("Seu nome")).toBeTruthy();
   });
@@ -161,13 +164,16 @@ describe("criar um conjunto", () => {
     expect(screen.queryByText("Comunal")).toBeNull();
   });
 
-  it("cai no painel do conjunto, com você e o tipo no topo", () => {
+  it("cai no painel do conjunto, com os membros embaixo do título", () => {
     abrirRepublica();
     expect(screen.queryByRole("button", { name: "Configurar conjunto" })).toBeNull();
     expect(screen.getByRole("button", { name: "Mais opções" })).toBeTruthy();
-    // No cabeçalho, só o jeito do uso comum: Moderado, Comunal, Temporal ou Livre.
-    expect(screen.getByText(/Moradia compartilhada · Moderado ·/)).toBeTruthy();
-    expect(screen.queryByText(/República Moderada/)).toBeNull();
+    // Sem o tipo e a contagem em cima: os círculos dos membros e quantos são, embaixo.
+    expect(document.querySelector(".sobrescrito")).toBeNull();
+    const fila = document.querySelector(".membros-em-fila");
+    const n = fila.querySelectorAll(".membros-em-fila__lugar").length;
+    expect(n).toBeGreaterThan(0);
+    expect(fila.querySelector(".membros-em-fila__quantos").textContent).toBe(`${n} ${n === 1 ? "pessoa" : "pessoas"}`);
     expect(screen.getByText("Lançar despesas")).toBeTruthy();
   });
 
@@ -199,12 +205,12 @@ describe("criar um conjunto", () => {
   });
 });
 
-describe("na Multi, o calendário marca estadia ou dias fora", () => {
-  it("a escolha fica no calendário e em Configurar", () => {
+describe("na Multi, a agenda marca estadia ou dias fora", () => {
+  it("a escolha fica na agenda e em Configurar", () => {
     criar("Multi", "Criar espaço");
-    clicar("Calendário");
-    expect(screen.getByText("Marcar no calendário")).toBeTruthy();
-    const naEscolha = (texto) => screen.getAllByText(texto).find((el) => el.closest(".marcacao-do-calendario"));
+    clicar("Agenda");
+    expect(screen.getByText("Marcar na agenda")).toBeTruthy();
+    const naEscolha = (texto) => screen.getAllByText(texto).find((el) => el.closest(".marcacao-da-agenda"));
     expect(naEscolha("Estadia").getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(naEscolha("Dias fora"));
     expect(naEscolha("Dias fora").getAttribute("aria-pressed")).toBe("true");
@@ -216,13 +222,13 @@ describe("na Multi, o calendário marca estadia ou dias fora", () => {
 
   it("a moradia compartilhada não oferece a escolha: marca sempre os dias fora", () => {
     abrirRepublica();
-    clicar("Calendário");
-    expect(screen.queryByText("Marcar no calendário")).toBeNull();
+    clicar("Agenda");
+    expect(screen.queryByText("Marcar na agenda")).toBeNull();
   });
 });
 
 describe("as telas do conjunto abrem", () => {
-  it("despesas, saldos, calendário, lembretes e registros", () => {
+  it("despesas, saldos, agenda, lembretes e registros", () => {
     abrirRepublica();
     clicar("Lançar despesas");
     // O período não fica em Lançar despesas: fica na aba Período do painel.
@@ -234,8 +240,16 @@ describe("as telas do conjunto abrem", () => {
     expect(screen.getByText(/Soma das partes/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
 
-    clicar("Calendário");
+    clicar("Agenda");
+    // Sem dia escolhido, a barra de baixo fica; escolher um dia a tira, e tirar a seleção a traz de volta.
+    expect(screen.queryByText(/\+ Lançar no dia \d+/)).toBeNull();
+    expect(temBarra()).toBe(true);
+    fireEvent.click(document.querySelector(".calendario-dia--hoje"));
     expect(screen.getAllByText(/\+ Lançar no dia \d+/).length).toBeGreaterThan(0);
+    expect(temBarra()).toBe(false);
+    fireEvent.click(document.querySelector(".calendario-dia--hoje"));
+    expect(temBarra()).toBe(true);
+    fireEvent.click(document.querySelector(".calendario-dia--hoje"));
     // A legenda começa oculta e abre pelo botão.
     expect(screen.queryByText("Ocultar legenda")).toBeNull();
     clicar("Mostrar legenda");
@@ -522,10 +536,10 @@ describe("despesas: lançar e ver", () => {
 });
 
 describe("o painel: período, anel e histórico", () => {
-  it("o painel tem as abas Despesas | Lembretes | Registros | Período", () => {
+  it("o painel tem as abas Período | Despesas | Lembretes | Registros", () => {
     abrirRepublica();
     const abas = [...document.querySelectorAll(".abas__aba")].map((a) => a.textContent);
-    expect(abas).toEqual(["Despesas", "Lembretes", "Registros", "Período"]);
+    expect(abas).toEqual(["Período", "Despesas", "Lembretes", "Registros"]);
     fireEvent.click(screen.getByRole("tab", { name: "Período" }));
     expect(screen.getByText("Período do fechamento")).toBeTruthy();
     expect(screen.getByText(/O início não vai antes de/)).toBeTruthy();
@@ -537,7 +551,7 @@ describe("o painel: período, anel e histórico", () => {
     cleanup();
     window.localStorage.clear();
     criar("Temporada", "Criar temporada");
-    expect([...document.querySelectorAll(".abas__aba")].map((a) => a.textContent)).toEqual(["Despesas", "Lembretes", "Período"]);
+    expect([...document.querySelectorAll(".abas__aba")].map((a) => a.textContent)).toEqual(["Período", "Despesas", "Lembretes"]);
   });
 
   it("o histórico filtra despesas, lembretes e registros, e as despesas por status", () => {
@@ -587,7 +601,7 @@ describe("conjuntos que nascem limpos e não mudam de tipo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
     fireEvent.click(screen.getByRole("tab", { name: "Período" }));
     expect(screen.getByText("Período da temporada")).toBeTruthy();
-    expect(screen.getByText(/As estadias marcadas no calendário dentro deste período/)).toBeTruthy();
+    expect(screen.getByText(/As estadias marcadas na agenda dentro deste período/)).toBeTruthy();
     configurar();
     // Moeda e data de criação aparecem, mas não se editam.
     expect(document.querySelector('[aria-label="Moeda do conjunto"]').textContent).toBe("Real (R$)");
@@ -597,11 +611,14 @@ describe("conjuntos que nascem limpos e não mudam de tipo", () => {
 });
 
 describe("Configurar conjunto e a seção Itens", () => {
-  it("Configurar fica nos três pontos, sem engrenagem no topo, e o sino fica no canto direito", () => {
+  it("Configurar fica nos três pontos, sem engrenagem nem sino no topo do painel", () => {
     abrirRepublica();
-    const topo = document.querySelector(".topo-tela__acoes");
+    // O cabeçalho é como o de um grupo: voltar, o nome com os membros embaixo e os três pontos à direita.
+    const topo = document.querySelector(".cabecalho-conjunto");
     const rotulos = [...topo.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"));
-    expect(rotulos).toEqual(["Mais opções", "Notificações"]);
+    expect(rotulos).toEqual(["Voltar", expect.stringMatching(/^\d+ pessoas?: ver pessoas$/), "Mais opções"]);
+    expect(topo.querySelector("h1")).not.toBeNull();
+    expect(screen.queryByText(/Movimentação atual/)).toBeNull();
     configurar();
     expect(temBarra()).toBe(false);
     expect(screen.getByText("Nome")).toBeTruthy();
@@ -642,15 +659,25 @@ describe("Configurar conjunto e a seção Itens", () => {
 });
 
 describe("o painel do conjunto", () => {
-  it("Recente mostra a última atividade e 'mostrar mais' leva ao histórico", () => {
+  it("Recente, no fim do painel, mostra até cinco movimentações e 'mostrar mais' leva ao histórico", () => {
     criar("Evento", "Criar evento");
-    expect(document.querySelector(".recente")).toBeNull();
+    // Criar já é atividade: o conjunto novo mostra quem o criou.
+    expect(document.querySelector(".recente").textContent).toMatch(/criou o conjunto/);
     lancarAvulsa("30");
     fireEvent.change(campo("Valor"), { target: { value: "45" } });
     fireEvent.click(document.querySelector(".rodape-fixo .botao"));
     voltarAoPainel();
 
-    expect(document.querySelectorAll(".recente .faixa-aviso").length).toBe(1);
+    // Criou o conjunto, lançou e editou: três movimentações.
+    expect(document.querySelectorAll(".recente .faixa-aviso").length).toBe(3);
+    for (const valor of ["10", "20", "30", "40"]) {
+      lancarAvulsa(valor);
+      voltarAoPainel();
+    }
+    expect(document.querySelectorAll(".recente .faixa-aviso").length).toBe(5);
+    // Recente vem depois das abas.
+    const abas = document.querySelector(".abas");
+    expect(abas.compareDocumentPosition(document.querySelector(".recente")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     clicar("mostrar mais");
     expect(screen.getByText(/Notificações|Histórico/)).toBeTruthy();
   });
@@ -681,7 +708,7 @@ describe("o painel do conjunto", () => {
 });
 
 describe("Início: Hoje mostra os atrasos", () => {
-  it("tem o filtro Atrasos e a conta vencida sem pagamento aparece nele", () => {
+  it("Despesas leva o ponto dos atrasos e a conta vencida sem pagamento aparece nela", () => {
     abrirRepublica();
     const [ficha] = JSON.parse(window.localStorage.getItem("ceder:conjuntos")).conjuntos;
     cleanup();
@@ -695,8 +722,10 @@ describe("Início: Hoje mostra os atrasos", () => {
     window.localStorage.setItem(chave, JSON.stringify(salvo));
 
     render(<App />);
-    expect(screen.getByText(/^Atrasos/)).toBeTruthy();
-    clicar(screen.getByText(/^Atrasos/).textContent);
+    const abas = [...document.querySelectorAll(".pasta--hoje .pasta__aba")].map((el) => el.textContent);
+    expect(abas).toEqual(["Tudo", "Despesas", "Vencimentos", "Lembretes"]);
+    expect(screen.getByLabelText("1 atrasada")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /Despesas/ }));
     expect(screen.getAllByText(/atrasada/).length).toBeGreaterThan(0);
     expect(screen.getByText(/venceu 10\/01/)).toBeTruthy();
   });
@@ -784,7 +813,6 @@ describe("a moeda do conjunto", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Moeda do conjunto" }), { target: { value: "USD" } });
     clicar("Criar evento");
     expect(document.querySelector(".valor-anel").textContent).toBe("US$ 0,00");
-    expect(screen.getByText(/· USD/)).toBeTruthy();
 
     lancarAvulsa("90");
     expect(screen.getAllByText(/US\$/).length).toBeGreaterThan(0);
@@ -800,6 +828,53 @@ describe("a moeda do conjunto", () => {
     sairParaOInicio();
     const seletor = screen.getByRole("combobox", { name: "Moeda do saldo" });
     expect([...seletor.options].map((o) => o.value)).toEqual(["USD"]);
+  });
+});
+
+describe("a aba Conjuntos", () => {
+  const irAConjuntos = () => fireEvent.click(screen.getAllByText("Conjuntos")[0]);
+
+  it("saldo em dia é um traço, sem o 'a pagar' / 'a receber' embaixo", () => {
+    abrirRepublica();
+    sairParaOInicio();
+    irAConjuntos();
+    const valor = document.querySelector(".linha-conjunto__valor");
+    expect(valor.querySelector("strong").textContent).toBe("—");
+    expect(valor.textContent).not.toMatch(/a pagar|a receber|em dia/);
+  });
+
+  it("o quadrado preto conta o que mudou desde a última vez que a pessoa abriu o conjunto", () => {
+    abrirRepublica();
+    cleanup();
+    // Como se a pessoa tivesse aberto o conjunto antes de ele ser criado: a criação é novidade.
+    const indice = JSON.parse(window.localStorage.getItem("ceder:conjuntos"));
+    indice.atual = null;
+    indice.conjuntos[0].vistoEm = "2000-01-01T00:00:00.000Z";
+    window.localStorage.setItem("ceder:conjuntos", JSON.stringify(indice));
+
+    render(<App />);
+    irAConjuntos();
+    expect(document.querySelector(".contador-novidades").textContent).toBe("1");
+    fireEvent.click(document.querySelector(".linha-conjunto"));
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    if (!document.querySelector(".linha-conjunto")) irAConjuntos();
+    expect(document.querySelector(".contador-novidades")).toBeNull();
+  });
+
+  it("a barra Buscar leva à Busca, com todos os conjuntos até começar a escrever", () => {
+    abrirRepublica();
+    sairParaOInicio();
+    irAConjuntos();
+    const nome = document.querySelector(".linha-conjunto strong").textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Buscar conjunto" }));
+    expect(document.querySelector(".tela--busca-entrando")).not.toBeNull();
+    expect(screen.getByRole("tab", { name: "Conjuntos" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText(nome, { selector: ".linha-achado strong" })).toBeTruthy();
+    const campoDaBusca = screen.getByPlaceholderText("Buscar em todos os conjuntos");
+    fireEvent.change(campoDaBusca, { target: { value: "zzz" } });
+    expect(screen.getByText("Nada encontrado aqui.")).toBeTruthy();
+    fireEvent.change(campoDaBusca, { target: { value: nome.slice(0, 4) } });
+    expect(screen.getByText(nome, { selector: ".linha-achado strong" })).toBeTruthy();
   });
 });
 
@@ -826,10 +901,14 @@ describe("a busca geral do Início", () => {
 describe("a barra de baixo do conjunto", () => {
   const barraDoConjunto = () => document.querySelector(".barra-do-conjunto");
 
-  it("no painel, a barra tem Início, Calendário, Análise e Pessoas, e não há mais os botões de antes", () => {
+  it("no painel, a barra tem Conjunto, Agenda, o + no meio, Análise e Pessoas", () => {
     abrirRepublica();
-    const secoes = [...barraDoConjunto().querySelectorAll("button")].map((b) => b.textContent);
-    expect(secoes).toEqual(["Início", "Calendário", "Análise", "Pessoas"]);
+    const secoes = [...barraDoConjunto().querySelectorAll(".barra-do-conjunto__secao")].map((b) => b.textContent);
+    expect(secoes).toEqual(["Conjunto", "Agenda", "Análise", "Pessoas"]);
+    fireEvent.click(within(barraDoConjunto()).getByRole("button", { name: "Criar" }));
+    expect(screen.getByRole("dialog", { name: "O que vamos criar?" })).toBeTruthy();
+    fireEvent.click(within(barraDoConjunto()).getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("dialog", { name: "O que vamos criar?" })).toBeNull();
     expect(document.querySelector(".ladrilhos")).toBeNull();
 
     fireEvent.click(within(barraDoConjunto()).getByText("Pessoas"));
@@ -837,9 +916,9 @@ describe("a barra de baixo do conjunto", () => {
     expect(barraDoConjunto()).toBeTruthy();
     fireEvent.click(within(barraDoConjunto()).getByText("Análise"));
     expect(screen.getByRole("heading", { name: "Análise" })).toBeTruthy();
-    fireEvent.click(within(barraDoConjunto()).getByText("Início"));
+    fireEvent.click(within(barraDoConjunto()).getByText("Conjunto"));
     expect(document.querySelector(".aneis")).toBeTruthy();
-    fireEvent.click(within(barraDoConjunto()).getByText("Calendário"));
+    fireEvent.click(within(barraDoConjunto()).getByText("Agenda"));
     expect(screen.getByText("Mostrar legenda")).toBeTruthy();
     // Das seções da barra, voltar leva ao painel.
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
@@ -855,9 +934,9 @@ describe("a barra de baixo do conjunto", () => {
     }
   });
 
-  it("o evento não tem calendário: a barra avisa", () => {
+  it("o evento não tem agenda: a barra avisa", () => {
     criar("Evento", "Criar evento");
-    fireEvent.click(within(barraDoConjunto()).getByText("Calendário"));
+    fireEvent.click(within(barraDoConjunto()).getByText("Agenda"));
     expect(screen.getByText(/Evento não conta dias/)).toBeTruthy();
   });
 
@@ -981,12 +1060,13 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
     expect(document.querySelector(".barra-inferior")).toBeNull();
   });
 
-  it("no calendário, os lançamentos do dia abrem sozinhos", () => {
+  it("na agenda, os lançamentos do dia abrem sozinhos", () => {
     abrirRepublica();
     lancarAvulsa("25", "Sorvete");
     voltarAoPainel();
-    // O calendário abre no dia de hoje, onde a despesa foi lançada.
-    clicar("Calendário");
+    // Na agenda, o dia de hoje (onde a despesa foi lançada) abre com um toque.
+    clicar("Agenda");
+    fireEvent.click(document.querySelector(".calendario-dia--hoje"));
     const linha = [...document.querySelectorAll(".linha-do-dia")].find((b) => b.textContent.includes("Sorvete"));
     expect(linha).toBeTruthy();
     fireEvent.click(linha);

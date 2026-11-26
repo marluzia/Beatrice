@@ -172,7 +172,7 @@ export default function NovoConjunto({ app, aoCancelar, aoCriar }) {
         )}
         {tipo === "multipro" && (
           <p className="nota-tipo">
-            Calculadora completa: a régua do uso comum é livre a cada fechamento, e no calendário vocês escolhem marcar a estadia
+            Calculadora completa: a régua do uso comum é livre a cada fechamento, e na agenda vocês escolhem marcar a estadia
             de cada um ou os dias fora (dá para trocar depois).
           </p>
         )}

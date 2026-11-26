@@ -813,10 +813,10 @@ function QuandoFoi({ item, set }) {
 
       <p className="dica">
         {formato === "sem"
-          ? "O item vale para o fechamento inteiro e não aparece no calendário."
+          ? "O item vale para o fechamento inteiro e não aparece na agenda."
           : formato === "dia"
-            ? "O item aparece nesse dia do calendário e do histórico."
-            : "O item aparece no calendário no dia em que começa, dizendo até quando vai."}{" "}
+            ? "O item aparece nesse dia da agenda e do histórico."
+            : "O item aparece na agenda no dia em que começa, dizendo até quando vai."}{" "}
         A data não muda a divisão   ela é o registro de quando a despesa
         aconteceu.
       </p>
