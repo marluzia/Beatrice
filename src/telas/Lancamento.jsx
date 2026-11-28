@@ -1,5 +1,5 @@
 import { NOME_DA_REGRA_DO_CICLO } from "./LancarDespesa.jsx";
-import { dataAgendada, registrosDaNota } from "../nucleo/lembretes.js";
+import { dataAgendada, notaDoRegistro, registrosDaNota, tituloDoLembrete } from "../nucleo/lembretes.js";
 import { dinheiro, LinhaDeMenu, mostrarAviso, SetaComBarra } from "../componentes/Interface.jsx";
 import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { autoriaDe, podeEditar } from "../nucleo/autoria.js";
@@ -135,6 +135,7 @@ export function acharLancamento(app, rota) {
     if (!r) return null;
     const valor = todasAsDespesas(estado, resultado, hoje).find((d) => d.tipo === "registrada" && d.registro?.id === r.id)?.valor ?? 0;
     const q = num(r.quantidade) || 1;
+    const vinculado = notaDoRegistro(estado, r);
     return {
       original: r,
       item,
@@ -145,6 +146,7 @@ export function acharLancamento(app, rota) {
         ["Quanto", PALAVRA_DO_USO(item, q)],
         ["Quem divide", listaEmFrase((r.participantes ?? []).map(pessoa))],
         ["Quando foi", momento(r.data)],
+        ["Lembrete vinculado", vinculado ? `${tituloDoLembrete(vinculado)}${autoriaDe(vinculado).por ? ` · ${nomeDe(estado, autoriaDe(vinculado).por)}` : ""}` : null],
       ],
     };
   }
@@ -161,9 +163,7 @@ export function acharLancamento(app, rota) {
         ["Tipo", l.tipo === "lista" ? `lista · ${feitos} de ${(l.itens ?? []).length} feitos` : "nota"],
         ["Data agendada", momento(dataAgendada(l))],
         ["Pessoas marcadas", (l.pessoas ?? []).length ? listaEmFrase(l.pessoas.map((id) => nomeDe(estado, id))) : "o grupo todo"],
-        ...(l.tipo === "nota"
-          ? [["Registros vinculados", registrosDaNota(estado, l.id).map(({ item, registro }) => `${item.nome} · ${momento(registro.data)}`).join("; ") || null]]
-          : []),
+        ["Registros vinculados", registrosDaNota(estado, l.id).map(({ item, registro }) => `${item.nome} · ${momento(registro.data)}`).join("; ") || null],
       ],
     };
   }

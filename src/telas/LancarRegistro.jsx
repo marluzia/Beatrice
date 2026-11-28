@@ -2,7 +2,8 @@ import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import { Campo, Segmentado } from "../componentes/index.js";
 import { AbasDePasta, mostrarAviso } from "../componentes/Interface.jsx";
-import { notasDe } from "../nucleo/lembretes.js";
+import { notasDe, tituloDoLembrete } from "../nucleo/lembretes.js";
+import { autoriaDe } from "../nucleo/autoria.js";
 import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
 import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { ciclosDoRegistro, registravel } from "../nucleo/adaptador.js";
@@ -31,20 +32,28 @@ const SOBRE_O_TIPO = {
   avulsos: "Equipamentos fora das faturas, como embarcação e gerador: cada hora ou uso vale em dinheiro.",
 };
 
-/** A nota a que o registro se vincula (opcional). O vínculo é do registro, não da nota. */
+/**
+ * O lembrete a que o registro se vincula (opcional): uma lista ou uma nota,
+ * cada uma com o título e o nome de quem a lançou. O vínculo é do registro,
+ * não do lembrete.
+ */
 export function CampoNotaDoRegistro({ estado, valor, aoMudar }) {
-  const notas = notasDe(estado);
-  if (notas.length === 0) return null;
+  const lembretes = notasDe(estado);
+  if (lembretes.length === 0) return null;
   return (
     <label className="campo-novo">
-      <span className="rotulo">Vincular a uma nota (opcional)</span>
-      <select className="caixa caixa--texto" value={valor ?? ""} onChange={(e) => aoMudar(e.target.value || null)} aria-label="Nota do registro">
-        <option value="">Nenhuma</option>
-        {notas.map((l) => (
-          <option key={l.id} value={l.id}>
-            {(l.texto || "Nota").slice(0, 60)}
-          </option>
-        ))}
+      <span className="rotulo">Vincular a um lembrete (opcional)</span>
+      <select className="caixa caixa--texto" value={valor ?? ""} onChange={(e) => aoMudar(e.target.value || null)} aria-label="Lembrete do registro">
+        <option value="">Nenhum</option>
+        {lembretes.map((l) => {
+          const { por } = autoriaDe(l);
+          return (
+            <option key={l.id} value={l.id}>
+              {tituloDoLembrete(l)}
+              {por ? ` · ${nomeDe(estado, por)}` : ""}
+            </option>
+          );
+        })}
       </select>
     </label>
   );

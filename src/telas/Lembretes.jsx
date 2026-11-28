@@ -1,4 +1,4 @@
-import { dataAgendada, registrosDaNota } from "../nucleo/lembretes.js";
+import { dataAgendada, MAXIMO_DO_LEMBRETE, registrosDaNota } from "../nucleo/lembretes.js";
 import { useEffect, useRef, useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import { Abas } from "../componentes/Interface.jsx";
@@ -30,6 +30,7 @@ export function Lista({ lembrete, acoes, abertoDeInicio }) {
             value={lembrete.titulo}
             autoFocus
             placeholder="Nome da lista"
+            maxLength={MAXIMO_DO_LEMBRETE}
             onChange={(e) => acoes.editarLembrete(lembrete.id, { titulo: e.target.value })}
             onBlur={() => setEditando(false)}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
@@ -115,6 +116,7 @@ export function Nota({ lembrete, estado, acoes, abertoDeInicio }) {
             value={lembrete.texto}
             rows={3}
             placeholder="A senha do wi-fi, lavar as toalhas no sábado…"
+            maxLength={MAXIMO_DO_LEMBRETE}
             onChange={(e) => acoes.editarLembrete(lembrete.id, { texto: e.target.value })}
             aria-label="Texto da nota"
           />

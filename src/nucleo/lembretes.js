@@ -8,22 +8,37 @@
 // Sem ninguém marcado, vai para todo o grupo.
 //
 // O vínculo com um registro de uso mora no REGISTRO (`registro.nota`), não no
-// lembrete: um registro pode apontar para uma nota; uma nota não aponta para
-// registro nenhum.
+// lembrete: um registro pode apontar para um lembrete (lista ou nota); o
+// lembrete não aponta para registro nenhum.
+
+/**
+ * O dia local de um instante: `lancadoEm` é guardado em UTC ("…T01:30Z"), e
+ * às 22h30 de 27/11 em Brasília já é 28/11 em UTC. O dia é o do aparelho.
+ * Uma data pura ("AAAA-MM-DD") vale como está.
+ */
+function diaLocal(instante) {
+  if (typeof instante !== "string" || instante.length < 10) return null;
+  if (instante.length === 10) return instante;
+  const d = new Date(instante);
+  if (Number.isNaN(d.getTime())) return instante.slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Títulos e textos de lembrete (nome da lista, itens, texto da nota) têm até 50 caracteres. */
+export const MAXIMO_DO_LEMBRETE = 50;
+
+/** O título de um lembrete: o nome da lista ou o texto da nota. */
+export const tituloDoLembrete = (l) => (l?.tipo === "lista" ? l.titulo || "Lista sem nome" : l?.texto || "Nota em branco");
 
 /** O dia em que o lembrete aparece na agenda: o agendado ou, sem ele, o do lançamento. */
 export function dataAgendada(l) {
   if (!l) return null;
   if (typeof l.data === "string" && l.data) return l.data;
-  const lancado = l.lancadoEm ?? l.criadoEm;
-  return typeof lancado === "string" && lancado.length >= 10 ? lancado.slice(0, 10) : null;
+  return diaLocal(l.lancadoEm ?? l.criadoEm);
 }
 
-/** O dia do lançamento, como "AAAA-MM-DD". */
-export const dataDeLancamento = (l) => {
-  const lancado = l?.lancadoEm ?? l?.criadoEm;
-  return typeof lancado === "string" && lancado.length >= 10 ? lancado.slice(0, 10) : null;
-};
+/** O dia do lançamento, como "AAAA-MM-DD" (no fuso do aparelho). */
+export const dataDeLancamento = (l) => diaLocal(l?.lancadoEm ?? l?.criadoEm);
 
 /** Quem o lembrete marcou (ids). */
 export const pessoasDoLembrete = (l) => (Array.isArray(l?.pessoas) ? l.pessoas : []);
@@ -34,10 +49,10 @@ export function lembreteParaMim(l, eu) {
   return marcadas.length === 0 || !eu || marcadas.includes(eu);
 }
 
-/** As notas do conjunto, para um registro apontar. */
-export const notasDe = (estado) => (estado?.lembretes ?? []).filter((l) => l.tipo === "nota");
+/** Os lembretes do conjunto (listas e notas), para um registro apontar. */
+export const notasDe = (estado) => (estado?.lembretes ?? []).filter((l) => l && (l.tipo === "nota" || l.tipo === "lista"));
 
-/** A nota a que um registro aponta, se ela ainda existe. */
+/** O lembrete a que um registro aponta (`registro.nota`), se ele ainda existe. */
 export const notaDoRegistro = (estado, r) => (r?.nota ? notasDe(estado).find((l) => l.id === r.nota) ?? null : null);
 
 /** Os registros (com o item de cada um) que apontam para esta nota. */
@@ -56,7 +71,7 @@ export function registrosDaNota(estado, idDaNota) {
  * fica; vínculo para uma nota que não existe mais some.
  */
 export function vinculosNosRegistros(itens, lembretesAntigos, lembretes) {
-  const notas = new Set(lembretes.filter((l) => l.tipo === "nota").map((l) => l.id));
+  const notas = new Set(lembretes.filter((l) => l && (l.tipo === "nota" || l.tipo === "lista")).map((l) => l.id));
   const antigos = (Array.isArray(lembretesAntigos) ? lembretesAntigos : []).filter(
     (l) => l && l.tipo !== "lista" && typeof l.registro === "string" && typeof l.data === "string" && notas.has(l.id),
   );

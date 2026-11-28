@@ -63,9 +63,9 @@ const semTarefa = (lista) => lista.filter((e) => e.natureza !== "tarefa");
  * É o que a agenda do conjunto usa; dentro de Fechar contas, os
  * lançamentos do dia continuam editáveis ali mesmo.
  */
-function LinhaDoDia({ selo, titulo, detalhe, valor, cor, aoAbrir }) {
+function LinhaDoDia({ selo, titulo, detalhe, valor, cor, aoAbrir, postIt = false }) {
   return (
-    <button type="button" className="linha-do-dia" onClick={aoAbrir}>
+    <button type="button" className={`linha-do-dia ${postIt ? "post-it post-it--na-linha" : ""}`} onClick={aoAbrir}>
       <i className="marca marca--losango" style={{ background: cor }} aria-hidden="true" />
       <span className="linha-do-dia__textos">
         <strong>{titulo}</strong>
@@ -409,12 +409,13 @@ export default function PassoAgenda({
                 selo={l.tipo === "lista" ? "lista" : "nota"}
                 titulo={(l.tipo === "lista" ? l.titulo : l.texto) || "Lembrete"}
                 cor={CORES.lembrete ?? "var(--azul)"}
+                postIt
                 aoAbrir={() => aoAbrirLancamento({ tipo: "lembrete", id: l.id })}
               />
             ))}
 
           {!aoAbrirLancamento && lembretesDoDia(aberto).map((l) => (
-            <div className="lancamento lancamento--lembrete" key={l.id}>
+            <div className="lancamento lancamento--lembrete post-it post-it--na-linha" key={l.id}>
               <div className="lancamento__topo">
                 <span className="selo selo--modo">Lembrete</span>
                 <button
@@ -430,6 +431,7 @@ export default function PassoAgenda({
                 valor={l.tipo === "lista" ? l.titulo : l.texto}
                 aoMudar={(v) => acoes.editarLembrete(l.id, l.tipo === "lista" ? { titulo: v } : { texto: v })}
                 placeholder="Lavar as toalhas, levar o lixo…"
+                maxLength={50}
                 texto
               />
             </div>

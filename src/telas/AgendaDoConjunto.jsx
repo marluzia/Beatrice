@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import CabecalhoDoConjunto from "../componentes/CabecalhoDoConjunto.jsx";
+import { TopoDoConjunto } from "../componentes/CabecalhoDoConjunto.jsx";
 import PassoAgenda from "../passos/PassoAgenda.jsx";
 import { hojeISO } from "../nucleo/resumo.js";
 import { dentroDaJanela, janelaDoFechamento } from "../nucleo/calendario.js";
@@ -41,13 +41,7 @@ export default function AgendaDoConjunto({ app }) {
 
   return (
     <div className="tela tela--com-rodape">
-      <CabecalhoDoConjunto
-        estado={estado}
-        nome={nomeDoConjunto}
-        aoVoltar={voltar}
-        subtitulo="Agenda"
-        acoes={[{ icone: "editar", rotulo: "Lançar no dia", aoClicar: lancarNoDia }]}
-      />
+      <TopoDoConjunto app={app} atual="agenda" acoes={[{ icone: "editar", rotulo: "Lançar no dia", aoClicar: lancarNoDia }]} />
 
       <div className="embutido embutido--agenda">
         <PassoAgenda

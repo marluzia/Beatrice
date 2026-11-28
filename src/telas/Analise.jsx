@@ -1,5 +1,5 @@
 import { dinheiro, TituloDeSecao } from "../componentes/Interface.jsx";
-import CabecalhoDoConjunto from "../componentes/CabecalhoDoConjunto.jsx";
+import { TopoDoConjunto } from "../componentes/CabecalhoDoConjunto.jsx";
 import { balancoDasDespesas, despesasAvulsas, historicoDosCiclos, hojeISO, nomeDe } from "../nucleo/resumo.js";
 import { CORES_DO_CICLO, GraficoDosCiclos, ParaOndeFoi } from "./graficos.jsx";
 
@@ -34,7 +34,7 @@ export default function Analise({ app }) {
 
   return (
     <div className="tela">
-      <CabecalhoDoConjunto estado={app.estado} nome={app.nomeDoConjunto} aoVoltar={voltar} subtitulo="Análise" />
+      <TopoDoConjunto app={app} atual="analise" />
 
       {nada ? (
         <p className="vazio-suave">Quando houver despesas lançadas, aqui aparece o que está em aberto, a parte de cada um e para onde foi.</p>

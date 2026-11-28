@@ -33,13 +33,12 @@ export default function VerLembretes({ app }) {
   );
 
   const detalhe = (l) => {
-    const { por, em } = autoriaDe(l);
+    const { em } = autoriaDe(l);
     const feitos = (l.itens ?? []).filter((x) => x.feito).length;
     return [
       l.tipo === "lista" ? `${feitos} de ${(l.itens ?? []).length} feitos` : null,
       dataAgendada(l) ? `para ${curta(dataAgendada(l))}` : null,
       (l.pessoas ?? []).length ? (l.pessoas ?? []).map((id) => nomeDe(estado, id)).join(", ") : null,
-      por ? nomeDe(estado, por) : null,
       em ? curta(em.slice(0, 10)) : null,
     ]
       .filter(Boolean)
@@ -74,16 +73,13 @@ export default function VerLembretes({ app }) {
             <p className="rotulo-secao rotulo-secao--na-pasta">
               {lista.length} {lista.length === 1 ? "lembrete" : "lembretes"}
             </p>
-            <div className="cartao-lista">
+            <div className="mural-de-post-its">
               {lista.map((l) => (
-                <button key={l.id} type="button" className="linha-despesa" onClick={() => setEscolhido(l)}>
-                  <span>
-                    <strong>{tituloDe(l)}</strong>
-                    <span>
-                      <span className={`tipo-despesa tipo-despesa--${l.tipo === "lista" ? "lembrete" : "nota"}`}>{l.tipo}</span>{" "}
-                      {detalhe(l)}
-                    </span>
-                  </span>
+                <button key={l.id} type="button" className="post-it" onClick={() => setEscolhido(l)}>
+                  <span className="post-it__tipo">{l.tipo}</span>
+                  <strong className="post-it__titulo">{tituloDe(l)}</strong>
+                  {detalhe(l) && <span className="post-it__detalhe">{detalhe(l)}</span>}
+                  {autoriaDe(l).por && <span className="post-it__autor">por {nomeDe(estado, autoriaDe(l).por)}</span>}
                 </button>
               ))}
             </div>

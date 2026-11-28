@@ -189,6 +189,10 @@ export default function Inicio({ app }) {
           <Icone nome="escanear" tamanho={28} />
           <strong>Escanear conta</strong>
         </button>
+        <button type="button" className="acao-rapida" onClick={() => emBreve("Assistente IA")}>
+          <Icone nome="assistente" tamanho={28} />
+          <strong>Assistente IA</strong>
+        </button>
       </div>
 
       <TituloDeSecao direita={diaCurtoPorExtenso(hoje)}>Hoje</TituloDeSecao>

@@ -155,6 +155,23 @@ const DESENHOS = {
       <path d="M5 15.5v3A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-3" />
     </>
   ),
+  // Exportar: a seta sai da caixa, para cima.
+  exportar: (
+    <>
+      <path d="M12 15V3.5M8 7.5l4-4 4 4" />
+      <path d="M5 13.5v5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-5" />
+    </>
+  ),
+  olho: (
+    <>
+      <path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="2.8" />
+    </>
+  ),
+  // O alfinete de fixar no quadro.
+  pin: <path d="M9 3.5h6M10 3.5v6L6.5 13.5h11L14 9.5v-6M12 13.5V21" />,
+  // O assistente: uma estrela de quatro pontas.
+  assistente: <path d="M12 3.5c.6 4.2 2.3 5.9 6.5 6.5-4.2.6-5.9 2.3-6.5 6.5-.6-4.2-2.3-5.9-6.5-6.5 4.2-.6 5.9-2.3 6.5-6.5zM18.5 15.5c.3 1.6.9 2.2 2.5 2.5-1.6.3-2.2.9-2.5 2.5-.3-1.6-.9-2.2-2.5-2.5 1.6-.3 2.2-.9 2.5-2.5z" />,
   pontos: (
     <>
       <circle cx="12" cy="5.5" r="1.1" />

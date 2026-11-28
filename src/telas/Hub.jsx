@@ -1,33 +1,14 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import FiguraDoTotal from "../componentes/FiguraDoTotal.jsx";
-import CabecalhoDoConjunto from "../componentes/CabecalhoDoConjunto.jsx";
-import {
-  Abas,
-  Anel,
-  Avatar,
-  centavosEmDinheiro,
-  dinheiro,
-  LinhaDeMenu,
-  SeloPilula,
-  TituloDeSecao,
-  tomDoSaldo,
-} from "../componentes/Interface.jsx";
+import { TopoDoConjunto } from "../componentes/CabecalhoDoConjunto.jsx";
+import { Anel, Avatar, centavosEmDinheiro, dinheiro, TituloDeSecao, tomDoSaldo } from "../componentes/Interface.jsx";
 import { OpcoesDeAdicionar } from "./NovoConjunto.jsx";
 import FolhaDeCompartilhar from "./FolhaDeCompartilhar.jsx";
-import PainelDoPeriodo, { temPeriodo } from "./Periodo.jsx";
-import Registros from "./Registros.jsx";
-import {
-  atrasosDe,
-  balancoDasDespesas,
-  curta,
-  hojeISO,
-  linhaDoMembro,
-  nomeDe,
-  proximoVencimento,
-  quandoFoi,
-  atividadeDe,
-} from "../nucleo/resumo.js";
+import { temPeriodo } from "./Periodo.jsx";
+import { destinoDoEvento, hojeEmTudo } from "./comum.js";
+import { autoriaDe } from "../nucleo/autoria.js";
+import { atrasosDe, balancoDasDespesas, hojeISO, linhaDoMembro, nomeDe, quandoFoi, atividadeDe } from "../nucleo/resumo.js";
 import { MESES } from "../nucleo/formato.js";
 
 /** O selo da linha "Fechar contas": quitado, em andamento, em aberto. */
@@ -153,7 +134,9 @@ export function Membros({ app }) {
                       className="menu-flutuante__perigo"
                       onClick={() => {
                         setMenu(null);
-                        if (window.confirm(`Tirar ${nome} de ${modo.palavras.oConjunto}? As despesas pagas por ${nome} ficam sem pagador.`)) {
+                        if (
+                          window.confirm(`Tirar ${nome} de ${modo.palavras.oConjunto}? As despesas pagas por ${nome} ficam sem pagador.`)
+                        ) {
                           acoes.removerPessoa(m.id);
                         }
                       }}
@@ -186,49 +169,205 @@ function Legenda({ itens }) {
   );
 }
 
-/** O painel de um conjunto: saldos, o próximo vencimento, despesas ou pessoas, e o resto. */
-/**
- * As abas do painel. Evento: Despesas e Lembretes. Temporada: Período antes.
- * As casas e a Multi: Período, Despesas, Lembretes e Registros.
- */
-export function abasDoPainel(modo) {
-  const semFaturas = modo.faturas === false;
-  return [
-    ...(temPeriodo(modo) ? [{ valor: "periodo", rotulo: "Período" }] : []),
-    { valor: "despesas", rotulo: "Despesas" },
-    { valor: "lembretes", rotulo: "Lembretes" },
-    ...(semFaturas ? [] : [{ valor: "registros", rotulo: "Registros" }]),
-  ];
+/** Os lembretes de hoje deste conjunto (da pessoa ou de todos): o que vai no quadro. */
+function doQuadro(app, hoje) {
+  const { estado, resumo, idDoConjunto, nomeDoConjunto, resultado } = app;
+  const p = {
+    ficha: { id: idDoConjunto, nome: nomeDoConjunto },
+    estado,
+    resumo,
+    atividade: atividadeDe(estado, { resultado }),
+  };
+  return hojeEmTudo([p], hoje).filter((ev) => ev.tipo === "lembrete");
 }
 
-export default function Hub({ app, rota }) {
-  const { estado, resultado, modo, acoes, resumo, eu, ir, voltar, nomeDoConjunto } = app;
-  const [aba, setAba] = useState(rota?.aba ?? "despesas");
-  const abas = abasDoPainel(modo);
-  const abaVisivel = abas.some((a) => a.valor === aba) ? aba : "despesas";
+/**
+ * O quadro de fixados do painel, de madeira: os lembretes de hoje, cada um
+ * num post-it com o título e quem lançou, embaixo do
+ * alfinete. O alfinete fica sempre no
+ * topo, no centro, para fixar mais um (leva a lançar um lembrete).
+ */
+function QuadroDoDia({ app, hoje }) {
+  const { ir, estado } = app;
+  const lista = doQuadro(app, hoje);
+  const autor = (ev) => {
+    const { por } = autoriaDe((estado.lembretes ?? []).find((l) => l.id === ev.lembrete));
+    return por ? nomeDe(estado, por) : null;
+  };
+  return (
+    <section className={`quadro-do-dia ${lista.length === 0 ? "quadro-do-dia--vazio" : ""}`} aria-label="Fixados">
+      <button type="button" className="quadro-do-dia__fixar" onClick={() => ir("lancarLembrete")} aria-label="Fixar um lembrete">
+        <Icone nome="pin" tamanho={24} />
+      </button>
+      {lista.length > 0 && (
+        <ul className="quadro-do-dia__lista">
+          {lista.map((ev) => {
+            const destino = destinoDoEvento(ev);
+            return (
+              <li key={ev.id}>
+                <button type="button" className="post-it post-it--no-quadro" onClick={() => ir(destino.tela, destino)}>
+                  <strong className="post-it__titulo">{ev.titulo}</strong>
+                  {autor(ev) && <span className="post-it__autor">por {autor(ev)}</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** As quatro teclas da calculadora do painel: só o símbolo; o nome aparece no visor. */
+const TECLAS = [
+  { chave: "lancar", nome: "Lançar", icone: "importar" },
+  { chave: "ver", nome: "Ver", icone: "olho" },
+  { chave: "acertar", nome: "Acertar", icone: "trocar" },
+  { chave: "exportar", nome: "Exportar", icone: "exportar" },
+];
+
+/**
+ * O que cada operação oferece no visor, neste conjunto: cada opção com o
+ * ícone, o nome e uma linha que diz o que há nela.
+ */
+function opcoesDaOperacao(operacao, modo) {
+  const comRegistros = modo.faturas !== false || Boolean(modo.equipamentos);
+  // Despesas, lembretes, itens e registros têm o mesmo subtítulo em Lançar e em Ver.
+  const SUBTITULO = {
+    despesas: modo.faturas === false ? "avulsas, por categoria" : "avulsas e cíclicas",
+    lembretes: "listas e notas",
+    itens: "aparelhos ou equipamentos",
+    registros: "uso de itens",
+  };
+  switch (operacao) {
+    case "lancar":
+      return [
+        { nome: "Despesas", icone: "sacola", subtitulo: SUBTITULO.despesas, tela: "despesas" },
+        { nome: "Lembretes", icone: "nota", subtitulo: SUBTITULO.lembretes, tela: "lancarLembrete" },
+        ...(comRegistros
+          ? [
+              { nome: "Item", icone: "itens", subtitulo: SUBTITULO.itens, tela: "itens" },
+              { nome: "Registro", icone: "registro", subtitulo: SUBTITULO.registros, tela: "lancarRegistro" },
+            ]
+          : []),
+      ];
+    case "ver":
+      return [
+        { nome: "Despesas", icone: "sacola", subtitulo: SUBTITULO.despesas, tela: "verDespesas" },
+        { nome: "Lembretes", icone: "nota", subtitulo: SUBTITULO.lembretes, tela: "verLembretes" },
+        ...(comRegistros
+          ? [
+              { nome: "Itens", icone: "itens", subtitulo: SUBTITULO.itens, tela: "itens" },
+              { nome: "Registros", icone: "registro", subtitulo: SUBTITULO.registros, tela: "verRegistros" },
+            ]
+          : []),
+        { nome: "Histórico", icone: "relogio", subtitulo: "tudo o que aconteceu no conjunto", tela: "historico" },
+      ];
+    case "acertar":
+      return [
+        ...(temPeriodo(modo) ? [{ nome: "Período", icone: "agenda", subtitulo: "os dias de cada um", tela: "periodo" }] : []),
+        { nome: "Despesas", icone: "saldos", subtitulo: "os saldos: quem deve a quem", tela: "saldos" },
+        { nome: "Conjunto", icone: "trocar", subtitulo: "fechar as contas e fazer os Pix", tela: "fechar" },
+      ];
+    case "exportar":
+      return [
+        { nome: "Relatórios", icone: "documento", subtitulo: "o rateio, para imprimir ou salvar", tela: "fechar", params: { passo: "rateio" } },
+        { nome: "Conjunto", icone: "link", subtitulo: "link ou QR Code para outra pessoa", compartilhar: true },
+      ];
+    default:
+      return [];
+  }
+}
+
+/**
+ * A calculadora do painel: as teclas em cima, só com o símbolo (lançar, ver,
+ * acertar e exportar), e o visor embaixo, com o nome da operação (ou
+ * "Selecionar operação") e as opções dela, uma por linha.
+ */
+function CalculadoraDoConjunto({ app, aoCompartilhar }) {
+  const { modo, ir } = app;
+  const [operacao, setOperacao] = useState(null);
+  const tecla = TECLAS.find((t) => t.chave === operacao) ?? null;
+  const opcoes = opcoesDaOperacao(operacao, modo);
+  const caixa = useRef(null);
+  // Ao abrir uma operação, a tela acompanha: rola até as opções aparecerem inteiras.
+  useEffect(() => {
+    if (!operacao || !caixa.current?.scrollIntoView) return;
+    const suave = !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    caixa.current.scrollIntoView({ behavior: suave ? "smooth" : "auto", block: "nearest" });
+  }, [operacao]);
+  return (
+    <section className="calculadora-do-conjunto" aria-label="Operações do conjunto" ref={caixa}>
+      <div className="calculadora-do-conjunto__teclas">
+        {TECLAS.map((t) => (
+          <button
+            key={t.chave}
+            type="button"
+            className={`calculadora-do-conjunto__tecla ${operacao === t.chave ? "calculadora-do-conjunto__tecla--ativa" : ""}`}
+            aria-label={t.nome}
+            aria-pressed={operacao === t.chave}
+            onClick={() => setOperacao((v) => (v === t.chave ? null : t.chave))}
+          >
+            <Icone nome={t.icone} tamanho={26} />
+          </button>
+        ))}
+      </div>
+      <div className="calculadora-do-conjunto__visor" aria-live="polite">
+        <h2 className="calculadora-do-conjunto__titulo">{tecla ? tecla.nome : "Selecionar operação"}</h2>
+        {tecla ? (
+          <div className="calculadora-do-conjunto__opcoes">
+            {opcoes.map((o) => (
+              <button
+                key={o.nome}
+                type="button"
+                className="calculadora-do-conjunto__opcao"
+                aria-label={o.nome}
+                onClick={() => (o.compartilhar ? aoCompartilhar() : ir(o.tela, o.params ?? {}))}
+              >
+                <span className="calculadora-do-conjunto__icone" aria-hidden="true">
+                  <Icone nome={o.icone} tamanho={20} />
+                </span>
+                <span className="calculadora-do-conjunto__textos" aria-hidden="true">
+                  <strong>{o.nome}</strong>
+                  <span>{o.subtitulo}</span>
+                </span>
+                <Icone nome="seta" tamanho={18} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="calculadora-do-conjunto__pronta" aria-hidden="true">
+            0
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * O painel de um conjunto, de cima para baixo: o cabeçalho (o nome e os
+ * membros; tocar abre Configurar), o menu de cima (Painel, Agenda, Análise,
+ * Pessoas), o quadro de madeira com o que é de hoje, os dois saldos, a
+ * calculadora das operações e o Recente.
+ */
+export default function Hub({ app }) {
+  const { estado, resultado, resumo, eu, ir } = app;
   const [compartilhando, setCompartilhando] = useState(false);
   const [menu, setMenu] = useState(false);
   const hoje = hojeISO();
-  const semFaturas = modo.faturas === false;
-  const mes = MESES[estado.periodo.mes - 1];
 
   const total = (resumo?.total ?? 0) / 100;
   const aberto = (resumo?.aberto ?? 0) / 100;
   const tom = eu ? tomDoSaldo(aberto) : "zero";
 
   const atividade = atividadeDe(estado, { resultado });
-  const vencimento = semFaturas ? null : proximoVencimento(estado, hoje);
-  const situacao = situacaoDoFechamento(resumo);
-  const quantosPix = resumo?.transferencias?.length ?? 0;
-
-  const atrasos = atrasosDe(estado, hoje);
   const recentes = atividade.slice(0, 5);
 
-  // O anel do total: o que está em aberto (amarelo) e o que já foi pago
-  // (verde-água). Quando tudo foi pago e o acerto entre vocês terminou, preto.
+  // O total: o que está em aberto (amarelo) e o que já foi pago (verde-água).
+  // Quando tudo foi pago e o acerto entre vocês terminou, preto.
   const balanco = balancoDasDespesas(estado, resultado, hoje);
-  const acertoFeito =
-    !resumo?.acerto?.precisaCeder && (resumo?.transferencias ?? []).every((t) => t.confirmada);
+  const acertoFeito = !resumo?.acerto?.precisaCeder && (resumo?.transferencias ?? []).every((t) => t.confirmada);
   const quitado = balanco.aberto < 0.005 && balanco.pago > 0 && acertoFeito;
   const partesDoTotal = quitado
     ? [{ valor: 1, cor: "var(--tinta)" }]
@@ -236,16 +375,10 @@ export default function Hub({ app, rota }) {
         { valor: balanco.pago, cor: "var(--agua)" },
         { valor: balanco.aberto, cor: "var(--ouro)" },
       ];
+
   return (
     <div className="tela">
-      <CabecalhoDoConjunto
-        estado={estado}
-        nome={nomeDoConjunto}
-        aoVoltar={voltar}
-        aoVerPessoas={() => ir("pessoas")}
-        menuAberto={menu}
-        aoAbrirMenu={() => setMenu((v) => !v)}
-      />
+      <TopoDoConjunto app={app} atual="hub" menuAberto={menu} aoAbrirMenu={() => setMenu((v) => !v)} />
 
       {menu && (
         <div className="menu-pontos__fundo" onClick={() => setMenu(false)}>
@@ -287,6 +420,7 @@ export default function Hub({ app, rota }) {
         </div>
       )}
 
+      <QuadroDoDia app={app} hoje={hoje} />
 
       <div className="aneis">
         <div className="cartao-anel">
@@ -319,113 +453,27 @@ export default function Hub({ app, rota }) {
           {eu ? (
             <Legenda
               itens={[
-                { cor: "vermelho", rotulo: "pagar", valor: resumo.aPagar / 100 },
-                { cor: "verde", rotulo: "receber", valor: resumo.aReceber / 100 },
+                {
+                  cor: "vermelho",
+                  rotulo: "pagar",
+                  valor: resumo.aPagar / 100,
+                },
+                {
+                  cor: "verde",
+                  rotulo: "receber",
+                  valor: resumo.aReceber / 100,
+                },
               ]}
             />
           ) : (
-            <button type="button" className="cartao-anel__nota link-sublinhado" onClick={() => ir("pessoas")}>
+            <button type="button" className="cartao-anel__nota link-sublinhado" onClick={() => app.irParaSecao("pessoas")}>
               Quem é você aqui?
             </button>
           )}
         </div>
       </div>
 
-      {atrasos.map((a) => (
-        <button
-          key={a.ciclo.id}
-          type="button"
-          className="faixa-aviso faixa-aviso--atraso"
-          onClick={() => ir("lancamento", { tipo: "ciclica", id: a.ciclo.id })}
-        >
-          <Icone nome="relogio" tamanho={20} className="faixa-aviso__icone" />
-          <span>
-            {a.ciclo.nome} venceu {curta(a.ciclo.vencimento)} · <strong>ninguém pagou</strong>
-          </span>
-          <SeloPilula tom="vermelho">atrasada</SeloPilula>
-        </button>
-      ))}
-
-      {vencimento && (
-        <button type="button" className="faixa-aviso" onClick={() => ir("lancamento", { tipo: "ciclica", id: vencimento.ciclo.id })}>
-          <Icone nome={vencimento.ciclo.id === "agua" ? "gota" : "raio"} tamanho={20} className="faixa-aviso__icone" />
-          <span>
-            {vencimento.ciclo.nome} de {mes} vence{" "}
-            {vencimento.dias === 0 ? "hoje" : vencimento.dias === 1 ? "amanhã" : `em ${vencimento.dias} dias`}
-            {vencimento.pagoPor && (
-              <>
-                {" · "}
-                <strong>paga</strong> por {nomeDe(estado, vencimento.pagoPor)}
-                {vencimento.pagoEm ? ` em ${curta(vencimento.pagoEm.slice(0, 10))}` : ""}
-              </>
-            )}
-          </span>
-          <SeloPilula tom={vencimento.pagoPor ? "verde" : "vermelho"}>{vencimento.pagoPor ? "paga" : "a pagar"}</SeloPilula>
-        </button>
-      )}
-
-      <Abas rotulo="O que ver" valor={abaVisivel} aoMudar={setAba} opcoes={abas} />
-
-      {abaVisivel === "periodo" ? (
-        <PainelDoPeriodo app={app} />
-      ) : abaVisivel === "lembretes" ? (
-        <div className="cartao-lista">
-          <LinhaDeMenu
-            icone="mais"
-            iconeEscuro
-            titulo="Lançar lembretes"
-            subtitulo="listas e notas"
-            aoClicar={() => ir("lancarLembrete")}
-          />
-          <LinhaDeMenu
-            icone="busca"
-            titulo="Ver lembretes"
-            subtitulo={`${(estado.lembretes ?? []).length} ${(estado.lembretes ?? []).length === 1 ? "lembrete" : "lembretes"} · buscar e filtrar`}
-            aoClicar={() => ir("verLembretes")}
-          />
-        </div>
-      ) : abaVisivel === "registros" ? (
-        <Registros app={app} />
-      ) : (
-        <div className="cartao-lista">
-          <LinhaDeMenu
-            icone="mais"
-            iconeEscuro
-            titulo="Lançar despesas"
-            subtitulo={semFaturas ? "avulsas, por categoria" : "avulsas e cíclicas"}
-            aoClicar={() => ir("despesas")}
-          />
-          <LinhaDeMenu
-            icone="busca"
-            titulo="Ver despesas"
-            subtitulo="buscar e filtrar tudo o que foi lançado"
-            aoClicar={() => ir("verDespesas")}
-          />
-          <LinhaDeMenu
-            icone="saldos"
-            titulo="Ver saldos"
-            subtitulo={
-              semFaturas
-                ? situacao?.texto === "quitado"
-                  ? "contas fechadas"
-                  : `prévia, enquanto ${modo.palavras.oConjunto} está ${modo.chave === "temporada" ? "aberta" : "aberto"}`
-                : mes
-            }
-            aoClicar={() => ir("saldos")}
-          />
-          <LinhaDeMenu
-            icone="trocar"
-            titulo="Fechar contas"
-            subtitulo={
-              semFaturas
-                ? `depois ${modo.chave === "temporada" ? "da temporada" : "do evento"}${quantosPix ? ` · ${quantosPix} Pix ${quantosPix === 1 ? "previsto" : "previstos"}` : ""}`
-                : mes
-            }
-            selo={semFaturas ? null : situacao}
-            aoClicar={() => ir("fechar")}
-          />
-        </div>
-      )}
+      <CalculadoraDoConjunto app={app} aoCompartilhar={() => setCompartilhando(true)} />
 
       {recentes.length > 0 && (
         <section className="recente" aria-label="Recente">
@@ -457,9 +505,7 @@ export default function Hub({ app, rota }) {
       )}
 
       {!eu && estado.moradores.length > 0 && (
-        <p className="nota-tipo">
-          Para ver o seu saldo, diga quem é você: em Pessoas (na barra de baixo), toque nos três pontinhos e escolha “Sou eu”.
-        </p>
+        <p className="nota-tipo">Para ver o seu saldo, diga quem é você: em Pessoas, toque nos três pontinhos e escolha “Sou eu”.</p>
       )}
 
       {compartilhando && <FolhaDeCompartilhar app={app} aoFechar={() => setCompartilhando(false)} />}

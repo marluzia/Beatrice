@@ -1,4 +1,4 @@
-import { notaDoRegistro } from "../nucleo/lembretes.js";
+import { notaDoRegistro, tituloDoLembrete } from "../nucleo/lembretes.js";
 import { useState } from "react";
 import Icone from "../componentes/Icone.jsx";
 import { AbasDePasta, dinheiro } from "../componentes/Interface.jsx";
@@ -95,7 +95,7 @@ function LinhaDeRegistro({ app, item, r, mostrarDia }) {
           {emReais(item) && <small>{noPeriodo ? "dentro do período" : "fora do período: não entra nesta conta"}</small>}
           {lembrete && (
             <span className="vinculo vinculo--pequeno">
-              <Icone nome="documento" tamanho={14} /> do lembrete “{lembrete.texto || lembrete.titulo}”
+              <Icone nome="documento" tamanho={14} /> do lembrete “{tituloDoLembrete(lembrete)}”
             </span>
           )}
         </span>

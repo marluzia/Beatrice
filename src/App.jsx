@@ -25,7 +25,6 @@ import EditarItem from "./telas/EditarItem.jsx";
 import VerLembretes from "./telas/VerLembretes.jsx";
 import LancarRegistro from "./telas/LancarRegistro.jsx";
 import VerRegistros from "./telas/VerRegistros.jsx";
-import BarraDoConjunto from "./componentes/BarraDoConjunto.jsx";
 import Saldos from "./telas/Saldos.jsx";
 import FecharContas from "./telas/FecharContas.jsx";
 import AgendaDoConjunto from "./telas/AgendaDoConjunto.jsx";
@@ -36,6 +35,7 @@ import Notificacoes from "./telas/Notificacoes.jsx";
 import Atividade from "./telas/Atividade.jsx";
 import Perfil from "./telas/Perfil.jsx";
 import Configurar from "./telas/Configurar.jsx";
+import { TelaDoPeriodo } from "./telas/Periodo.jsx";
 
 function aoTopo() {
   try {
@@ -72,22 +72,26 @@ const TELAS_DO_CONJUNTO = {
   ciclo: DespesaCiclica,
   configurar: Configurar,
   notificacoes: Notificacoes,
+  periodo: TelaDoPeriodo,
 };
 
 /**
- * Dentro de um conjunto, a barra de baixo é a do conjunto (Início, Agenda,
- * Análise, Pessoas) e só aparece no painel e nessas seções. Toda outra
- * tela   Lançar despesas, Ver despesas, Ver saldos, lançar à mão, a
- * composição, Fechar contas, Configurar   esconde a barra, para a pessoa
- * ficar só no que veio fazer.
+ * Dentro de um conjunto, a barra de baixo é a principal do app (Início,
+ * Conjuntos, +, Atividade, Perfil) e só aparece no painel e nas seções do
+ * menu de cima (Agenda, Análise, Pessoas). Toda outra tela   lançar, ver,
+ * Fechar contas, Configurar   esconde a barra, para a pessoa ficar só no
+ * que veio fazer.
  */
 const SECOES_DO_CONJUNTO = ["agenda", "analise", "pessoas"];
 const COM_BARRA_DO_CONJUNTO = new Set(["hub", ...SECOES_DO_CONJUNTO]);
 
-/** Lembretes, Registros e Período são abas do painel: ir para eles é voltar ao painel com a aba aberta. */
-const ABAS_DO_PAINEL = new Set(["lembretes", "registros", "periodo"]);
-const naAba = (destino) =>
-  destino && ABAS_DO_PAINEL.has(destino.tela) ? { ...destino, tela: "hub", aba: destino.tela, vez: Date.now() } : destino;
+/**
+ * Lembretes, Registros e Período eram abas do painel; o painel agora lança e
+ * vê pela calculadora. Quem ainda pede essas telas cai em Ver lembretes, Ver
+ * registros e na tela do Período.
+ */
+const PARA_ONDE_FOI = { lembretes: "verLembretes", registros: "verRegistros" };
+const naAba = (destino) => (destino && PARA_ONDE_FOI[destino.tela] ? { ...destino, tela: PARA_ONDE_FOI[destino.tela] } : destino);
 
 export default function App() {
   const cdr = useCDR();
@@ -105,8 +109,7 @@ export default function App() {
   const esconderBarra = useCallback((sim) => setBarraOculta(Boolean(sim)), []);
 
   const ir = useCallback((tela, params = {}) => {
-    if (ABAS_DO_PAINEL.has(tela)) setPilha([naAba({ tela, ...params })]);
-    else setPilha((p) => [...p, { tela, ...params }]);
+    setPilha((p) => [...p, naAba({ tela, ...params })]);
     aoTopo();
   }, []);
 
@@ -251,6 +254,8 @@ export default function App() {
     escolherAba,
     comecarACriar,
     esconderBarra,
+    irParaSecao,
+    irAoPainel,
     abrirBusca: ({ aba: abaDaBusca = "conjuntos", animar = false } = {}) => {
       setFora({ tela: "busca", aba: abaDaBusca, animar });
       aoTopo();
@@ -265,8 +270,6 @@ export default function App() {
   let corpo;
   let comBarra = true;
   let abaAtiva = aba;
-  let barraDoConjunto = false;
-  let secaoDoConjunto = null;
 
   if (fora?.tela === "criar") {
     comBarra = false;
@@ -293,8 +296,6 @@ export default function App() {
     const rota = pilha[pilha.length - 1] ?? { tela: "hub" };
     const Tela = TELAS_DO_CONJUNTO[rota.tela] ?? Hub;
     comBarra = COM_BARRA_DO_CONJUNTO.has(rota.tela);
-    barraDoConjunto = true;
-    secaoDoConjunto = rota.tela;
     abaAtiva = "conjuntos";
     corpo = <Tela key={`${idDoConjunto}-${pilha.length}-${rota.tela}-${rota.vez ?? ""}`} app={app} rota={rota} />;
   } else if (aba === "conjuntos") {
@@ -318,20 +319,8 @@ export default function App() {
 
       {folha && <FolhaDeCriar app={app} aoFechar={() => setFolha(false)} />}
 
-      {comBarra && barraDoConjunto && (
-        <BarraDoConjunto
-          secao={secaoDoConjunto}
-          aoCriar={() => setFolha((f) => !f)}
-          criando={folha}
-          aoEscolher={(tela) =>
-            tela === "hub"
-                ? irAoPainel()
-                : irParaSecao(tela)
-          }
-        />
-      )}
-
-      {comBarra && !barraDoConjunto && (
+      {/* Dentro de um conjunto também vale a barra principal: tocar nela sai do conjunto. */}
+      {comBarra && (
         <BarraInferior
           aba={abaAtiva}
           aoEscolher={escolherAba}

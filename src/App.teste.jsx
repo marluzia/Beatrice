@@ -14,7 +14,39 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-const clicar = (texto) => fireEvent.click(screen.getByText(texto));
+/** A calculadora do painel: a tecla da operação (Lançar, Ver, Acertar, Exportar) e a opção no visor. */
+const operar = (tecla, opcao) => {
+  const calculadora = document.querySelector(".calculadora-do-conjunto");
+  const botao = within(calculadora).getByRole("button", { name: tecla });
+  if (botao.getAttribute("aria-pressed") !== "true") fireEvent.click(botao);
+  fireEvent.click(within(calculadora.querySelector(".calculadora-do-conjunto__visor")).getByRole("button", { name: opcao }));
+};
+
+/** No painel, o que antes eram linhas agora são operações da calculadora. */
+const NO_PAINEL = {
+  "Lançar despesas": ["Lançar", "Despesas"],
+  "Ver despesas": ["Ver", "Despesas"],
+  "Ver saldos": ["Acertar", "Despesas"],
+  "Fechar contas": ["Acertar", "Conjunto"],
+  "Lançar lembretes": ["Lançar", "Lembretes"],
+  "Ver lembretes": ["Ver", "Lembretes"],
+  "Lançar registros": ["Lançar", "Registro"],
+  "Ver registros": ["Ver", "Registros"],
+};
+
+const clicar = (texto) => {
+  if (NO_PAINEL[texto] && document.querySelector(".calculadora-do-conjunto") && !screen.queryByText(texto)) {
+    return operar(...NO_PAINEL[texto]);
+  }
+  fireEvent.click(screen.getByText(texto));
+};
+
+/** As antigas abas do painel: fora dele (Histórico, Busca) ainda são abas; no painel, o Período é Acertar › Período. */
+const abaDoPainel = (nome) => {
+  const aba = screen.queryByRole("tab", { name: nome });
+  if (aba) return fireEvent.click(aba);
+  if (nome === "Período") operar("Acertar", "Período");
+};
 
 /** O nome de um cabeçalho: ele inteiro, ou a última parte de "Seção › Subseção". */
 const noCabecalho = (texto) => new RegExp(`(^|› )${texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
@@ -48,11 +80,7 @@ const configurar = () => noMenu("Configurar conjunto");
 
 /** A seção Itens, na barra de baixo do conjunto. */
 /** A seção Itens: na aba Registros do painel, abaixo de Ver registros (ou "Cadastrar itens", sem nenhum). */
-const abrirItens = () => {
-  fireEvent.click(screen.getByRole("tab", { name: "Registros" }));
-  const linha = screen.queryByText("Itens", { selector: ".linha-menu strong" });
-  fireEvent.click(linha ?? screen.getByText("Cadastrar itens"));
-};
+const abrirItens = () => operar("Ver", "Itens");
 
 /** O campo de um rótulo no formulário clássico ("Valor", "Nome"). */
 const campo = (rotulo) =>
@@ -210,17 +238,24 @@ describe("criar um conjunto", () => {
     expect(screen.queryByText("Comunal")).toBeNull();
   });
 
-  it("cai no painel do conjunto, com os membros embaixo do título", () => {
+  it("cai no painel do conjunto, só com o nome no cabeçalho, preso no alto com o menu", () => {
     abrirRepublica();
-    expect(screen.queryByRole("button", { name: "Configurar conjunto" })).toBeNull();
     expect(screen.getByRole("button", { name: "Mais opções" })).toBeTruthy();
-    // Sem o tipo e a contagem em cima: os círculos dos membros e quantos são, embaixo.
+    // Só o nome: sem os círculos dos membros nem a contagem.
     expect(document.querySelector(".sobrescrito")).toBeNull();
-    const fila = document.querySelector(".membros-em-fila");
-    const n = fila.querySelectorAll(".membros-em-fila__lugar").length;
-    expect(n).toBeGreaterThan(0);
-    expect(fila.querySelector(".membros-em-fila__quantos").textContent).toBe(`${n} ${n === 1 ? "pessoa" : "pessoas"}`);
-    expect(screen.getByText("Lançar despesas")).toBeTruthy();
+    expect(document.querySelector(".cabecalho-conjunto .avatar")).toBeNull();
+    // O cabeçalho e o menu de cima vão juntos no bloco que fica preso no alto.
+    const topo = document.querySelector(".topo-do-conjunto");
+    expect(topo.querySelector(".cabecalho-conjunto") && topo.querySelector(".menu-do-conjunto")).toBeTruthy();
+    expect(document.querySelector(".cabecalho-conjunto").textContent).not.toMatch(/\d+ pessoas?/);
+    // O menu de cima, sem ícones, e a barra de baixo é a principal.
+    expect([...document.querySelectorAll(".menu-do-conjunto__secao")].map((b) => b.textContent)).toEqual(["Painel", "Agenda", "Análise", "Pessoas"]);
+    expect(document.querySelector(".menu-do-conjunto svg")).toBeNull();
+    expect(document.querySelector(".barra-do-conjunto")).toBeNull();
+    expect(within(document.querySelector(".barra-inferior")).getByText("Início")).toBeTruthy();
+    // Tocar no cabeçalho abre Configurar conjunto.
+    fireEvent.click(screen.getByRole("button", { name: "Configurar conjunto" }));
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Configurar conjunto");
   });
 
   it("convidado entra na divisão sem precisar de conta", () => {
@@ -244,10 +279,10 @@ describe("criar um conjunto", () => {
     expect(screen.getByText(/em breve/)).toBeTruthy();
   });
 
-  it("o evento lança despesas avulsas, por categoria", () => {
+  it("o evento lança despesas avulsas, sem registros", () => {
     criar("Evento");
-    expect(screen.getByText("avulsas, por categoria")).toBeTruthy();
-    expect(screen.queryByText("Registros")).toBeNull();
+    operar("Lançar", "Despesas");
+    expect([...document.querySelectorAll(".pasta__aba")].map((el) => el.textContent)).toEqual(["Avulsa"]);
   });
 });
 
@@ -323,18 +358,17 @@ describe("as telas do conjunto abrem", () => {
     expect(screen.queryByText(/Tarefa/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
 
-    // Lembretes é uma aba do painel no mesmo estilo de Despesas: Lançar e Ver.
-    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
-    expect(screen.getByText("Lançar lembretes")).toBeTruthy();
-    expect(screen.getByText("Ver lembretes")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "Registros" }));
-    expect(screen.queryByText(/Usos de itens e aparelhos/)).toBeNull();
-    expect(screen.getByText(/Cadastrar itens|Lançar registros/)).toBeTruthy();
+    // Lembretes e registros se lançam e se veem pela calculadora.
+    operar("Lançar", "Lembretes");
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Lançar lembretes › Lista");
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    operar("Ver", "Registros");
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toMatch(/^Ver registros/);
   });
 
   it("Lançar lembretes: abas Lista | Nota, sucesso, e o lembrete aparece em Ver lembretes", () => {
     abrirRepublica();
-    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
+    abaDoPainel("Lembretes");
     clicar("Lançar lembretes");
     const abas = [...document.querySelectorAll(".pasta__aba")].map((el) => el.textContent);
     expect(abas).toEqual(["Lista", "Nota"]);
@@ -506,10 +540,6 @@ const temBarra = () => document.querySelector(".barra-inferior") !== null;
 describe("despesas: lançar e ver", () => {
   it("Lançar despesas: pasta Avulsa | Cíclica, os três jeitos e nada do que já foi lançado", () => {
     abrirRepublica();
-    expect(screen.getByText("avulsas e cíclicas")).toBeTruthy();
-    // Ver despesas é uma linha do painel, logo abaixo de Lançar despesas.
-    const linhas = [...document.querySelectorAll(".linha-menu strong")].map((el) => el.textContent);
-    expect(linhas.indexOf("Ver despesas")).toBe(linhas.indexOf("Lançar despesas") + 1);
 
     clicar("Lançar despesas");
     expect(temBarra()).toBe(false);
@@ -624,22 +654,46 @@ describe("despesas: lançar e ver", () => {
 });
 
 describe("o painel: período, anel e histórico", () => {
-  it("o painel tem as abas Período | Despesas | Lembretes | Registros", () => {
+  it("a calculadora do painel: Lançar, Ver, Acertar e Exportar, e cada uma com as suas opções", () => {
     abrirRepublica();
-    const abas = [...document.querySelectorAll(".abas__aba")].map((a) => a.textContent);
-    expect(abas).toEqual(["Período", "Despesas", "Lembretes", "Registros"]);
-    fireEvent.click(screen.getByRole("tab", { name: "Período" }));
+    const calculadora = document.querySelector(".calculadora-do-conjunto");
+    const titulo = () => calculadora.querySelector(".calculadora-do-conjunto__titulo").textContent;
+    const opcoes = () => [...calculadora.querySelectorAll(".calculadora-do-conjunto__opcao")].map((b) => b.querySelector("strong").textContent);
+    expect(titulo()).toBe("Selecionar operação");
+    // As teclas só têm o símbolo: o nome é do leitor de tela.
+    const teclas = [...calculadora.querySelectorAll(".calculadora-do-conjunto__tecla")];
+    expect(teclas.map((t) => t.getAttribute("aria-label"))).toEqual(["Lançar", "Ver", "Acertar", "Exportar"]);
+    expect(teclas.every((t) => t.textContent.trim() === "")).toBe(true);
+    fireEvent.click(within(calculadora).getByRole("button", { name: "Lançar" }));
+    expect(titulo()).toBe("Lançar");
+    expect(opcoes()).toEqual(["Despesas", "Lembretes", "Item", "Registro"]);
+    fireEvent.click(within(calculadora).getByRole("button", { name: "Ver" }));
+    expect(opcoes()).toEqual(["Despesas", "Lembretes", "Itens", "Registros", "Histórico"]);
+    fireEvent.click(within(calculadora).getByRole("button", { name: "Acertar" }));
+    expect(opcoes()).toEqual(["Período", "Despesas", "Conjunto"]);
+    fireEvent.click(within(calculadora).getByRole("button", { name: "Exportar" }));
+    expect(opcoes()).toEqual(["Relatórios", "Conjunto"]);
+    // Tocar de novo na mesma tecla volta a "Selecionar operação".
+    fireEvent.click(within(calculadora).getByRole("button", { name: "Exportar" }));
+    expect(titulo()).toBe("Selecionar operação");
+    abaDoPainel("Período");
     expect(screen.getByText("Período do fechamento")).toBeTruthy();
     expect(screen.getByText(/O início não vai antes de/)).toBeTruthy();
   });
 
-  it("o evento tem só Despesas e Lembretes; a temporada, mais Período", () => {
+  it("o evento lança só despesas e lembretes; a temporada acerta também o período", () => {
+    const opcoes = (tecla) => {
+      const calculadora = document.querySelector(".calculadora-do-conjunto");
+      fireEvent.click(within(calculadora).getByRole("button", { name: tecla }));
+      return [...calculadora.querySelectorAll(".calculadora-do-conjunto__opcao")].map((b) => b.querySelector("strong").textContent);
+    };
     criar("Evento");
-    expect([...document.querySelectorAll(".abas__aba")].map((a) => a.textContent)).toEqual(["Despesas", "Lembretes"]);
+    expect(opcoes("Lançar")).toEqual(["Despesas", "Lembretes"]);
+    expect(opcoes("Acertar")).toEqual(["Despesas", "Conjunto"]);
     cleanup();
     window.localStorage.clear();
     criar("Temporada");
-    expect([...document.querySelectorAll(".abas__aba")].map((a) => a.textContent)).toEqual(["Período", "Despesas", "Lembretes"]);
+    expect(opcoes("Acertar")).toEqual(["Período", "Despesas", "Conjunto"]);
   });
 
   it("o histórico filtra despesas, lembretes e registros, e as despesas por status", () => {
@@ -688,9 +742,10 @@ describe("conjuntos que nascem limpos e não mudam de tipo", () => {
     clicar("Lançar despesas");
     expect(screen.queryByText("Outra despesa")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Período" }));
+    abaDoPainel("Período");
     expect(screen.getByText("Período da temporada")).toBeTruthy();
     expect(screen.getByText(/As estadias marcadas na agenda dentro deste período/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
     configurar();
     // Moeda e data de criação aparecem, mas não se editam.
     expect(document.querySelector('[aria-label="Moeda do conjunto"]').textContent).toBe("Real (R$)");
@@ -705,7 +760,7 @@ describe("Configurar conjunto e a seção Itens", () => {
     // O cabeçalho é como o de um grupo: voltar, o nome com os membros embaixo e os três pontos à direita.
     const topo = document.querySelector(".cabecalho-conjunto");
     const rotulos = [...topo.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"));
-    expect(rotulos).toEqual(["Voltar", expect.stringMatching(/^\d+ pessoas?: ver pessoas$/), "Mais opções"]);
+    expect(rotulos).toEqual(["Voltar", "Configurar conjunto", "Mais opções"]);
     expect(topo.querySelector("h1")).not.toBeNull();
     expect(screen.queryByText(/Movimentação atual/)).toBeNull();
     configurar();
@@ -743,13 +798,27 @@ describe("Configurar conjunto e a seção Itens", () => {
 
   it("Registros sem aparelhos leva direto para Itens", () => {
     abrirRepublica();
-    clicar("Registros");
-    clicar("Cadastrar itens");
+    operar("Lançar", "Item");
     expect(screen.getByRole("heading", { name: noCabecalho("Itens") })).toBeTruthy();
   });
 });
 
 describe("o painel do conjunto", () => {
+  it("o quadro de fixados tem o alfinete; o lembrete de hoje entra como post-it e leva a ele", () => {
+    criar("Evento");
+    const vazio = document.querySelector(".quadro-do-dia");
+    expect(vazio.textContent).toBe("");
+    fireEvent.click(within(vazio).getByRole("button", { name: "Fixar um lembrete" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Nota" }));
+    fireEvent.change(screen.getByLabelText("Texto da nota"), { target: { value: "Comprar carvão" } });
+    fireEvent.click(document.querySelector(".rodape-fixo .botao"));
+    voltarAoPainel();
+    const quadro = document.querySelector(".quadro-do-dia");
+    expect(within(quadro).getByText("Comprar carvão")).toBeTruthy();
+    fireEvent.click(within(quadro).getByText("Comprar carvão"));
+    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Lembrete › Nota");
+  });
+
   it("Recente, no fim do painel, mostra até cinco movimentações e 'mostrar mais' leva ao histórico", () => {
     criar("Evento");
     // Criar já é atividade: o conjunto novo mostra quem o criou.
@@ -766,9 +835,11 @@ describe("o painel do conjunto", () => {
       voltarAoPainel();
     }
     expect(document.querySelectorAll(".recente .faixa-aviso").length).toBe(5);
-    // Recente vem depois das abas.
-    const abas = document.querySelector(".abas");
-    expect(abas.compareDocumentPosition(document.querySelector(".recente")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // A ordem do painel: quadro do dia, saldos, calculadora e, por último, Recente.
+    const ordem = [".quadro-do-dia", ".aneis", ".calculadora-do-conjunto", ".recente"].map((sel) => document.querySelector(sel));
+    for (let i = 1; i < ordem.length; i++) {
+      expect(ordem[i - 1].compareDocumentPosition(ordem[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
     clicar("mostrar mais");
     expect(screen.getByText(/Notificações|Histórico/)).toBeTruthy();
   });
@@ -860,11 +931,12 @@ describe("antes do período e equipamentos", () => {
 
     const total = () => document.querySelector(".valor-anel").textContent;
     expect(total()).toBe("R$ 300,00");
-    fireEvent.click(screen.getByRole("tab", { name: "Período" }));
+    abaDoPainel("Período");
     const escolha = screen.getByRole("combobox", { name: "Sinal da casa entra na conta?" });
     expect(escolha.value).toBe("sim");
     fireEvent.change(escolha, { target: { value: "nao" } });
     expect(screen.getByRole("combobox", { name: "Sinal da casa entra na conta?" }).value).toBe("nao");
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
     expect(total()).toBe("R$ 0,00");
   });
 
@@ -942,7 +1014,7 @@ describe("o cabeçalho das telas do conjunto", () => {
 describe("o lembrete: pessoas marcadas e data agendada", () => {
   it("lançado sem data, entra na agenda e nas notificações do dia do lançamento", () => {
     criar("Evento");
-    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
+    abaDoPainel("Lembretes");
     clicar("Lançar lembretes");
     fireEvent.click(screen.getByRole("tab", { name: "Nota" }));
     expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Lançar lembretes › Nota");
@@ -1024,40 +1096,39 @@ describe("a busca geral do Início", () => {
 });
 
 describe("a barra de baixo do conjunto", () => {
-  const barraDoConjunto = () => document.querySelector(".barra-do-conjunto");
+  const barraDoConjunto = () => document.querySelector(".menu-do-conjunto");
 
-  it("no painel, a barra tem Conjunto, Agenda, o + no meio, Análise e Pessoas", () => {
+  it("o menu de cima tem Painel, Agenda, Análise e Pessoas; embaixo, a barra principal com o +", () => {
     abrirRepublica();
-    const secoes = [...barraDoConjunto().querySelectorAll(".barra-do-conjunto__secao")].map((b) => b.textContent);
-    expect(secoes).toEqual(["Conjunto", "Agenda", "Análise", "Pessoas"]);
-    fireEvent.click(within(barraDoConjunto()).getByRole("button", { name: "Criar" }));
+    const secoes = [...barraDoConjunto().querySelectorAll(".menu-do-conjunto__secao")].map((b) => b.textContent);
+    expect(secoes).toEqual(["Painel", "Agenda", "Análise", "Pessoas"]);
+    const barra = document.querySelector(".barra-inferior");
+    fireEvent.click(within(barra).getByRole("button", { name: "Criar" }));
     expect(screen.getByRole("dialog", { name: "O que vamos criar?" })).toBeTruthy();
-    fireEvent.click(within(barraDoConjunto()).getByRole("button", { name: "Fechar" }));
+    fireEvent.click(within(barra).getByRole("button", { name: "Fechar" }));
     expect(screen.queryByRole("dialog", { name: "O que vamos criar?" })).toBeNull();
-    expect(document.querySelector(".ladrilhos")).toBeNull();
 
     const nome = document.querySelector(".cabecalho-conjunto h1").textContent;
-    // Agenda, Análise e Pessoas: o mesmo cabeçalho do painel, com o nome da seção embaixo e sem os três pontos.
+    // Agenda, Análise e Pessoas: o mesmo topo do painel (o nome e os membros) e o menu com a seção marcada.
     for (const secao of ["Pessoas", "Análise", "Agenda"]) {
       fireEvent.click(within(barraDoConjunto()).getByText(secao));
-      const cabecalho = document.querySelector(".cabecalho-conjunto");
-      expect(cabecalho.querySelector("h1").textContent).toBe(nome);
-      expect(cabecalho.querySelector("h2").textContent).toBe(secao);
-      expect(within(cabecalho).queryByRole("button", { name: "Mais opções" })).toBeNull();
+      expect(document.querySelector(".cabecalho-conjunto h1").textContent).toBe(nome);
+      expect(document.querySelector(".menu-do-conjunto__secao--atual").textContent).toBe(secao);
+      expect(document.querySelector(".barra-inferior")).not.toBeNull();
     }
 
     fireEvent.click(within(barraDoConjunto()).getByText("Pessoas"));
     expect(screen.getByText("Adicionar pessoa")).toBeTruthy();
-    expect(barraDoConjunto()).toBeTruthy();
-    fireEvent.click(within(barraDoConjunto()).getByText("Análise"));
-    expect(screen.getByRole("heading", { name: noCabecalho("Análise") })).toBeTruthy();
-    fireEvent.click(within(barraDoConjunto()).getByText("Conjunto"));
+    fireEvent.click(within(barraDoConjunto()).getByText("Painel"));
     expect(document.querySelector(".aneis")).toBeTruthy();
     fireEvent.click(within(barraDoConjunto()).getByText("Agenda"));
     expect(screen.getByText("Mostrar legenda")).toBeTruthy();
-    // Das seções da barra, voltar leva ao painel.
+    // Das seções, voltar leva ao painel.
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
     expect(document.querySelector(".aneis")).toBeTruthy();
+    // Tocar em Conjuntos na barra principal sai do conjunto.
+    fireEvent.click(within(document.querySelector(".barra-inferior")).getByText("Conjuntos"));
+    expect(document.querySelector(".linha-conjunto")).not.toBeNull();
   });
 
   it("Lançar despesas, Ver despesas e Ver saldos não têm barra nenhuma", () => {
@@ -1075,7 +1146,7 @@ describe("a barra de baixo do conjunto", () => {
     voltarAoPainel();
     fireEvent.click(within(barraDoConjunto()).getByText("Agenda"));
     expect(screen.queryByText(/Evento não conta dias/)).toBeNull();
-    expect(document.querySelector(".cabecalho-conjunto h2").textContent).toBe("Agenda");
+    expect(document.querySelector(".menu-do-conjunto__secao--atual").textContent).toBe("Agenda");
     fireEvent.click(document.querySelector(".calendario-dia--hoje"));
     expect([...document.querySelectorAll(".linha-do-dia")].some((b) => b.textContent.includes("Carvão"))).toBe(true);
     // Sem presença: nada de dias fora ou estadia; e, sem faturas, a legenda não tem registro.
@@ -1150,14 +1221,14 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
 
   it("o Histórico abre o lembrete sozinho; duplicar a lista copia sem nada riscado", () => {
     abrirRepublica();
-    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
+    abaDoPainel("Lembretes");
     clicar("Lançar lembretes");
     fireEvent.change(screen.getByPlaceholderText("Mercado da semana"), { target: { value: "Viagem" } });
     fireEvent.change(screen.getByPlaceholderText("Novo item"), { target: { value: "Toalha" } });
     clicar("Lançar lista");
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
     noMenu("Histórico");
-    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
+    abaDoPainel("Lembretes");
     fireEvent.click(document.querySelector(".pasta__conteudo button"));
     expect(screen.getByRole("heading", { name: noCabecalho("Viagem") })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Toalha" }));
@@ -1196,7 +1267,7 @@ describe("um lançamento sozinho: quem lançou, quando, editar e duplicar", () =
 
   it("Ver lembretes começa vazio e leva a Lançar lembretes", () => {
     abrirRepublica();
-    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
+    abaDoPainel("Lembretes");
     clicar("Ver lembretes");
     expect(screen.getByText("Nenhum lembrete lançado ainda.")).toBeTruthy();
     clicar("+ Lançar lembrete");
@@ -1335,7 +1406,7 @@ describe("editar é lançar: Editar despesa e a edição como lançamento", () =
 
   it("Editar lembrete: a lista ganha um item e a edição fica registrada", () => {
     abrirRepublica();
-    fireEvent.click(screen.getByRole("tab", { name: "Lembretes" }));
+    abaDoPainel("Lembretes");
     clicar("Lançar lembretes");
     fireEvent.change(screen.getByPlaceholderText("Mercado da semana"), { target: { value: "Feira" } });
     fireEvent.change(screen.getByPlaceholderText("Novo item"), { target: { value: "Tomate" } });

@@ -54,3 +54,22 @@ describe("o vínculo mora no registro", () => {
     expect(registrosDaNota(estado, "n1").map((x) => x.registro.id)).toEqual(["r1"]);
   });
 });
+
+describe("o registro aponta para qualquer lembrete", async () => {
+  const { notasDe, notaDoRegistro, tituloDoLembrete, MAXIMO_DO_LEMBRETE } = await import("./lembretes.js");
+  const estado = {
+    lembretes: [
+      { id: "n1", tipo: "nota", texto: "Gás acabou" },
+      { id: "l1", tipo: "lista", titulo: "Mercado", itens: [] },
+    ],
+  };
+
+  it("listas e notas podem ser vinculadas, cada uma pelo seu título", () => {
+    expect(notasDe(estado).map(tituloDoLembrete)).toEqual(["Gás acabou", "Mercado"]);
+    expect(notaDoRegistro(estado, { nota: "l1" })?.id).toBe("l1");
+  });
+
+  it("títulos e textos de lembrete vão até 50 caracteres", () => {
+    expect(MAXIMO_DO_LEMBRETE).toBe(50);
+  });
+});

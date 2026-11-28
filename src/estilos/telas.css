@@ -105,6 +105,7 @@
 }
 
 .cabecalho-conjunto__meio {
+  position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
@@ -162,56 +163,64 @@
   width: 44px;
 }
 
-.membros-em-fila {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
+/* Tocar no nome abre Configurar conjunto: um botão por cima de tudo. */
+.cabecalho-conjunto__abrir {
+  position: absolute;
+  inset: -6px 0;
+  z-index: 2;
   padding: 0;
   background: none;
   border: none;
-  color: var(--tinta-2);
-  text-align: left;
+  border-radius: 12px;
+  cursor: pointer;
 }
 
-.membros-em-fila__rolo {
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  padding: 2px 0 2px 2px;
-}
-
-/* O lugar de cada círculo: 20px (o círculo tem 24), e encolhe até 3px. */
-.membros-em-fila__lugar {
-  position: relative;
-  flex: 0 1 20px;
-  min-width: 3px;
-  height: 24px;
-}
-
-.membros-em-fila__lugar:last-child {
-  flex: none;
-  width: 24px;
-}
-
-.membros-em-fila__lugar .avatar {
-  position: absolute;
+/*
+ * O topo do painel e das seções (o cabeçalho e o menu de cima) fica preso no
+ * alto ao rolar: as margens que encostavam o cabeçalho nas bordas passam
+ * para o bloco dos dois.
+ */
+.topo-do-conjunto {
+  position: sticky;
   top: 0;
-  left: 0;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px var(--areia);
+  z-index: 12;
+  margin: calc(-14px - env(safe-area-inset-top)) -16px 0;
 }
 
-/* Quantos são, encostado na direita: os círculos ficam com todo o resto. */
-.membros-em-fila__quantos {
-  flex: none;
-  margin-left: auto;
-  padding-left: 8px;
-  font-family: var(--mono);
-  font-size: 12.5px;
-  white-space: nowrap;
+.topo-do-conjunto > .cabecalho-conjunto,
+.topo-do-conjunto > .menu-do-conjunto {
+  margin: 0;
+}
+
+/* Só o nome: ele fica no meio da altura, que é a de antes (nome e membros). */
+.topo-do-conjunto .cabecalho-conjunto {
+  min-height: calc(64px + env(safe-area-inset-top));
+}
+
+/* O menu de cima do conjunto: logo abaixo do cabeçalho, de ponta a ponta, sem ícones. */
+.menu-do-conjunto {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: -14px -16px 0;
+  background: var(--cartao);
+  border-bottom: 1px solid var(--linha);
+}
+
+.menu-do-conjunto__secao {
+  min-height: 46px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-size: 14.5px;
+  color: var(--tinta-2);
+}
+
+.menu-do-conjunto__secao--atual {
+  border-bottom-color: var(--tinta);
+  font-weight: 600;
+  color: var(--tinta);
 }
 
 .titulo-tela--acerto {
@@ -741,8 +750,13 @@
 
 .acoes-rapidas {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* Quatro teclas numa fileira: o nome um pouco menor para caber em duas linhas. */
+.acoes-rapidas .acao-rapida strong {
+  font-size: 12.5px;
 }
 
 /* Teclas de calculadora: quadradas, creme, com a sombra creme-escura logo embaixo. */
@@ -5316,4 +5330,332 @@ button.cartao-anel__nota {
   .lista-de-pessoas__caixa > svg {
     transition: none;
   }
+}
+
+/* ------------------------------------------------------------ o painel --- */
+
+/*
+ * O quadro de fixados, de madeira esmaecida: borda caramelo clara, fundo
+ * marrom suave, letras de giz. Nele, o que é de hoje no conjunto: lembretes,
+ * atrasos e vencimentos. Vazio, só o alfinete.
+ */
+.quadro-do-dia {
+  --madeira: #8a6c57;
+  --caramelo: #dcbf9c;
+  --giz: #f6ecd8;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  background:
+    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.025) 0 6px, rgba(0, 0, 0, 0.035) 6px 13px),
+    var(--madeira);
+  border: 5px solid var(--caramelo);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.18),
+    0 3px 0 #c2a27e;
+  color: var(--giz);
+}
+
+.quadro-do-dia--vazio {
+  align-items: center;
+  padding: 10px;
+}
+
+/* O alfinete do quadro vazio: um botão redondo de giz. */
+.quadro-do-dia__fixar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: color-mix(in srgb, var(--giz) 14%, transparent);
+  border: 1.5px dashed color-mix(in srgb, var(--giz) 55%, transparent);
+  border-radius: 50%;
+  color: var(--giz);
+}
+
+.quadro-do-dia__fixar:active {
+  background: color-mix(in srgb, var(--giz) 24%, transparent);
+}
+
+/* Os post-its pregados no quadro, lado a lado, embaixo do alfinete. */
+.quadro-do-dia__lista {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* O alfinete, no topo, no centro. */
+.quadro-do-dia__fixar {
+  align-self: center;
+}
+
+.quadro-do-dia__lista > li:nth-child(odd) .post-it {
+  transform: rotate(-1.5deg);
+}
+
+.quadro-do-dia__lista > li:nth-child(even) .post-it {
+  transform: rotate(1.2deg);
+}
+
+/*
+ * A calculadora das operações: quatro teclas só com o símbolo em cima e, embaixo,
+ * o visor (o nome da operação e as opções dela, uma por linha).
+ */
+.calculadora-do-conjunto {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-margin-top: 130px;
+}
+
+/* O visor: o papel do cartão, com a borda fina. */
+.calculadora-do-conjunto__visor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 118px;
+  padding: 12px 14px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  box-shadow: inset 0 2px 0 rgba(27, 26, 23, 0.05);
+  color: var(--tinta);
+}
+
+.calculadora-do-conjunto__titulo {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+
+.calculadora-do-conjunto__pronta {
+  margin: auto 0 0;
+  font-family: var(--mono);
+  font-size: 36px;
+  line-height: 1;
+  text-align: right;
+  opacity: 0.2;
+}
+
+.calculadora-do-conjunto__opcoes {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -6px;
+}
+
+/* Cada opção, de ponta a ponta do visor: o ícone, o nome e o que há nela. */
+.calculadora-do-conjunto__opcao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 6px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--linha);
+  border-radius: 0;
+  font: inherit;
+  color: var(--tinta);
+  text-align: left;
+}
+
+.calculadora-do-conjunto__opcao:first-child {
+  border-top: none;
+}
+
+.calculadora-do-conjunto__opcao:active {
+  background: var(--areia);
+}
+
+.calculadora-do-conjunto__opcao > svg {
+  flex: none;
+  color: var(--tinta-2);
+}
+
+.calculadora-do-conjunto__icone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  background: var(--areia);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+}
+
+.calculadora-do-conjunto__textos {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.calculadora-do-conjunto__textos strong {
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.calculadora-do-conjunto__textos span {
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.calculadora-do-conjunto__teclas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* As teclas: as mesmas de Como divide (o cartão, a sombra da linha). */
+.calculadora-do-conjunto__tecla {
+  display: grid;
+  place-items: center;
+  min-height: 62px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 var(--linha);
+  color: var(--tinta);
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease,
+    background-color 160ms ease;
+}
+
+.calculadora-do-conjunto__tecla:active {
+  box-shadow: 0 0 0 var(--linha);
+  transform: translateY(3px);
+}
+
+/* A tecla escolhida fica areia, a cor que era o fundo da calculadora. */
+.calculadora-do-conjunto__tecla--ativa {
+  background: var(--areia);
+  border-color: var(--creme-escuro);
+  box-shadow: 0 3px 0 var(--creme-escuro);
+}
+
+.calculadora-do-conjunto__tecla--ativa:active {
+  box-shadow: 0 0 0 var(--creme-escuro);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calculadora-do-conjunto__tecla {
+    transition: none;
+  }
+}
+
+/* ----------------------------------------------------------- o post-it --- */
+
+/*
+ * Todo lembrete (nota ou lista) é um post-it: amarelo, com a orelha dobrada
+ * no canto de baixo à direita.
+ */
+.post-it {
+  --papel: #fde68a;
+  --dobra: #e9c94f;
+  --orelha: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px calc(var(--orelha) + 6px);
+  background:
+    linear-gradient(315deg, transparent calc(var(--orelha) * 0.7071), var(--papel) 0) no-repeat;
+  border: none;
+  border-radius: 2px;
+  box-shadow: none;
+  color: #3d3418;
+  font: inherit;
+  text-align: left;
+  /* A sombra segue o recorte da orelha (um box-shadow mostraria o canto). */
+  filter: drop-shadow(0 2px 2px rgba(60, 40, 0, 0.2));
+}
+
+/* A orelha: o canto dobrado, um triângulo mais escuro. */
+.post-it::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--orelha);
+  height: var(--orelha);
+  background: linear-gradient(315deg, transparent 50%, var(--dobra) 50%);
+  border-top-left-radius: 3px;
+  box-shadow: -1px -1px 2px rgba(60, 40, 0, 0.12);
+}
+
+.post-it__tipo {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7a6a2c;
+}
+
+.post-it__titulo {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.post-it__detalhe {
+  font-size: 12px;
+  color: #6b5d2a;
+}
+
+.post-it__autor {
+  margin-top: auto;
+  font-size: 11.5px;
+  font-style: italic;
+  color: #6b5d2a;
+}
+
+/* Na lista de Ver lembretes: um mural de post-its, dois por linha. */
+.mural-de-post-its {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mural-de-post-its .post-it {
+  min-height: 104px;
+}
+
+/* No quadro: pequeno, só o título. */
+.post-it--no-quadro {
+  --orelha: 12px;
+  max-width: 150px;
+  padding: 9px 11px calc(var(--orelha) + 4px);
+}
+
+.post-it--no-quadro .post-it__titulo {
+  font-size: 13.5px;
+}
+
+/* Numa linha da agenda: o post-it na largura da linha. */
+.post-it--na-linha {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+}
+
+.lancamento.post-it--na-linha {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.post-it--na-linha .linha-do-dia__textos span {
+  color: #6b5d2a;
 }

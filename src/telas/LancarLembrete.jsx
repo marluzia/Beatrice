@@ -5,6 +5,7 @@ import ListaDePessoas from "../componentes/ListaDePessoas.jsx";
 import { AbasDePasta, mostrarAviso } from "../componentes/Interface.jsx";
 import { CabecalhoDaSecao, rotuloDaAba } from "../componentes/CabecalhoDoConjunto.jsx";
 import { novoId } from "../nucleo/formato.js";
+import { MAXIMO_DO_LEMBRETE } from "../nucleo/lembretes.js";
 
 const SOBRE_O_TIPO = {
   lista: "Uma lista para riscar: o mercado da semana, o que levar na viagem.",
@@ -69,7 +70,7 @@ export function CamposDaLista({ lista, setLista, estado, indicePorId }) {
   };
   return (
     <div className="formulario formulario--classico">
-      <Campo rotulo="Nome da lista" valor={lista.titulo} aoMudar={(v) => setLista((l) => ({ ...l, titulo: v }))} texto rotuloSolto placeholder="Mercado da semana" />
+      <Campo rotulo="Nome da lista" valor={lista.titulo} aoMudar={(v) => setLista((l) => ({ ...l, titulo: v }))} texto rotuloSolto placeholder="Mercado da semana" maxLength={MAXIMO_DO_LEMBRETE} />
       <div className="grupo">
         <span className="rotulo">Itens</span>
         {lista.itens.length > 0 && (
@@ -94,6 +95,7 @@ export function CamposDaLista({ lista, setLista, estado, indicePorId }) {
             onChange={(e) => setLista((l) => ({ ...l, novo: e.target.value }))}
             onKeyDown={(e) => e.key === "Enter" && somarItem()}
             placeholder="Novo item"
+            maxLength={MAXIMO_DO_LEMBRETE}
             aria-label="Novo item da lista"
           />
           <button type="button" className="icone-botao icone-botao--cheio" onClick={somarItem} aria-label="Somar item">
@@ -118,6 +120,7 @@ export function CamposDaNota({ nota, setNota, estado, indicePorId }) {
           value={nota.texto}
           onChange={(e) => setNota((n) => ({ ...n, texto: e.target.value }))}
           placeholder="A senha do wi-fi, lavar as toalhas no sábado…"
+          maxLength={MAXIMO_DO_LEMBRETE}
           aria-label="Texto da nota"
         />
       </label>

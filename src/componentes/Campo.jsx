@@ -10,6 +10,7 @@ export default function Campo({
   tipoDeTeclado = "decimal",
   texto = false,
   rotuloSolto = false,
+  maxLength,
 }) {
   return (
     <label className={`campo ${largura}`}>
@@ -20,6 +21,7 @@ export default function Campo({
           inputMode={texto ? "text" : tipoDeTeclado}
           value={valor}
           placeholder={placeholder}
+          maxLength={maxLength}
           onChange={(e) => aoMudar(e.target.value)}
           className={texto ? "caixa caixa--texto" : "caixa"}
         />

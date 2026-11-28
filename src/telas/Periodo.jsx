@@ -1,5 +1,6 @@
 import { CampoData, Segmentado } from "../componentes/index.js";
 import { dinheiro } from "../componentes/Interface.jsx";
+import { CabecalhoDaSecao } from "../componentes/CabecalhoDoConjunto.jsx";
 import LinhaDoTempo from "../passos/LinhaDoTempo.jsx";
 import { corteValido, janelaDoFechamento, limitesDeHoje, somarDias, ultimoDiaDaJanela } from "../nucleo/calendario.js";
 import { totalDaFatura } from "../nucleo/traducao/fatura.js";
@@ -185,3 +186,13 @@ export default function PainelDoPeriodo({ app }) {
 
 /** Este conjunto tem período? (As casas e a temporada; o evento não.) */
 export const temPeriodo = (modo) => modo.faturas !== false || modo.chave === "temporada";
+
+/** O período como tela própria: Acertar › Período, na calculadora do painel. */
+export function TelaDoPeriodo({ app }) {
+  return (
+    <div className="tela">
+      <CabecalhoDaSecao app={app} secao="Acertar" subsecao="Período" />
+      <PainelDoPeriodo app={app} />
+    </div>
+  );
+}
